@@ -1,0 +1,144 @@
+[package]
+
+name = "kitoken"
+description = "Fast and versatile tokenizer for language models, supporting BPE and Unigram tokenization"
+version = "0.0.0"
+authors = ["Christian Sdunek <me@systemcluster.me>"]
+keywords = ["bpe", "tokenizer", "nlp", "machine-learning", "unigram"]
+categories = ["text-processing", "algorithms", "wasm"]
+license = "BSD-2-Clause"
+repository = "https://github.com/Systemcluster/kitoken"
+readme = "README.md"
+edition = "2021"
+resolver = "2"
+include = [
+    "Cargo.toml",
+    "src/**/*",
+    "LICENCE",
+]
+
+
+[lib]
+
+name = "kitoken"
+path = "src/lib.rs"
+
+
+[features]
+
+default = ["serialization", "convert", "unicode-normalization", "std", "regex-perf"]
+
+# Enables standard library features
+std = ["dep:thiserror", "fancy-regex/std", "orx-priority-queue/std"]
+
+# Enables serialization and deserialization
+serialization = ["dep:serde"]
+
+# Enables unicode input normalization support
+unicode-normalization = ["dep:unicode-normalization"]
+
+# Enables conversion for all supported tokenizer data formats.
+convert = ["convert-tiktoken", "convert-sentencepiece"]
+# Enables conversion for the sentencepiece format
+convert-sentencepiece = ["dep:sentencepiece-model"]
+# Enables conversion for the tiktoken format
+convert-tiktoken = ["dep:base64"]
+
+# Enables support for additional regex unicode patterns.
+regex-unicode = ["fancy-regex/unicode"]
+# Enables additional regex performance optimizations.
+regex-perf = ["fancy-regex/perf"]
+# Use the oniguruma regex engine instead of fancy-regex.
+regex-onig = ["dep:onig"]
+
+
+[dependencies]
+
+bstr = { version = "1.8", default-features = false }
+log = { version = "0.4" }
+fancy-regex = { version = "0.13", default-features = false }
+regex-automata = { version = "0.4", default-features = false, features = [
+    "syntax",
+    "meta",
+    "nfa",
+    "dfa",
+    "hybrid",
+    "unicode-perl",
+    "unicode-gencat",
+    "unicode-case",
+] }
+regex-syntax = { version = "0.8", default-features = false, features = [
+    "unicode-perl",
+    "unicode-gencat",
+    "unicode-case",
+] }
+hashbrown = { version = "0.14", default-features = false, features = ["ahash", "inline-more", "allocator-api2"] }
+ahash = { version = "0.8", default-features = false, features = ["const-random"] }
+once_cell = { version = "1.18", default-features = false, features = ["alloc", "race"] }
+orx-priority-queue = { version = "1.0", default-features = false }
+
+# optional dependencies for the std feature
+thiserror = { version = "1.0", optional = true }
+
+# optional dependencies for the serialization feature
+serde = { version = "1.0", default-features = false, features = ["alloc", "derive"], optional = true }
+postcard = { version = "1.0", default-features = false, features = ["alloc"] }
+
+# optional dependencies for the regex-onig feature
+onig = { version = "6.4", default-features = false, optional = true }
+
+# optional dependencies for the unicode-normalization feature
+unicode-normalization = { version = "0.1", optional = true }
+
+# optional dependencies for the convert-tiktoken feature
+base64 = { version = "0.21", default-features = false, features = ["alloc"], optional = true }
+
+# optional dependencies for the convert-sentencepiece feature
+sentencepiece-model = { version = "0.1", default-features = false, optional = true }
+
+# optional dependencies for the convert-huggingface feature
+serde_json = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
+
+
+[dev-dependencies]
+
+kitoken = { path = ".", default-features = false, features = ["serialization", "convert", "unicode-normalization", "std"] }
+
+console = { version = "0.15", features = ["windows-console-colors"] }
+simple_logger = { version = "4.3" }
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+
+[package.metadata.docs.rs]
+
+rustdoc-args = ["--cfg", "docsrs"]
+all-features = true
+
+
+[profile.release]
+
+codegen-units = 1
+debug = false
+debug-assertions = false
+incremental = false
+lto = "fat"
+opt-level = 's'
+panic = "abort"
+strip = "symbols"
+
+[profile.bench]
+
+inherits = "release"
+debug = true
+strip = "none"
+
+
+[[bench]]
+name = "bench_encode_cl100k"
+harness = false
+[[bench]]
+name = "bench_encode_llama2"
+harness = false
+[[bench]]
+name = "bench_encode_xlnet"
+harness = false

@@ -1,0 +1,11 @@
+build/
+target/
+dist/
+
+.vscode/
+.idea/
+
+.DS_Store
+desktop.ini
+
+Cargo.lock
