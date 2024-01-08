@@ -1,0 +1,27 @@
+[project]
+
+name = "kitoken"
+description = "Fast and versatile tokenizer for language models, supporting BPE and Unigram tokenization"
+requires-python = ">=3.10"
+license = { text = "BSD-2-Clause" }
+dynamic = ["version"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+authors = [{ name = "Christian Sdunek", email = "me@systemcluster.me" }]
+urls = { repository = "https://github.com/Systemcluster/kitoken" }
+
+
+[build-system]
+
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+
+[tool.maturin]
+
+features = ["pyo3/extension-module"]
+profile = "release"
+bindings = "pyo3"

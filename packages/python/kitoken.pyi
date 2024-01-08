@@ -1,0 +1,55 @@
+from typing import Optional
+
+
+class Kitoken:
+    """
+    Kitoken tokenizer.
+    A fast and versatile tokenizer for language models.
+    """
+
+    def __init__(self, data: bytes) -> None:
+        """
+        Initializes the tokenizer from a serialized `kitoken` model.
+
+        :param data: The serialized model.
+        """
+        ...
+
+    def encode(self, text: str,
+               encode_specials: Optional[bool] = None) -> list[int]:
+        """
+        Encodes the given text into a sequence of tokens.
+        If `encode_specials` is `True`, the text is first split around special tokens which are separately encoded with the special encoder.
+        Returns a list of tokens, or an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
+
+        :param text: The text to encode.
+        :param encode_specials: Whether to encode special tokens.
+        """
+        ...
+
+    def decode(self, data: list[int]) -> bytes:
+        """
+        Decodes the given sequence of tokens into text.
+        Returns a list of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
+
+        :param data: The sequence of tokens to decode.
+        """
+    ...
+
+    @staticmethod
+    def from_sentencepiece(data: bytes) -> Kitoken:
+        """
+        Initializes the tokenizer from a serialized `sentencepiece` model.
+
+        :param data: The serialized model.
+        """
+        ...
+
+    @staticmethod
+    def from_tiktoken(data: bytes) -> Kitoken:
+        """
+        Initializes the tokenizer from a serialized `tiktoken` model.
+
+        :param data: The serialized model.
+        """
+        ...

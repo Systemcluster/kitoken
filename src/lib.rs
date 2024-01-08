@@ -64,6 +64,7 @@
 //! - `unicode-normalization`: Enables unicode input normalization support. This is required for certain models.
 //!   Can be disabled to reduce binary size if normalization is not required.
 //! - `convert`: Enables conversion utilities for common tokenizer data formats. When disabled, individual converters can be enabled using the following features:
+//!   - `convert-huggingface`: Enables conversion from HuggingFace Tokenizers tokenizer definitions.
 //!   - `convert-sentencepiece`: Enables conversion from SentencePiece tokenizer definitions.
 //!   - `convert-tiktoken`: Enables conversion from tiktoken tokenizer definitions.
 //! - `regex-perf`: Enables additional regex performance optimizations. Can be disabled to reduce binary size.

@@ -1,0 +1,35 @@
+[package]
+
+name = "kitoken-javascript"
+description = "JavaScript bindings for Kitoken"
+version = "0.0.0"
+edition = "2021"
+resolver = "2"
+publish = false
+
+
+[lib]
+
+name = "kitoken"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+
+[dependencies]
+
+kitoken = { path = "../..", default-features = false, features = [
+    "serialization",
+    "convert",
+    "unicode-normalization",
+] }
+
+wasm-bindgen = { version = "0.2" }
+
+
+[package.metadata.wasm-pack.profile.release]
+
+wasm-opt = ['-Os', '--intrinsic-lowering', '-Os', '--strip-producers', '--strip-target-features']
+
+[package.metadata.wasm-pack.profile.profiling]
+
+wasm-opt = ['-g', '-Os', '--intrinsic-lowering', '-Os', '--strip-producers', '--strip-target-features']

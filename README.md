@@ -9,19 +9,24 @@ Supports BPE and Unigram tokenization. Usable in native and WASM environments.
 - **Fast encoding and decoding of text and tokens**\
   Faster than many other tokenizers in both common and uncommon scenarios.
 - **Support for a wide variety of commonly used tokenizer formats and strategies**\
-  Including support for SentencePiece, Tiktoken and more.
+  Including support for HuggingFace, SentencePiece, Tiktoken and more.
 - **Compact definition format**\
   Definitions are stored in an efficient binary format and without merge list.
 - **Support for normalization and pre-tokenization**\
   Including NFKC normalization, whitespace normalization, and others.
+- **Compatibility with native and WASM compilation targets**\
+  Available with bindings for JavaScript and Python.
 
 ## Overview
 
 Kitoken is a fast and versatile tokenizer for language models with support for BPE and Unigram tokenization.
 
 Kitoken is compatible with many existing tokenizer formats,
-including [SentencePiece](https://github.com/google/sentencepiece) and [tiktoken](https://github.com/openai/tiktoken),
+including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) and [tiktoken](https://github.com/openai/tiktoken),
 while outperforming them in many scenarios. See [benchmarks](#benchmarks) for comparisons with different datasets.
+
+Kitoken is available as a native Rust library and with bindings for JavaScript and Python.
+Using the WASM module, Kitoken can be used in Node.js and in the browser.
 
 ## Usage
 
@@ -47,6 +52,8 @@ let text = String::from_utf8(tokenizer.decode(&tokens)?)?;
 
 assert_eq!(text, "Your future belongs to me <|endoftext|>");
 ```
+
+Kitoken is also available in other languages, see [packages](./packages) for information on how to use Kitoken in JavaScript and Python.
 
 ## Benchmarks
 
@@ -94,6 +101,12 @@ Kitoken differs from SentencePiece in the tokenization of two characters:
 
 - SentencePiece uses the `▁` character to indicate whitespace, which means that during encoding, SentencePiece treats `▁` and space as the same character. During conversion to a Kitoken definition, `▁` is replaced with a regular space in the vocabulary. This means that Kitoken treats `▁` and space as different characters during encoding.
 - SentencePiece uses [different `nfkc` normalization rules in the `nmt_nfkc` and `nmt_nfkc_cf` schemes](https://github.com/google/sentencepiece/blob/master/doc/normalization.md) than during regular `nfkc` normalization. This difference is not entirely additive and prevents the normalization of `～` to `~`. Kitoken uses the regular `nfkc` normalization rules for `nmt_nfkc` and `nmt_nfkc_cf` and normalizes `～` to `~`.
+
+#### HuggingFace Tokenizers
+
+Kitoken can convert and initialize with HuggingFace Tokenizers definitions in `BPE` and `Unigram` format.
+
+TODO!
 
 #### Tiktoken
 
@@ -145,3 +158,10 @@ Kitoken supports multiple encoding modes:
 | **BytePair**    | The original BPE algorithm, which merges pairs of bytes. |
 | **CharPair**    | A variant of the BPE algorithm, which merges pairs of characters first before falling back to `BytePair`. |
 | **Unigram**     | The Unigram subword algorithm. |
+
+#### Normalization
+
+Kitoken supports multiple normalization options:
+
+| Option          | Description                                                                 |
+| --------------- | --------------------------------------------------------------------------- |

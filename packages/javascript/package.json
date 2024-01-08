@@ -1,0 +1,32 @@
+{
+    "name": "kitoken",
+    "displayName": "Kitoken",
+    "description": "Fast and versatile tokenizer for language models, supporting BPE and Unigram tokenization",
+    "version": "0.0.0",
+    "author": {
+        "name": "Christian Sdunek",
+        "email": "me@systemcluster.me"
+    },
+    "license": "BSD-2-Clause",
+    "repository": {
+        "type": "git",
+        "url": "github:Systemcluster/kitoken"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "wasm-pack build --no-pack --target bundler --out-dir dist --out-name index",
+        "prepare": "wasm-pack build --no-pack --target bundler --out-dir dist --out-name index"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "wasm-pack": "^0.12.1"
+    }
+}

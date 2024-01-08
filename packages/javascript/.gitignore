@@ -1,0 +1,10 @@
+node_modules/
+
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
