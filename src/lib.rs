@@ -595,16 +595,15 @@ impl Kitoken {
     #[inline(never)]
     fn merge_bpe_parts_heap(&self, piece: &[u8], heap: &mut PieceHeap) {
         while heap.len() > 1 {
-            let (i, mut part) = heap.pop().unwrap();
+            let &(i, mut part) = heap.peek().unwrap();
             if part.score == f32::MAX {
-                heap.push(i, part);
                 break;
             }
             let next = heap.remove(&part.after);
             part.width += next.width;
             part.after = next.after;
             if part.after != usize::MAX {
-                let mut next = heap.remove(&part.after);
+                let mut next = heap.key_of(&part.after).unwrap();
                 if let Some(token) = self.encoder.get(&piece[part.start..next.start + next.width]) {
                     part.score = token.score;
                     part.token = token.token;
@@ -612,12 +611,12 @@ impl Kitoken {
                     part.score = f32::MAX;
                 }
                 next.prior = i;
-                heap.push(part.after, next);
+                heap.update_key(&part.after, next);
             } else {
                 part.score = f32::MAX;
             }
             if part.prior != usize::MAX {
-                let mut prior = heap.remove(&(part.prior));
+                let mut prior = heap.key_of(&(part.prior)).unwrap();
                 if let Some(token) = self.encoder.get(&piece[prior.start..part.start + part.width])
                 {
                     prior.score = token.score;
@@ -625,9 +624,9 @@ impl Kitoken {
                     prior.score = f32::MAX;
                 }
                 prior.token = u32::MAX;
-                heap.push(part.prior, prior);
+                heap.update_key(&part.prior, prior);
             }
-            heap.push(i, part);
+            heap.update_key(&i, part);
         }
     }
 
