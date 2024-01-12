@@ -195,7 +195,7 @@ pub(crate) struct Token {
 pub(crate) type EncoderMap = HashMap<Vec<u8>, Token>;
 pub(crate) type DecoderMap = HashMap<u32, Vec<u8>>;
 
-pub(crate) type PieceHeap = DaryHeapOfIndices<usize, LinkedPart, 4>;
+pub(crate) type PieceHeap = DaryHeapOfIndices<u32, LinkedPart, 4>;
 
 static HEAP_PIECE_SIZE: usize = 256;
 
@@ -430,7 +430,7 @@ impl Kitoken {
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
-                            (0..piece.len()).map(|i| (i, 1)),
+                            (0..piece.len()).map(|i| (i as _, 1)),
                             false,
                         )?;
                     } else {
@@ -464,7 +464,7 @@ impl Kitoken {
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
-                            indices.drain(..).map(|(i, c)| (i, c.len_utf8())),
+                            indices.drain(..).map(|(i, c)| (i as _, c.len_utf8() as _)),
                             true,
                         )?;
                     } else {
@@ -595,39 +595,41 @@ impl Kitoken {
     #[inline(never)]
     fn merge_bpe_parts_heap(&self, piece: &[u8], heap: &mut PieceHeap) {
         while heap.len() > 1 {
-            let (i, mut part) = heap.pop().unwrap();
+            let &(i, mut part) = heap.peek().unwrap();
             if part.score == f32::MAX {
-                heap.push(i, part);
                 break;
             }
             let next = heap.remove(&part.after);
             part.width += next.width;
             part.after = next.after;
-            if part.after != usize::MAX {
-                let mut next = heap.remove(&part.after);
-                if let Some(token) = self.encoder.get(&piece[part.start..next.start + next.width]) {
+            if part.after != u32::MAX {
+                let mut next = heap.key_of(&part.after).unwrap();
+                if let Some(token) =
+                    self.encoder.get(&piece[part.start as _..(next.start + next.width) as _])
+                {
                     part.score = token.score;
                     part.token = token.token;
                 } else {
                     part.score = f32::MAX;
                 }
                 next.prior = i;
-                heap.push(part.after, next);
+                heap.update_key(&part.after, next);
             } else {
                 part.score = f32::MAX;
             }
-            if part.prior != usize::MAX {
-                let mut prior = heap.remove(&(part.prior));
-                if let Some(token) = self.encoder.get(&piece[prior.start..part.start + part.width])
+            if part.prior != u32::MAX {
+                let mut prior = heap.key_of(&(part.prior)).unwrap();
+                if let Some(token) =
+                    self.encoder.get(&piece[prior.start as _..(part.start + part.width) as _])
                 {
                     prior.score = token.score;
                 } else {
                     prior.score = f32::MAX;
                 }
                 prior.token = u32::MAX;
-                heap.push(part.prior, prior);
+                heap.update_key(&part.prior, prior);
             }
-            heap.push(i, part);
+            heap.update_key(&i, part);
         }
     }
 
@@ -637,10 +639,10 @@ impl Kitoken {
     #[inline(never)]
     fn encode_pairs_heap(
         &self, piece: &[u8], buffer: &mut Vec<Part>, result: &mut Vec<u32>,
-        indices: impl Iterator<Item = (usize, usize)>, byte_pair_fallback: bool,
+        indices: impl Iterator<Item = (u32, u32)>, byte_pair_fallback: bool,
     ) -> Result<(), EncodeError> {
         let mut heap = PieceHeap::with_index_bound(piece.len());
-        let mut prior = usize::MAX;
+        let mut prior = u32::MAX;
         let mut iter = indices.enumerate().peekable();
         loop {
             if iter.peek().is_none() {
@@ -648,19 +650,26 @@ impl Kitoken {
             }
             let (e, (i, c)) = iter.next().unwrap();
             let next = iter.peek();
-            heap.push(e, LinkedPart {
+            heap.push(e as _, LinkedPart {
                 start: i,
                 width: c,
                 prior,
-                after: if next.is_some() { e + 1 } else { usize::MAX },
+                after: if next.is_some() {
+                    e as u32 + 1
+                } else {
+                    u32::MAX
+                },
                 score: if let Some((_, (_, n))) = next {
-                    self.encoder.get(&piece[i..i + c + n]).map(|t| t.score).unwrap_or(f32::MAX)
+                    self.encoder
+                        .get(&piece[i as _..(i + c + n) as _])
+                        .map(|t| t.score)
+                        .unwrap_or(f32::MAX)
                 } else {
                     f32::MAX
                 },
                 token: u32::MAX,
             });
-            prior = e;
+            prior = e as _;
         }
         self.merge_bpe_parts_heap(piece, &mut heap);
         let mut e = 0;
@@ -671,7 +680,7 @@ impl Kitoken {
                 e = part.after;
                 continue;
             }
-            let piece = &piece[part.start..part.start + part.width];
+            let piece = &piece[part.start as _..(part.start + part.width) as _];
             if let Some(token) = self.encoder.get(piece) {
                 result.push(token.token);
             } else if byte_pair_fallback {
@@ -764,10 +773,10 @@ struct Part {
 
 #[derive(Debug, Clone, Copy)]
 struct LinkedPart {
-    start: usize,
-    width: usize,
-    prior: usize,
-    after: usize,
+    start: u32,
+    width: u32,
+    prior: u32,
+    after: u32,
     score: f32,
     token: u32,
 }
