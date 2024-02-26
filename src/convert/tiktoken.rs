@@ -14,7 +14,7 @@ use base64::{alphabet, engine, Engine};
 use bstr::ByteSlice;
 
 use crate::convert::ConversionError;
-use crate::{Configuration, Definition, Kitoken};
+use crate::{Configuration, Definition, DefinitionSource, Kitoken, Metadata};
 
 static BASE64: engine::GeneralPurpose =
     engine::GeneralPurpose::new(&alphabet::STANDARD, engine::general_purpose::PAD);
@@ -102,7 +102,13 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
     }
     let scores = Vec::new();
 
+    let meta = Metadata {
+        source: DefinitionSource::Tiktoken,
+        ..Metadata::default()
+    };
+
     Ok(Definition {
+        meta,
         vocab,
         specials,
         scores,

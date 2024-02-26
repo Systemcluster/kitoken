@@ -213,6 +213,7 @@ pub struct Kitoken {
     special_split: Regex,
 
     config: Configuration,
+    meta:   Metadata,
 
     max_token_bytes: usize,
 }
@@ -284,6 +285,7 @@ impl Kitoken {
             .collect::<EncoderMap>();
 
         let max_token_bytes = encoder.keys().map(|k| k.len()).max().unwrap();
+        let meta = Metadata::default();
 
         Ok(Self {
             encoder,
@@ -293,6 +295,7 @@ impl Kitoken {
             special_decoder,
             special_split,
             config,
+            meta,
             max_token_bytes,
         })
     }

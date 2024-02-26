@@ -14,7 +14,10 @@ use hashbrown::HashMap;
 use sentencepiece_model::{ModelType, SentencePiece, SentencePieceModel, Type};
 
 use crate::convert::ConversionError;
-use crate::{Configuration, Definition, Kitoken, Mode, Scores, UnicodeNormalization, Vocab};
+use crate::{
+    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Scores,
+    UnicodeNormalization, Vocab,
+};
 
 #[derive(Debug)]
 struct ParsedPiece {
@@ -234,7 +237,13 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         _ => unreachable!(),
     };
 
+    let meta = Metadata {
+        source: DefinitionSource::Sentencepiece,
+        ..Metadata::default()
+    };
+
     Ok(Definition {
+        meta,
         vocab,
         specials,
         scores,

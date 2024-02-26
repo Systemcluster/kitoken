@@ -7,12 +7,47 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Configuration, InitializationError, Kitoken, Mode, Scores, Vocab};
 
+/// The source of the definition.
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum DefinitionSource {
+    /// The definition was created by the user.
+    None,
+    /// The definition was converted from a Sentencepiece model.
+    Sentencepiece,
+    /// The definition was converted from a Tiktoken definition.
+    Tiktoken,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+/// Kitoken tokenizer definition metadata.
+pub struct Metadata {
+    /// The version of Kitoken that created the definition.
+    pub version: String,
+    /// The source of the definition.
+    pub source:  DefinitionSource,
+    /// Additional metadata.
+    pub meta:    Vec<(String, String)>,
+}
+impl Default for Metadata {
+    fn default() -> Self {
+        Self {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            source:  DefinitionSource::None,
+            meta:    Vec::new(),
+        }
+    }
+}
+
 /// Kitoken tokenizer definition.
 ///
 /// Used for initializing the tokenizer and for serialization and deserialization.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct Definition {
+    /// The definition metadata.
+    pub meta:     Metadata,
     /// The encoder vocabulary without special tokens.
     /// Sorted by merge priority.
     pub vocab:    Vocab,
@@ -50,12 +85,17 @@ impl Kitoken {
     #[inline(always)]
     pub fn from_definition(definition: Definition) -> Result<Self, InitializationError> {
         let Definition {
-            vocab: encoder,
-            specials: special_encoder,
+            meta,
+            vocab,
+            specials,
             scores,
             config,
+            ..
         } = definition;
-        Self::new(encoder, special_encoder, scores, config)
+        Self::new(vocab, specials, scores, config).map(|mut s| {
+            s.meta = meta;
+            s
+        })
     }
 
     /// Creates a definition from this tokenizer.
@@ -78,7 +118,9 @@ impl Kitoken {
         specials.sort_by(|(_, a), (_, b)| a.score.partial_cmp(&b.score).unwrap());
         let specials = specials.into_iter().map(|(k, v)| (k, v.token)).collect();
         let config = self.config.clone();
+        let meta = self.meta.clone();
         Definition {
+            meta,
             vocab,
             specials,
             scores,
