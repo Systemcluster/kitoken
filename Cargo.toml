@@ -24,6 +24,15 @@ name = "kitoken"
 path = "src/lib.rs"
 
 
+[workspace]
+
+members = [
+    ".",
+    "packages/javascript",
+    "packages/python",
+]
+
+
 [features]
 
 default = ["serialization", "convert", "unicode-normalization", "std", "regex-perf"]
@@ -38,7 +47,9 @@ serialization = ["dep:serde"]
 unicode-normalization = ["dep:unicode-normalization"]
 
 # Enables conversion for all supported tokenizer data formats.
-convert = ["convert-tiktoken", "convert-sentencepiece"]
+convert = ["convert-tiktoken", "convert-sentencepiece", "convert-huggingface"]
+# Enables conversion for the huggingface format
+convert-huggingface = ["dep:serde", "dep:serde_json", "hashbrown/serde"]
 # Enables conversion for the sentencepiece format
 convert-sentencepiece = ["dep:sentencepiece-model"]
 # Enables conversion for the tiktoken format
@@ -54,7 +65,7 @@ regex-onig = ["dep:onig"]
 
 [dependencies]
 
-bstr = { version = "1.8", default-features = false }
+bstr = { version = "1.9", default-features = false }
 log = { version = "0.4" }
 fancy-regex = { version = "0.13", default-features = false }
 regex-automata = { version = "0.4", default-features = false, features = [
@@ -74,8 +85,8 @@ regex-syntax = { version = "0.8", default-features = false, features = [
 ] }
 hashbrown = { version = "0.14", default-features = false, features = ["ahash", "inline-more", "allocator-api2"] }
 ahash = { version = "0.8", default-features = false, features = ["const-random"] }
-once_cell = { version = "1.18", default-features = false, features = ["alloc", "race"] }
-orx-priority-queue = { version = "1.0", default-features = false }
+once_cell = { version = "1.19", default-features = false, features = ["alloc", "race"] }
+orx-priority-queue = { version = "1.1", default-features = false }
 
 # optional dependencies for the std feature
 thiserror = { version = "1.0", optional = true }
@@ -133,6 +144,9 @@ debug = true
 strip = "none"
 
 
+[[bench]]
+name = "bench_encode_nerdstash"
+harness = false
 [[bench]]
 name = "bench_encode_cl100k"
 harness = false

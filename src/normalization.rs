@@ -1,4 +1,4 @@
-//! Utilities and depinitions for normalizing inputs and outputs.
+//! Utilities and definitions for normalizing inputs and outputs.
 
 use alloc::string::String;
 use alloc::vec::Vec;

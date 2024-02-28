@@ -26,47 +26,71 @@ impl Default for Mode {
 }
 
 /// Unicode normalization scheme.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub enum UnicodeNormalization {
-    /// No normalization.
-    None,
-    /// Unicode normalization form D.
-    NFD,
-    /// Unicode normalization form KD.
-    NFKD,
+pub enum Normalization {
     /// Unicode normalization form C.
     NFC,
+    /// Unicode normalization form D.
+    NFD,
     /// Unicode normalization form KC.
     NFKC,
-    /// Unicode normalization form KC, followed by case folding.
-    NFKCCF,
-    /// Unicode normalization form KC, followed by NMT normalization.
-    NFKCNMT,
-    /// Unicode normalization form KC, followed by NMT normalization, followed by case folding.
-    NFKCNMTCF,
-}
-impl Default for UnicodeNormalization {
-    fn default() -> Self {
-        Self::None
-    }
+    /// Unicode normalization form KD.
+    NFKD,
+    /// NMT normalization.
+    NMT,
+    /// Case folding.
+    CaseFold {
+        upper: bool,
+    },
+    /// Trim whitespace.
+    TrimWhitespace {
+        left:  bool,
+        right: bool,
+    },
+    /// Add whitespace.
+    AddWhitespace {
+        left:  bool,
+        right: bool,
+    },
+    /// Strip accents.
+    StripAccents,
+    Precompiled,
+    Replace {
+        pattern:     String,
+        replacement: String,
+    },
+    Prepend {
+        prepend: String,
+    },
 }
 
-/// Normalization configuration for encoding and decoding.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub struct Normalization {
-    /// Unicode normalization scheme for inputs.
-    pub unicode:             UnicodeNormalization,
-    /// Whether to trim whitespace from the beginning and end during encoding and encoding.
-    pub trim_whitespace:     bool,
-    /// Whether to collapse whitespace in inputs.
-    pub collapse_whitespace: bool,
-    /// Whether to add prefix whitespace to inputs.
-    pub prefix_whitespace:   bool,
-    /// Whether to collapse unknown tokens in outputs.
-    pub collapse_unknown:    bool,
+pub enum Split {
+    /// Split on whitespace.
+    Whitespace,
+    /// Split on whitespace and punctuation.
+    WhitespacePunctuation,
+    /// A custom split regex.
+    Custom(String),
 }
+
+// /// Normalization configuration for encoding and decoding.
+// #[derive(Debug, Clone, Default, PartialEq, Eq)]
+// #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+// pub struct Normalization {
+//     /// Unicode normalization scheme for inputs.
+//     pub unicode:             UnicodeNormalization,
+//     /// Whether to trim whitespace from the beginning and end during encoding and encoding.
+//     pub trim_whitespace:     bool,
+//     /// Whether to collapse whitespace in inputs.
+//     pub collapse_whitespace: bool,
+//     /// Whether to add prefix whitespace to inputs.
+//     pub prefix_whitespace:   bool,
+//     /// Whether to collapse unknown tokens in outputs.
+//     pub collapse_unknown:    bool,
+// }
 
 /// Special tokens.
 ///

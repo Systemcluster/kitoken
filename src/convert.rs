@@ -14,6 +14,11 @@ mod tiktoken;
 #[cfg(feature = "convert-tiktoken")]
 pub use tiktoken::*;
 
+#[cfg(feature = "convert-huggingface")]
+mod huggingface;
+#[cfg(feature = "convert-huggingface")]
+pub use huggingface::*;
+
 // /// Byte encoding format used in vocabularies.
 // #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 // pub enum ByteEncoding {
