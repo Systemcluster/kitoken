@@ -4,6 +4,8 @@ use alloc::string::String;
 
 use crate::InitializationError;
 
+mod util;
+
 #[cfg(feature = "convert-sentencepiece")]
 mod sentencepiece;
 #[cfg(feature = "convert-sentencepiece")]
@@ -19,18 +21,6 @@ mod huggingface;
 #[cfg(feature = "convert-huggingface")]
 pub use huggingface::*;
 
-// /// Byte encoding format used in vocabularies.
-// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// pub enum ByteEncoding {
-//     /// No byte encoding.
-//     None,
-//     /// Bytes ranging from `0x0` to `0xFF` encoded as characters after adding `0x100` to their value.
-//     /// Char bytes can be included as part of a token.
-//     CharByte,
-//     /// Byte runes in the form `0x<hex>`, where `<hex>` is a hexadecimal number representing a single byte.
-//     /// Hex runes are expected to be separate from non-encoded tokens.
-//     HexByte,
-// }
 
 /// Errors encountered when the conversion fails.
 #[non_exhaustive]

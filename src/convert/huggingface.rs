@@ -29,7 +29,7 @@ where
     D: Deserializer<'de>, {
     let s: &str = Deserialize::deserialize(deserializer)?;
     let precompiled_charsmap =
-        BASE64.decode(s).map_err(|e| serde::de::Error::custom(e.to_string()))?;
+        BASE64.decode(s).map_err(|e| serde::de::Error::custom(e.to_string()))?.to_vec();
     Ok(precompiled_charsmap)
 }
 

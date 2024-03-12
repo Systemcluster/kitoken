@@ -40,40 +40,60 @@ pub enum Normalization {
     /// NMT normalization.
     NMT,
     /// Case folding.
-    CaseFold {
-        upper: bool,
-    },
-    /// Trim whitespace.
-    TrimWhitespace {
-        left:  bool,
-        right: bool,
+    CaseFold { upper: bool },
+    /// Remove whitespace.
+    RemoveWhitespace {
+        left:     bool,
+        right:    bool,
+        collapse: bool,
     },
     /// Add whitespace.
-    AddWhitespace {
-        left:  bool,
-        right: bool,
-    },
+    AddWhitespace { left: bool, right: bool },
     /// Strip accents.
     StripAccents,
+    /// Precompiled character map.
     Precompiled,
+    /// Replacement.
     Replace {
         pattern:     String,
         replacement: String,
     },
-    Prepend {
-        prepend: String,
-    },
+    /// Prepend.
+    Prepend { prepend: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum SplitBehavior {
+    Remove,
+    Isolate,
+    Merge,
+    MergeLeft,
+    MergedRight,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum Split {
-    /// Split on whitespace.
-    Whitespace,
-    /// Split on whitespace and punctuation.
-    WhitespacePunctuation,
-    /// A custom split regex.
-    Custom(String),
+    Pattern {
+        pattern:  String,
+        behavior: SplitBehavior,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum PostProcessing {
+    Collapse {},
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum Decoding {
+    /// Trim whitespace from the beginning and end of the output.
+    TrimWhitespace { left: bool, right: bool },
+    /// Add whitespace to the beginning and end of the output.
+    AddWhitespace { left: bool, right: bool },
 }
 
 // /// Normalization configuration for encoding and decoding.
@@ -108,6 +128,8 @@ pub struct Specials {
     pub eos:  Option<(u32, Vec<u8>)>,
     /// The separator token.
     pub sep:  Option<(u32, Vec<u8>)>,
+    /// The class token.
+    pub cls:  Option<(u32, Vec<u8>)>,
     /// The mask token.
     pub mask: Option<(u32, Vec<u8>)>,
 }
@@ -116,14 +138,18 @@ pub struct Specials {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct Configuration {
-    /// The regex used to split text into parts during encoding.
-    pub split:         String,
     /// The tokenization mode.
-    pub mode:          Mode,
-    /// The normalization scheme.
-    pub normalization: Normalization,
+    pub mode:            Mode,
     /// The special tokens.
-    pub specials:      Specials,
+    pub specials:        Specials,
+    /// The input normalization scheme.
+    pub normalization:   Vec<Normalization>,
+    /// The pre-tokenization split behavior.
+    pub split_behavior:  Vec<Split>,
+    /// The post-tokenization processing.
+    pub post_processing: Vec<PostProcessing>,
+    /// The post-decode processing.
+    pub decoding:        Vec<Decoding>,
 }
 
 /// Errors returned when the configuration fails to validate.

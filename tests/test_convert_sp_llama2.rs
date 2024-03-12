@@ -36,6 +36,7 @@ fn test_serialize_deserialize() {
     );
     assert_eq!(definition1.scores.len(), definition2.scores.len(), "scores lengths are equal");
     assert_eq!(&definition1, &definition2, "definitions are equal");
+    eprintln!("{:#?}", definition1.config);
 }
 
 #[test]

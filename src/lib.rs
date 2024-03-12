@@ -213,8 +213,8 @@ pub struct Kitoken {
     split:         Regex,
     special_split: Regex,
 
-    config: Configuration,
-    meta:   Metadata,
+    pub config: Configuration,
+    pub meta:   Metadata,
 
     max_token_bytes: usize,
 }
@@ -332,7 +332,9 @@ impl Kitoken {
     ///
     /// Returns a list of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
     #[inline(never)]
-    pub fn decode(&self, tokens: impl AsRef<[u32]>) -> Result<Vec<u8>, DecodeError> {
+    pub fn decode(
+        &self, tokens: impl AsRef<[u32]>, decode_specials: bool,
+    ) -> Result<Vec<u8>, DecodeError> {
         let tokens = tokens.as_ref();
         let mut result = Vec::<u8>::with_capacity(tokens.len() * 3);
         for token in tokens {
@@ -342,11 +344,13 @@ impl Kitoken {
                     continue;
                 }
             }
-            let bytes = self
-                .decoder
-                .get(token)
-                .or_else(|| self.special_decoder.get(token))
-                .ok_or(DecodeError::InvalidToken(*token))?;
+            if let Some(bytes) = self.special_decoder.get(token) {
+                if decode_specials {
+                    result.extend(bytes);
+                }
+                continue;
+            }
+            let bytes = self.decoder.get(token).ok_or(DecodeError::InvalidToken(*token))?;
             result.extend(bytes);
         }
         if self.config.normalize_decode_output_enabled() {

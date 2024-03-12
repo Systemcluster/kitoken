@@ -117,6 +117,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         config.normalization.collapse_unknown = normalizer.remove_extra_whitespaces();
         config.normalization.prefix_whitespace = normalizer.add_dummy_prefix();
     }
+    model.denormalizer().unwrap(); // TODO
 
     let mut vocab = HashMap::<Vec<u8>, ParsedPiece>::with_capacity(model.pieces.len());
     let mut specials = HashMap::<Vec<u8>, ParsedPiece>::default();

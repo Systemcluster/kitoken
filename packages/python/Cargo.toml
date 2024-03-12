@@ -1,0 +1,29 @@
+[package]
+
+name = "kitoken-python"
+description = "Python bindings for Kitoken"
+version = "0.0.0"
+edition = "2021"
+resolver = "2"
+publish = false
+
+
+[lib]
+
+name = "kitoken"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+
+[dependencies]
+
+kitoken = { path = "../..", default-features = false, features = [
+    "serialization",
+    "convert",
+    "unicode-normalization",
+    "std",
+    "regex-perf",
+    "regex-unicode",
+] }
+
+pyo3 = { version = "0.21", features = ["abi3", "abi3-py310"] }
