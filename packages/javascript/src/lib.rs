@@ -1,3 +1,7 @@
+#[cfg(all(target_arch = "wasm32", not(target_feature = "atomics")))]
+#[global_allocator]
+static Allocator: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
+
 #[macro_use]
 extern crate alloc;
 

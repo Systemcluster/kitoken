@@ -17,6 +17,11 @@ pub enum DefinitionSource {
     Sentencepiece,
     /// The definition was converted from a Tiktoken definition.
     Tiktoken,
+    /// The definition was converted from a Huggingface tokenizer definition.
+    Huggingface,
+    /// The definition was converted from an unspecified source.
+    #[serde(untagged)]
+    Other,
 }
 
 #[derive(Debug, Clone, PartialEq)]

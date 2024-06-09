@@ -5,7 +5,7 @@ description = "Fast and versatile tokenizer for language models, supporting BPE 
 version = "0.0.0"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
 keywords = ["bpe", "tokenizer", "nlp", "machine-learning", "unigram"]
-categories = ["text-processing", "algorithms", "wasm"]
+categories = ["text-processing", "algorithms", "wasm", "no-std"]
 license = "BSD-2-Clause"
 repository = "https://github.com/Systemcluster/kitoken"
 readme = "README.md"
@@ -116,7 +116,7 @@ serde_json = { version = "1.0", default-features = false, features = ["alloc"], 
 kitoken = { path = ".", default-features = false, features = ["serialization", "convert", "unicode-normalization", "std"] }
 
 console = { version = "0.15", features = ["windows-console-colors"] }
-simple_logger = { version = "4.3" }
+simple_logger = { version = "5.0" }
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
 
 
@@ -124,6 +124,11 @@ criterion = { version = "0.5", default-features = false, features = ["cargo_benc
 
 rustdoc-args = ["--cfg", "docsrs"]
 all-features = true
+
+
+[profile.dev]
+
+build-override = { "opt-level" = 1 }
 
 
 [profile.release]
@@ -137,11 +142,16 @@ opt-level = 's'
 panic = "abort"
 strip = "symbols"
 
+build-override = { "opt-level" = 3 }
+
+
 [profile.bench]
 
 inherits = "release"
 debug = true
 strip = "none"
+
+build-override = { "opt-level" = 3 }
 
 
 [[bench]]

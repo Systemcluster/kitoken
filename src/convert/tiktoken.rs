@@ -14,7 +14,7 @@ use base64::{alphabet, engine, Engine};
 use bstr::ByteSlice;
 
 use crate::convert::ConversionError;
-use crate::{Configuration, Definition, DefinitionSource, Kitoken, Metadata};
+use crate::{Configuration, Definition, DefinitionSource, Kitoken, Metadata, Split, SplitBehavior};
 
 static BASE64: engine::GeneralPurpose =
     engine::GeneralPurpose::new(&alphabet::STANDARD, engine::general_purpose::PAD);
@@ -78,8 +78,10 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
     let specials;
     let mut config = Configuration::default();
     if vocab.len() >= 100000 {
-        config.split =
-            r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+".to_string();
+        config.split_behavior.push(Split::Pattern { pattern:
+            r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+".to_string(),
+            behavior: SplitBehavior::Isolate
+        });
         specials = Vec::from([
             ("<|endoftext|>".into(), 100257),
             ("<|fim_prefix|>".into(), 100258),
@@ -90,9 +92,11 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
             ("<|im_end|>".into(), 100265),
         ]);
     } else {
-        config.split =
-            r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"
-                .to_string();
+        config.split_behavior.push(Split::Pattern {
+            pattern:  r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"
+                .to_string(),
+            behavior: SplitBehavior::Isolate,
+        });
         specials = Vec::from([
             ("<|endoftext|>".into(), 50256),
             ("<|fim_prefix|>".into(), 50281),

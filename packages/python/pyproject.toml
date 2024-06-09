@@ -22,6 +22,7 @@ build-backend = "maturin"
 
 [tool.maturin]
 
-features = ["pyo3/extension-module"]
 profile = "release"
 bindings = "pyo3"
+compatibility = "manylinux_2_28"
+strip = true

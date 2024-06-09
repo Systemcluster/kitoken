@@ -26,4 +26,9 @@ kitoken = { path = "../..", default-features = false, features = [
     "regex-unicode",
 ] }
 
-pyo3 = { version = "0.21", features = ["abi3", "abi3-py310"] }
+pyo3 = { version = "0.21", features = [
+    "abi3",
+    "abi3-py310",
+    "extension-module",
+    "generate-import-lib",
+] }

@@ -15,10 +15,7 @@ use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Deserializer};
 
 use crate::convert::ConversionError;
-use crate::{
-    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Scores,
-    UnicodeNormalization, Vocab,
-};
+use crate::{Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Scores, Vocab};
 
 static BASE64: engine::GeneralPurpose =
     engine::GeneralPurpose::new(&alphabet::STANDARD, engine::general_purpose::PAD);

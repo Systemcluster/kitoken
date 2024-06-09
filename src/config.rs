@@ -52,7 +52,7 @@ pub enum Normalization {
     /// Strip accents.
     StripAccents,
     /// Precompiled character map.
-    Precompiled,
+    Precompiled { map: Vec<u8> },
     /// Replacement.
     Replace {
         pattern:     String,
@@ -170,7 +170,7 @@ pub enum ValidationError {
             "unsupported normalization: {0:?} (the `unicode-normalization` feature must be enabled)"
         )
     )]
-    InvalidNormalization(UnicodeNormalization),
+    InvalidNormalization(Normalization),
 }
 
 impl Configuration {

@@ -25,6 +25,7 @@ kitoken = { path = "../..", default-features = false, features = [
 ] }
 
 wasm-bindgen = { version = "0.2" }
+rlsf = { version = "0.2", features = ["std"] }
 
 
 [package.metadata.wasm-pack.profile.release]

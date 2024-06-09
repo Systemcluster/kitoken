@@ -15,8 +15,8 @@ use sentencepiece_model::{ModelType, SentencePiece, SentencePieceModel, Type};
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Scores,
-    UnicodeNormalization, Vocab,
+    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Normalization,
+    PostProcessing, Scores, Split, SplitBehavior, Vocab,
 };
 
 #[derive(Debug)]
@@ -72,7 +72,10 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         } else {
             splits.push(r"[\t\n\f\r ]+[^\t\n\f\r ]+".to_string());
         }
-        config.split = splits.join("|");
+        config.split_behavior.push(Split::Pattern {
+            pattern:  splits.join("|"),
+            behavior: SplitBehavior::Isolate,
+        });
         config.specials.unk =
             Some((trainer.unk_id() as u32, trainer.unk_surface().as_bytes().to_vec()));
         config.specials.bos =
@@ -83,7 +86,10 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             Some((trainer.pad_id() as u32, trainer.pad_piece().as_bytes().to_vec()));
         model_type = trainer.model_type();
     } else {
-        config.split = r"[\t\n\f\r ]+[^\t\n\f\r ]+".to_string();
+        config.split_behavior.push(Split::Pattern {
+            pattern:  r"[\t\n\f\r ]+[^\t\n\f\r ]+".to_string(),
+            behavior: SplitBehavior::Isolate,
+        });
     }
 
     match model_type {
@@ -105,17 +111,44 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
     }
 
     if let Some(normalizer) = model.normalizer() {
-        config.normalization.unicode = match normalizer.name() {
-            "nmt_nfkc" => UnicodeNormalization::NFKCNMT,
-            "nfkc" => UnicodeNormalization::NFKC,
-            "nmt_nfkc_cf" => UnicodeNormalization::NFKCNMTCF,
-            "nfkc_cf" => UnicodeNormalization::NFKCCF,
-            _ => UnicodeNormalization::None,
+        match normalizer.name() {
+            "nmt_nfkc" => {
+                config.normalization.push(Normalization::NFKC);
+                config.normalization.push(Normalization::NMT);
+            }
+            "nfkc" => {
+                config.normalization.push(Normalization::NFKC);
+            }
+            "nmt_nfkc_cf" => {
+                config.normalization.push(Normalization::NFKC);
+                config.normalization.push(Normalization::NMT);
+                config.normalization.push(Normalization::CaseFold { upper: false });
+            }
+            "nfkc_cf" => {
+                config.normalization.push(Normalization::NFKC);
+                config.normalization.push(Normalization::CaseFold { upper: false });
+            }
+            _ => {}
         };
-        config.normalization.trim_whitespace = normalizer.remove_extra_whitespaces();
-        config.normalization.collapse_whitespace = normalizer.remove_extra_whitespaces();
-        config.normalization.collapse_unknown = normalizer.remove_extra_whitespaces();
-        config.normalization.prefix_whitespace = normalizer.add_dummy_prefix();
+        if normalizer.remove_extra_whitespaces() {
+            config.normalization.push(Normalization::RemoveWhitespace {
+                left:     true,
+                right:    true,
+                collapse: true,
+            });
+            config.post_processing.push(PostProcessing::Collapse {});
+        }
+        if normalizer.add_dummy_prefix() {
+            config.normalization.push(Normalization::AddWhitespace {
+                left:  true,
+                right: false,
+            });
+        }
+        if !normalizer.precompiled_charsmap().is_empty() {
+            config.normalization.push(Normalization::Precompiled {
+                map: normalizer.precompiled_charsmap().to_vec(),
+            });
+        }
     }
     model.denormalizer().unwrap(); // TODO
 
