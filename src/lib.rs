@@ -1,59 +1,27 @@
 //! **Tokenizer for language models.**
 //!
-//! Supports BPE and Unigram tokenization. Usable in native and WASM environments.
+//! ```no_run
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use kitoken::Kitoken;
+//! let encoder = Kitoken::from_file("tests/models/llama2.kit")?;
+//!
+//! let tokens = encoder.encode("Your future belongs to me.", true)?;
+//! let string = String::from_utf8(encoder.decode(&tokens, true)?)?;
+//!
+//! assert!(string == "Your future belongs to me.");
+//! # Ok(())
+//! # }
+//! ```
 //!
 //! # Overview
 //!
 //! Kitoken is a fast and versatile tokenizer for language models with support for BPE and Unigram tokenization.
 //!
 //! Kitoken is compatible with many existing tokenizer formats,
-//! including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) and [tiktoken](https://github.com/openai/tiktoken),
-//! while outperforming them in many scenarios.
+//! including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) and [OpenAI Tiktoken](https://github.com/openai/tiktoken),
+//! and provides utilities for converting these formats. See [`convert`] for information about supported the formats and conversion utilities.
 //!
 //! See [`Kitoken`] for the main entry point and additional information.
-//!
-//! # Examples
-//!
-//! ### Loading a Kitoken definition
-//! ```
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use kitoken::Kitoken;
-//! let tokenizer = Kitoken::from_file("tests/models/llama2.kit")?;
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! ### Loading a SentencePiece model
-//! ```
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use kitoken::convert::convert_sentencepiece;
-//! use kitoken::Kitoken;
-//!
-//! // Directly initialize the tokenizer from a SentencePiece model
-//! let tokenizer = Kitoken::from_sentencepiece_file("tests/models/llama2.model")?;
-//!
-//! // Or convert a SentencePiece model to a Kitoken definition
-//! let model = std::fs::read("tests/models/xlnet_base_cased.model")?;
-//! let definition = convert_sentencepiece(&model)?;
-//! let tokenizer = Kitoken::try_from(definition)?;
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! ### Encoding and decoding
-//!
-//! ```
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! # use kitoken::Kitoken;
-//! # let tokenizer = Kitoken::from_file("tests/models/llama2.kit")?;
-//! let tokens = tokenizer.encode("Your future belongs to me <|endoftext|>", true)?;
-//! let text = String::from_utf8(tokenizer.decode(&tokens)?)?;
-//! assert_eq!(text, "Your future belongs to me <|endoftext|>");
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! See [`convert`] for information about supported formats and conversion utilities.
 //!
 //! # Cargo features
 //!
@@ -64,6 +32,7 @@
 //! - `unicode-normalization`: Enables unicode input normalization support. This is required for certain models.
 //!   Can be disabled to reduce binary size if normalization is not required.
 //! - `convert`: Enables conversion utilities for common tokenizer data formats. When disabled, individual converters can be enabled using the following features:
+//!   - `convert-tokenizers`: Enables conversion from HuggingFace Tokenizers tokenizer definitions.
 //!   - `convert-sentencepiece`: Enables conversion from SentencePiece tokenizer definitions.
 //!   - `convert-tiktoken`: Enables conversion from tiktoken tokenizer definitions.
 //! - `regex-perf`: Enables additional regex performance optimizations. Can be disabled to reduce binary size.
@@ -77,13 +46,14 @@
 //!   However, it may be useful for certain models that require specific regex behavior that is not supported by or differs with `fancy-regex`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_auto_cfg, doc_cfg_hide))]
+#![cfg_attr(docsrs, doc(cfg_hide(doc)))]
 
 extern crate alloc;
 
+mod charsmap;
 mod config;
 mod definition;
-mod normalization;
 mod regex;
 
 #[cfg(feature = "serialization")]
@@ -91,22 +61,23 @@ mod serialization;
 
 pub mod convert;
 
-use alloc::string::ToString;
+use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::num::NonZeroUsize;
 use core::str::Utf8Error;
 
+use debug_ignore::DebugIgnore;
 use hashbrown::HashMap;
 use orx_priority_queue::{DaryHeapOfIndices, PriorityQueue, PriorityQueueDecKey};
 
+pub use crate::charsmap::*;
 pub use crate::config::*;
 pub use crate::definition::*;
+pub use crate::regex::*;
 
 #[cfg(feature = "serialization")]
 pub use crate::serialization::*;
-
-use crate::regex::*;
 
 /// List of token bytes and their id.
 pub type Vocab = Vec<(Vec<u8>, u32)>;
@@ -120,7 +91,7 @@ pub type Scores = Vec<f32>;
 pub enum InitializationError {
     /// The configuration failed to validate.
     #[cfg_attr(feature = "std", error("invalid config: {0}"))]
-    InvalidConfig(ValidationError),
+    InvalidConfig(ConfigurationError),
     /// The encoder and scores must have the same length in unigram mode.
     #[cfg_attr(
         feature = "std",
@@ -150,8 +121,8 @@ pub enum InitializationError {
     #[cfg_attr(feature = "std", error("invalid utf-8: {0}"))]
     InvalidUtf8(Utf8Error),
 }
-impl From<ValidationError> for InitializationError {
-    fn from(e: ValidationError) -> Self {
+impl From<ConfigurationError> for InitializationError {
+    fn from(e: ConfigurationError) -> Self {
         Self::InvalidConfig(e)
     }
 }
@@ -203,16 +174,16 @@ static HEAP_PIECE_SIZE: usize = 256;
 /// A fast and versatile tokenizer for language models.
 #[derive(Debug)]
 pub struct Kitoken {
-    encoder: EncoderMap,
-    decoder: DecoderMap,
+    encoder: DebugIgnore<EncoderMap>,
+    decoder: DebugIgnore<DecoderMap>,
 
-    special_encoder: EncoderMap,
-    special_decoder: DecoderMap,
+    special_encoder: DebugIgnore<EncoderMap>,
+    special_decoder: DebugIgnore<DecoderMap>,
 
-    split:         Regex,
     special_split: Regex,
 
     config: Configuration,
+    meta:   Metadata,
 
     max_token_bytes: usize,
 }
@@ -238,14 +209,13 @@ impl Kitoken {
             return Err(InitializationError::InvalidScores);
         }
 
-        let split = Regex::new(&config.split)?;
         let special_split = Regex::new(
             &specials
                 .iter()
                 .map(|(s, _)| core::str::from_utf8(s))
                 .collect::<Result<Vec<_>, _>>()?
-                .iter()
-                .map(|s| fancy_regex::escape(s))
+                .into_iter()
+                .map(|s| regex::escape(s))
                 .collect::<Vec<_>>()
                 .join("|"),
         )?;
@@ -284,15 +254,16 @@ impl Kitoken {
             .collect::<EncoderMap>();
 
         let max_token_bytes = encoder.keys().map(|k| k.len()).max().unwrap();
+        let meta = Metadata::default();
 
         Ok(Self {
-            encoder,
-            decoder,
-            split,
-            special_encoder,
-            special_decoder,
+            encoder: DebugIgnore(encoder),
+            decoder: DebugIgnore(decoder),
+            special_encoder: DebugIgnore(special_encoder),
+            special_decoder: DebugIgnore(special_decoder),
             special_split,
             config,
+            meta,
             max_token_bytes,
         })
     }
@@ -306,21 +277,14 @@ impl Kitoken {
     pub fn encode(
         &self, text: impl AsRef<str>, encode_specials: bool,
     ) -> Result<Vec<u32>, EncodeError> {
-        let text = text.as_ref();
-        let normalized = self.config.normalize_encode_input_enabled().then(|| {
-            let mut text = text.to_string();
-            self.config.normalize_encode_input(&mut text);
-            text
-        });
-        let text = normalized.as_ref().map_or(text, |text| text.as_str());
+        let mut text = Cow::Borrowed(text.as_ref());
+        self.config.normalize(&mut text);
         if text.is_empty() {
             return Ok(Vec::new());
         }
-        let parts = self.split_into_parts(text, encode_specials);
-        let mut result = self.encode_parts(text, &parts)?;
-        if self.config.normalize_encode_output_enabled() {
-            self.config.normalize_encode_output(&mut result);
-        }
+        let parts = self.split_into_parts(&text, encode_specials);
+        let mut result = self.encode_parts(&text, &parts)?;
+        self.config.process(&mut result);
         Ok(result)
     }
 
@@ -328,9 +292,11 @@ impl Kitoken {
     ///
     /// Returns a list of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
     #[inline(never)]
-    pub fn decode(&self, tokens: impl AsRef<[u32]>) -> Result<Vec<u8>, DecodeError> {
+    pub fn decode(
+        &self, tokens: impl AsRef<[u32]>, decode_specials: bool,
+    ) -> Result<Vec<u8>, DecodeError> {
         let tokens = tokens.as_ref();
-        let mut result = Vec::<u8>::with_capacity(tokens.len() * 3);
+        let mut result = Vec::<u8>::with_capacity(tokens.len() * 4);
         for token in tokens {
             if let Some((unk_id, unk)) = &self.config.specials.unk {
                 if token == unk_id {
@@ -338,16 +304,16 @@ impl Kitoken {
                     continue;
                 }
             }
-            let bytes = self
-                .decoder
-                .get(token)
-                .or_else(|| self.special_decoder.get(token))
-                .ok_or(DecodeError::InvalidToken(*token))?;
+            if let Some(bytes) = self.special_decoder.get(token) {
+                if decode_specials {
+                    result.extend(bytes);
+                }
+                continue;
+            }
+            let bytes = self.decoder.get(token).ok_or(DecodeError::InvalidToken(*token))?;
             result.extend(bytes);
         }
-        if self.config.normalize_decode_output_enabled() {
-            self.config.normalize_decode_output(&mut result);
-        }
+        self.config.decode(&mut result);
         Ok(result)
     }
 
@@ -358,7 +324,7 @@ impl Kitoken {
     /// Returns a list of parts.
     #[inline(never)]
     fn split_into_parts(&self, text: &str, split_specials: bool) -> Vec<TextPart> {
-        let mut parts = Vec::<TextPart>::with_capacity(text.len() / 3);
+        let mut parts = Vec::<TextPart>::with_capacity(text.len() / 6);
         let mut posit = 0;
         loop {
             let next_special = if split_specials {
@@ -367,15 +333,7 @@ impl Kitoken {
                 None
             };
             let end = next_special.map_or(text.len(), |(start, _)| start + posit);
-            let mut last = 0;
-            for (start, end) in self.split.find_iter(&text[posit..end]) {
-                if start > last {
-                    parts.push(TextPart {
-                        start:   last + posit,
-                        end:     unsafe { NonZeroUsize::new_unchecked(start + posit) },
-                        special: false,
-                    });
-                }
+            for (start, end) in self.config.split(&text[posit..end]) {
                 if end > start {
                     parts.push(TextPart {
                         start:   start + posit,
@@ -383,14 +341,6 @@ impl Kitoken {
                         special: false,
                     });
                 }
-                last = end
-            }
-            if last + posit < end {
-                parts.push(TextPart {
-                    start:   last + posit,
-                    end:     unsafe { NonZeroUsize::new_unchecked(end) },
-                    special: false,
-                });
             }
             if let Some((start, end)) = next_special {
                 parts.push(TextPart {
@@ -528,12 +478,11 @@ impl Kitoken {
         }
         while parts.len() > start + 1 {
             let mut min_score = f32::MAX;
-            let mut i = 0;
-            for (j, &Part { score, .. }) in parts[..parts.len() - 1].iter().skip(start).enumerate()
-            {
+            let mut i = start;
+            for (j, &Part { score, .. }) in parts[start..parts.len() - 1].iter().enumerate() {
                 if score < min_score {
                     min_score = score;
-                    i = j;
+                    i = j + start;
                 }
             }
             if min_score == f32::MAX {

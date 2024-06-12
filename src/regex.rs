@@ -1,20 +1,39 @@
-//! Regex wrapper for different regex engines.
+//! Regex wrapper for different regex engines with serialization support.
 
-use alloc::boxed::Box;
-use alloc::string::String;
+use core::fmt::{Debug, Display};
+use core::ops::Deref;
+
+use alloc::borrow::Cow;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 #[cfg(feature = "regex-onig")]
-pub type RegexError = Box<onig::Error>;
-#[cfg(not(feature = "regex-onig"))]
-pub type RegexError = Box<fancy_regex::Error>;
+use alloc::sync::Arc;
 
+use debug_ignore::DebugIgnore;
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
+
+/// Regex error type.
 #[derive(Debug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+pub struct RegexError(pub String);
+impl Display for RegexError {
+    #[inline(always)]
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Regex wrapper for different regex engines with serialization support.
+#[derive(Clone)]
 pub struct Regex {
+    pub(crate) pattern: String,
     #[cfg(feature = "regex-onig")]
-    regex: onig::Regex,
+    pub(crate) regex:   DebugIgnore<Arc<onig::Regex>>,
     #[cfg(not(feature = "regex-onig"))]
-    regex: fancy_regex::Regex,
+    pub(crate) regex:   DebugIgnore<fancy_regex::Regex>,
 }
 #[allow(dead_code)]
 impl Regex {
@@ -22,17 +41,23 @@ impl Regex {
     pub fn new(pattern: &str) -> Result<Self, RegexError> {
         #[cfg(feature = "regex-onig")]
         return Ok(Self {
-            regex: onig::Regex::new(pattern)?,
+            pattern: pattern.to_string(),
+            regex:   DebugIgnore(Arc::new(
+                onig::Regex::new(pattern).map_err(|e| RegexError(e.to_string()))?,
+            )),
         });
         #[cfg(not(feature = "regex-onig"))]
         return Ok(Self {
-            regex: fancy_regex::Regex::new(pattern)?,
+            pattern: pattern.to_string(),
+            regex:   DebugIgnore(
+                fancy_regex::Regex::new(pattern).map_err(|e| RegexError(e.to_string()))?,
+            ),
         });
     }
 
     #[cfg(not(feature = "regex-onig"))]
     #[inline(always)]
-    pub fn find_iter(&self, text: &str) -> Vec<(usize, usize)> {
+    pub(crate) fn find_iter(&self, text: &str) -> Vec<(usize, usize)> {
         self.regex
             .find_iter(text)
             .map(|m| m.unwrap())
@@ -42,31 +67,101 @@ impl Regex {
 
     #[cfg(feature = "regex-onig")]
     #[inline(always)]
-    pub fn find_iter(&self, text: &str) -> Vec<(usize, usize)> {
+    pub(crate) fn find_iter(&self, text: &str) -> Vec<(usize, usize)> {
         self.regex.find_iter(text).collect()
     }
 
     #[cfg(not(feature = "regex-onig"))]
     #[inline(always)]
-    pub fn find(&self, text: &str) -> Option<(usize, usize)> {
+    pub(crate) fn find(&self, text: &str) -> Option<(usize, usize)> {
         self.regex.find(text).unwrap().map(|mat| (mat.start(), mat.end()))
     }
 
     #[cfg(feature = "regex-onig")]
     #[inline(always)]
-    pub fn find(&self, text: &str) -> Option<(usize, usize)> {
+    pub(crate) fn find(&self, text: &str) -> Option<(usize, usize)> {
         self.regex.find(text)
     }
 
     #[cfg(not(feature = "regex-onig"))]
     #[inline(always)]
-    pub fn replace_all(&self, text: &str, replace: &str) -> String {
+    pub(crate) fn replace_all(&self, text: &str, replace: &str) -> String {
         self.regex.replace_all(text, replace).into_owned()
     }
 
     #[cfg(feature = "regex-onig")]
     #[inline(always)]
-    pub fn replace_all(&self, text: &str, replace: &str) -> String {
+    pub(crate) fn replace_all(&self, text: &str, replace: &str) -> String {
         self.regex.replace_all(text, replace)
     }
+}
+impl PartialEq for Regex {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.pattern == other.pattern
+    }
+}
+impl Eq for Regex {}
+impl Deref for Regex {
+    type Target = str;
+
+    #[inline(always)]
+    fn deref(&self) -> &str {
+        &self.pattern
+    }
+}
+impl AsRef<str> for Regex {
+    #[inline(always)]
+    fn as_ref(&self) -> &str {
+        self.deref()
+    }
+}
+impl Display for Regex {
+    #[inline(always)]
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "{}", self.pattern)
+    }
+}
+impl Debug for Regex {
+    #[inline(always)]
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "Regex({})", self.pattern)
+    }
+}
+impl TryFrom<String> for Regex {
+    type Error = RegexError;
+
+    #[inline(always)]
+    fn try_from(pattern: String) -> Result<Self, Self::Error> {
+        Self::new(&pattern)
+    }
+}
+impl TryFrom<&str> for Regex {
+    type Error = RegexError;
+
+    #[inline(always)]
+    fn try_from(pattern: &str) -> Result<Self, Self::Error> {
+        Self::new(pattern)
+    }
+}
+
+#[cfg(feature = "serialization")]
+impl Serialize for Regex {
+    #[inline(always)]
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.pattern)
+    }
+}
+
+#[cfg(feature = "serialization")]
+impl<'de> Deserialize<'de> for Regex {
+    #[inline(always)]
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let pattern = String::deserialize(deserializer)?;
+        Self::new(&pattern).map_err(serde::de::Error::custom)
+    }
+}
+
+pub(crate) fn escape(pattern: &str) -> Cow<str> {
+    fancy_regex::escape(pattern)
 }

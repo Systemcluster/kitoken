@@ -5,16 +5,17 @@ use std::io::Read;
 #[cfg(feature = "std")]
 use std::path::Path;
 
-use alloc::borrow::ToOwned;
 use alloc::format;
-use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use base64::{alphabet, engine, Engine};
 use bstr::ByteSlice;
 
 use crate::convert::ConversionError;
-use crate::{Configuration, Definition, Kitoken};
+use crate::{
+    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Regex, Split,
+    SplitBehavior,
+};
 
 static BASE64: engine::GeneralPurpose =
     engine::GeneralPurpose::new(&alphabet::STANDARD, engine::general_purpose::PAD);
@@ -28,13 +29,16 @@ static BASE64: engine::GeneralPurpose =
 /// # Examples
 ///
 /// ```
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// use kitoken::convert::convert_tiktoken;
 /// use kitoken::Kitoken;
 ///
-/// let data = include_bytes!("../../tests/models/cl100k_base.tiktoken");
+/// let data = std::fs::read("tests/models/tiktoken/cl100k_base.tiktoken")?;
 /// let definition = convert_tiktoken(data).unwrap();
 ///
 /// let tokenizer = Kitoken::try_from(definition).unwrap();
+/// # Ok(())
+/// # }
 /// ```
 ///
 ///  Additional conversion utilities are defined in [`Definition`] and [`Kitoken`].
@@ -72,15 +76,19 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
             .map_err(|e| {
                 ConversionError::InvalidNumber(format!("invalid number in line {i}: {}", e))
             })?;
-        vocab.push((bytes, token.to_owned()));
+        vocab.push((bytes, token));
     }
 
-    let specials;
-    let mut config = Configuration::default();
-    if vocab.len() >= 100000 {
-        config.split =
-            r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+".to_string();
-        specials = Vec::from([
+    let mut config = Configuration {
+        mode: Mode::BytePair,
+        ..Configuration::default()
+    };
+    let specials = if vocab.len() >= 100000 {
+        config.split.push(Split::Pattern { pattern:
+            Regex::new(r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+")?,
+            behavior: SplitBehavior::Isolate
+        });
+        Vec::from([
             ("<|endoftext|>".into(), 100257),
             ("<|fim_prefix|>".into(), 100258),
             ("<|fim_middle|>".into(), 100259),
@@ -88,21 +96,30 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
             ("<|endofprompt|>".into(), 100276),
             ("<|im_start|>".into(), 100264),
             ("<|im_end|>".into(), 100265),
-        ]);
+        ])
     } else {
-        config.split =
-            r"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"
-                .to_string();
-        specials = Vec::from([
+        config.split.push(Split::Pattern {
+            pattern:  Regex::new(
+                r"'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+",
+            )?,
+            behavior: SplitBehavior::Isolate,
+        });
+        Vec::from([
             ("<|endoftext|>".into(), 50256),
             ("<|fim_prefix|>".into(), 50281),
             ("<|fim_middle|>".into(), 50282),
             ("<|fim_suffix|>".into(), 50283),
-        ]);
-    }
+        ])
+    };
     let scores = Vec::new();
 
+    let meta = Metadata {
+        source: DefinitionSource::Tiktoken,
+        ..Metadata::default()
+    };
+
     Ok(Definition {
+        meta,
         vocab,
         specials,
         scores,

@@ -8,13 +8,13 @@ use kitoken::Kitoken;
 mod util;
 use util::*;
 
-static MODEL_PATH: &str = "sentencepiece/xlnet_base_cased.model";
+static MODEL_PATH: &str = "tokenizers/gpt2.json";
 
 fn bench_convert(b: &mut Criterion) {
     let data = std::fs::read(bench_models_path().join(MODEL_PATH)).unwrap();
-    b.bench_function("xlnet: convert sentencepiece", |b| {
+    b.bench_function("gpt2: convert tokenizers", |b| {
         b.iter(|| {
-            Kitoken::from_sentencepiece_slice(black_box(&data)).unwrap();
+            Kitoken::from_tokenizers_slice(black_box(&data)).unwrap();
         })
     });
 }
@@ -22,11 +22,11 @@ fn bench_convert(b: &mut Criterion) {
 fn bench_encode_pride_and_prejudice(b: &mut Criterion) {
     init_env();
     let text = read_data_file("pride_and_prejudice.txt");
-    let mut g = b.benchmark_group("xlnet: encode pride_and_prejudice");
+    let mut g = b.benchmark_group("gpt2: encode pride_and_prejudice");
     g.sampling_mode(criterion::SamplingMode::Flat);
     g.bench_function("full", |b| {
         let tokenizer =
-            Kitoken::from_sentencepiece_file(bench_models_path().join(MODEL_PATH)).unwrap();
+            Kitoken::from_tokenizers_file(bench_models_path().join(MODEL_PATH)).unwrap();
         b.iter(|| {
             for _ in 0..10 {
                 black_box(tokenizer.encode(black_box(&text), true).unwrap());
@@ -36,7 +36,7 @@ fn bench_encode_pride_and_prejudice(b: &mut Criterion) {
     let lines = read_data_lines("pride_and_prejudice.txt");
     g.bench_function("lines", |b| {
         let tokenizer =
-            Kitoken::from_sentencepiece_file(bench_models_path().join(MODEL_PATH)).unwrap();
+            Kitoken::from_tokenizers_file(bench_models_path().join(MODEL_PATH)).unwrap();
         b.iter(|| {
             for _ in 0..10 {
                 for line in &lines {
@@ -51,11 +51,11 @@ fn bench_encode_pride_and_prejudice(b: &mut Criterion) {
 fn bench_encode_utf8_sequence_0x10ffff(b: &mut Criterion) {
     init_env();
     let text = read_data_file("utf8_sequence_0x10ffff.txt");
-    let mut g = b.benchmark_group("xlnet: encode utf8_sequence_0x10ffff");
+    let mut g = b.benchmark_group("gpt2: encode utf8_sequence_0x10ffff");
     g.sampling_mode(criterion::SamplingMode::Flat);
     g.bench_function("full", |b| {
         let tokenizer =
-            Kitoken::from_sentencepiece_file(bench_models_path().join(MODEL_PATH)).unwrap();
+            Kitoken::from_tokenizers_file(bench_models_path().join(MODEL_PATH)).unwrap();
         b.iter(|| {
             for _ in 0..10 {
                 black_box(tokenizer.encode(black_box(&text), true).unwrap());
@@ -68,11 +68,11 @@ fn bench_encode_utf8_sequence_0x10ffff(b: &mut Criterion) {
 fn bench_encode_wagahai(b: &mut Criterion) {
     init_env();
     let text = read_data_file("wagahai.txt");
-    let mut g = b.benchmark_group("xlnet: encode wagahai");
+    let mut g = b.benchmark_group("gpt2: encode wagahai");
     g.sampling_mode(criterion::SamplingMode::Flat);
     g.bench_function("full", |b| {
         let tokenizer =
-            Kitoken::from_sentencepiece_file(bench_models_path().join(MODEL_PATH)).unwrap();
+            Kitoken::from_tokenizers_file(bench_models_path().join(MODEL_PATH)).unwrap();
         b.iter(|| {
             for _ in 0..10 {
                 black_box(tokenizer.encode(black_box(&text), true).unwrap());
@@ -82,7 +82,7 @@ fn bench_encode_wagahai(b: &mut Criterion) {
     let lines = read_data_lines("wagahai.txt");
     g.bench_function("lines", |b| {
         let tokenizer =
-            Kitoken::from_sentencepiece_file(bench_models_path().join(MODEL_PATH)).unwrap();
+            Kitoken::from_tokenizers_file(bench_models_path().join(MODEL_PATH)).unwrap();
         b.iter(|| {
             for _ in 0..10 {
                 for line in &lines {

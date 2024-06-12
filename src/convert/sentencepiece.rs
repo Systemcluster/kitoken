@@ -10,17 +10,21 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 
+use bstr::ByteSlice;
 use hashbrown::HashMap;
-use sentencepiece_model::{ModelType, SentencePiece, SentencePieceModel, Type};
+use sentencepiece_model::{ModelType, SentencePieceModel, Type};
 
 use crate::convert::ConversionError;
-use crate::{Configuration, Definition, Kitoken, Mode, Scores, UnicodeNormalization, Vocab};
+use crate::{
+    Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, Normalization,
+    Processing, Regex, Scores, Split, SplitBehavior, UnicodeNormalization, Vocab,
+};
 
 #[derive(Debug)]
 struct ParsedPiece {
     index: u32,
     score: f32,
-    piece: SentencePiece,
+    type_: Type,
 }
 
 /// Converts a `sentencepiece` model into the definition format used by this crate.
@@ -32,13 +36,16 @@ struct ParsedPiece {
 /// # Examples
 ///
 /// ```
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// use kitoken::convert::convert_sentencepiece;
 /// use kitoken::Kitoken;
 ///
-/// let data = include_bytes!("../../tests/models/llama2.model");
+/// let data = std::fs::read("tests/models/sentencepiece/llama2.model")?;
 /// let definition = convert_sentencepiece(data).unwrap();
 ///
 /// let tokenizer = Kitoken::try_from(definition).unwrap();
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// Additional conversion utilities are defined in [`Definition`] and [`Kitoken`].
@@ -57,19 +64,23 @@ pub fn convert_sentencepiece(data: impl AsRef<[u8]>) -> Result<Definition, Conve
     convert_sentencepiece_model(model)
 }
 fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, ConversionError> {
-    let mut config = Configuration {
-        ..Configuration::default()
-    };
+    let mut config = Configuration::default();
 
     let mut model_type = ModelType::Unigram;
+    let mut treat_whitespace_as_suffix = false;
     if let Some(trainer) = model.trainer() {
-        let mut splits = Vec::new();
         if trainer.treat_whitespace_as_suffix() {
-            splits.push(r"[^\t\n\f\r ]+[\t\n\f\r ]+".to_string());
+            treat_whitespace_as_suffix = true;
+            config.split.push(Split::Pattern {
+                pattern:  Regex::new(r"[ ]+")?,
+                behavior: SplitBehavior::MergeLeft,
+            });
         } else {
-            splits.push(r"[\t\n\f\r ]+[^\t\n\f\r ]+".to_string());
+            config.split.push(Split::Pattern {
+                pattern:  Regex::new(r"[ ]+")?,
+                behavior: SplitBehavior::MergeRight,
+            });
         }
-        config.split = splits.join("|");
         config.specials.unk =
             Some((trainer.unk_id() as u32, trainer.unk_surface().as_bytes().to_vec()));
         config.specials.bos =
@@ -80,17 +91,20 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             Some((trainer.pad_id() as u32, trainer.pad_piece().as_bytes().to_vec()));
         model_type = trainer.model_type();
     } else {
-        config.split = r"[\t\n\f\r ]+[^\t\n\f\r ]+".to_string();
+        config.split.push(Split::Pattern {
+            pattern:  Regex::new(r"[ ]+")?,
+            behavior: SplitBehavior::MergeRight,
+        });
     }
 
     match model_type {
         ModelType::Bpe => config.mode = Mode::CharPair,
         ModelType::Unigram => config.mode = Mode::Unigram,
-        _ => {
-            return Err(ConversionError::InvalidData(format!(
-                "unsupported model type: {:?}",
-                model_type
-            )));
+        ModelType::Word => {
+            return Err(ConversionError::UnsupportedConfiguration("Word model type".to_string()));
+        }
+        ModelType::Char => {
+            return Err(ConversionError::UnsupportedConfiguration("Char model type".to_string()));
         }
     }
 
@@ -102,17 +116,66 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
     }
 
     if let Some(normalizer) = model.normalizer() {
-        config.normalization.unicode = match normalizer.name() {
-            "nmt_nfkc" => UnicodeNormalization::NFKCNMT,
-            "nfkc" => UnicodeNormalization::NFKC,
-            "nmt_nfkc_cf" => UnicodeNormalization::NFKCNMTCF,
-            "nfkc_cf" => UnicodeNormalization::NFKCCF,
-            _ => UnicodeNormalization::None,
+        use UnicodeNormalization::*;
+        match normalizer.name() {
+            "nmt_nfkc" => {
+                config.normalization.push(Normalization::Unicode { scheme: NFKC });
+                config.normalization.push(Normalization::NMT);
+            }
+            "nfkc" => {
+                config.normalization.push(Normalization::Unicode { scheme: NFKC });
+            }
+            "nmt_nfkc_cf" => {
+                config.normalization.push(Normalization::Unicode { scheme: NFKC });
+                config.normalization.push(Normalization::NMT);
+                config.normalization.push(Normalization::CaseFold { upper: false });
+            }
+            "nfkc_cf" => {
+                config.normalization.push(Normalization::Unicode { scheme: NFKC });
+                config.normalization.push(Normalization::CaseFold { upper: false });
+            }
+            "identity" => {}
+            "user_defined" => {
+                if normalizer.precompiled_charsmap().is_empty() {
+                    return Err(ConversionError::InvalidData(
+                        "user_defined normalizer has no precompiled charsmap".to_string(),
+                    ));
+                }
+                config.normalization.push(Normalization::CharsMap {
+                    map: normalizer.precompiled_charsmap().try_into()?,
+                });
+            }
+            name => {
+                return Err(ConversionError::UnsupportedConfiguration(format!(
+                    "{} normalizer",
+                    name
+                )));
+            }
         };
-        config.normalization.trim_whitespace = normalizer.remove_extra_whitespaces();
-        config.normalization.collapse_whitespace = normalizer.remove_extra_whitespaces();
-        config.normalization.collapse_unknown = normalizer.remove_extra_whitespaces();
-        config.normalization.prefix_whitespace = normalizer.add_dummy_prefix();
+        if normalizer.remove_extra_whitespaces() {
+            config.normalization.push(Normalization::Strip {
+                character: ' ',
+                left:      u32::MAX,
+                right:     u32::MAX,
+            });
+            config.normalization.push(Normalization::Collapse { character: ' ' });
+            if let Some(unk) = config.specials.unk.as_ref() {
+                config.processing.push(Processing::Collapse { id: unk.0 });
+            }
+        }
+        if normalizer.add_dummy_prefix() {
+            config.normalization.push(Normalization::Extend {
+                character: ' ',
+                left:      if treat_whitespace_as_suffix { 0 } else { 1 },
+                right:     if treat_whitespace_as_suffix { 1 } else { 0 },
+                pad:       false,
+            });
+            config.decoding.push(Decoding::Strip {
+                character: ' ',
+                left:      if treat_whitespace_as_suffix { 0 } else { 1 },
+                right:     if treat_whitespace_as_suffix { 1 } else { 0 },
+            });
+        }
     }
 
     let mut vocab = HashMap::<Vec<u8>, ParsedPiece>::with_capacity(model.pieces.len());
@@ -135,106 +198,120 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             text.to_string().replace('▁', " ").as_bytes().to_vec()
         };
 
-        if piece_type == Type::UserDefined || piece_type == Type::Control {
+        if piece_type == Type::UserDefined
+            || piece_type == Type::Control
+            || piece_type == Type::Unknown
+        {
             specials.insert(text, ParsedPiece {
                 index: index as u32,
                 score: index as f32,
-                piece: piece.clone(),
+                type_: piece.r#type(),
             });
             continue;
         }
-
         if let Some(existing) = vocab.get(&text) {
-            let existing_type = existing.piece.r#type();
+            let existing_type = existing.type_;
             if piece_type == Type::Byte && existing_type != Type::Byte {
+                log::debug!(
+                    "Byte piece already in vocab: {:>4} -> {:6?} (skipping {:?})",
+                    format!("{:?}", text.as_bstr()),
+                    existing.index,
+                    index
+                );
                 continue;
             }
         }
-
-        vocab.insert(text, ParsedPiece {
+        if let Some(skipped) = vocab.insert(text.clone(), ParsedPiece {
             index: index as u32,
             score: piece.score(),
-            piece: piece.clone(),
-        });
+            type_: piece.r#type(),
+        }) {
+            log::debug!(
+                "Byte piece already in vocab: {:>4} -> {:6?} (replacing {:?})",
+                format!("{:?}", text.as_bstr()),
+                index,
+                skipped.index
+            );
+        };
     }
 
     let (vocab, specials, scores) = match model_type {
         ModelType::Bpe => {
-            let mut vocab_merges = HashMap::<u32, f32>::with_capacity(vocab.len() * 3);
-            for (text, piece) in vocab.iter() {
-                for split in 1..text.len() {
-                    let left = &text[..split];
-                    let right = &text[split..];
-                    if let (Some(_), Some(_)) = (vocab.get(left), vocab.get(right)) {
-                        vocab_merges.insert(piece.index, piece.score);
+            let create_merges = |vocab: &HashMap<Vec<u8>, ParsedPiece>| {
+                let mut merges = HashMap::<u32, f32>::with_capacity(vocab.len() * 3);
+                for (text, piece) in vocab.iter() {
+                    for split in 1..text.len() {
+                        let left = &text[..split];
+                        let right = &text[split..];
+                        if let (Some(_), Some(_)) = (vocab.get(left), vocab.get(right)) {
+                            if !merges.contains_key(&piece.index) {
+                                merges.insert(piece.index, piece.score);
+                            }
+                        }
                     }
                 }
-            }
+                merges
+            };
+            let vocab_merges = create_merges(&vocab);
+            let specials_merges = create_merges(&specials);
+
+            let sort_vocab = |vocab: &mut Vocab, merges: &HashMap<u32, f32>| {
+                vocab.sort_by(|(_, ai), (_, bi)| {
+                    if let (Some(ma), Some(mb)) = (merges.get(ai), merges.get(bi)) {
+                        let comp = mb.partial_cmp(ma).unwrap();
+                        if comp == Ordering::Equal {
+                            ai.cmp(bi)
+                        } else {
+                            comp
+                        }
+                    } else if merges.get(ai).is_some() {
+                        Ordering::Less
+                    } else if merges.get(bi).is_some() {
+                        Ordering::Greater
+                    } else {
+                        ai.cmp(bi)
+                    }
+                });
+            };
             let mut vocab =
                 vocab.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
-            vocab.sort_by(|(_, a), (_, b)| {
-                if let (Some(ma), Some(mb)) = (vocab_merges.get(a), vocab_merges.get(b)) {
-                    let comp = mb.partial_cmp(ma).unwrap();
-                    if comp == Ordering::Equal {
-                        a.partial_cmp(b).unwrap()
-                    } else {
-                        comp
-                    }
-                } else if vocab_merges.get(a).is_some() {
-                    Ordering::Less
-                } else if vocab_merges.get(b).is_some() {
-                    Ordering::Greater
-                } else {
-                    Ordering::Equal
-                }
-            });
-            let mut specials_merges = HashMap::<u32, f32>::with_capacity(specials.len() * 3);
-            for (text, piece) in specials.iter() {
-                for split in 1..text.len() {
-                    let left = &text[..split];
-                    let right = &text[split..];
-                    if let (Some(_), Some(_)) = (specials.get(left), specials.get(right)) {
-                        specials_merges.insert(piece.index, piece.score);
-                    }
-                }
-            }
+            sort_vocab(&mut vocab, &vocab_merges);
             let mut specials =
                 specials.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
-            specials.sort_by(|(_, a), (_, b)| {
-                if let (Some(ma), Some(mb)) = (specials_merges.get(a), specials_merges.get(b)) {
-                    let comp = mb.partial_cmp(ma).unwrap();
-                    if comp == Ordering::Equal {
-                        a.partial_cmp(b).unwrap()
-                    } else {
-                        comp
-                    }
-                } else if specials_merges.get(a).is_some() {
-                    Ordering::Less
-                } else if specials_merges.get(b).is_some() {
-                    Ordering::Greater
-                } else {
-                    Ordering::Equal
-                }
-            });
+            sort_vocab(&mut specials, &specials_merges);
+
             let scores = Scores::with_capacity(0);
             (vocab, specials, scores)
         }
         ModelType::Unigram => {
             let mut vocab = vocab.into_iter().collect::<Vec<_>>();
-            vocab.sort_by(|(_, a), (_, b)| a.score.partial_cmp(&b.score).unwrap());
+            vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
+                Ordering::Equal => a.index.cmp(&b.index),
+                other => other,
+            });
             let scores = vocab.iter().map(|(_, piece)| piece.score).collect::<Scores>();
             let vocab =
                 vocab.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
             let mut specials = specials.into_iter().collect::<Vec<_>>();
-            specials.sort_by(|(_, a), (_, b)| a.score.partial_cmp(&b.score).unwrap());
+            specials.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
+                Ordering::Equal => a.index.cmp(&b.index),
+                other => other,
+            });
             let specials =
                 specials.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
+
             (vocab, specials, scores)
         }
         _ => unreachable!(),
     };
 
+    let meta = Metadata {
+        source: DefinitionSource::Sentencepiece,
+        ..Metadata::default()
+    };
+
     Ok(Definition {
+        meta,
         vocab,
         specials,
         scores,

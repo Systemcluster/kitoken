@@ -1,201 +1,154 @@
 //! Configuration for the tokenizer.
 
-use alloc::string::String;
+use alloc::borrow::Cow;
 use alloc::vec::Vec;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-use crate::normalization::*;
+mod decoding;
+mod normalization;
+mod processing;
+mod split;
+
+pub use decoding::*;
+pub use normalization::*;
+pub use processing::*;
+pub use split::*;
 
 /// Tokenization mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum Mode {
-    /// The original BPE algorithm, which merges pairs of bytes.
+    /// A variation of the original BPE algorithm. Merges inputs starting from individual bytes.
     BytePair,
-    /// A variant of the BPE algorithm, which merges pairs of characters before falling back to `BytePair`.
+    /// A variation of the modified BPE algorithm. Merges inputs starting from individual characters.
     CharPair,
     /// The Unigram subword algorithm.
     Unigram,
 }
 impl Default for Mode {
     fn default() -> Self {
-        Self::BytePair
+        Self::CharPair
     }
-}
-
-/// Unicode normalization scheme.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub enum UnicodeNormalization {
-    /// No normalization.
-    None,
-    /// Unicode normalization form D.
-    NFD,
-    /// Unicode normalization form KD.
-    NFKD,
-    /// Unicode normalization form C.
-    NFC,
-    /// Unicode normalization form KC.
-    NFKC,
-    /// Unicode normalization form KC, followed by case folding.
-    NFKCCF,
-    /// Unicode normalization form KC, followed by NMT normalization.
-    NFKCNMT,
-    /// Unicode normalization form KC, followed by NMT normalization, followed by case folding.
-    NFKCNMTCF,
-}
-impl Default for UnicodeNormalization {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
-/// Normalization configuration for encoding and decoding.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub struct Normalization {
-    /// Unicode normalization scheme for inputs.
-    pub unicode:             UnicodeNormalization,
-    /// Whether to trim whitespace from the beginning and end during encoding and encoding.
-    pub trim_whitespace:     bool,
-    /// Whether to collapse whitespace in inputs.
-    pub collapse_whitespace: bool,
-    /// Whether to add prefix whitespace to inputs.
-    pub prefix_whitespace:   bool,
-    /// Whether to collapse unknown tokens in outputs.
-    pub collapse_unknown:    bool,
 }
 
 /// Special tokens.
 ///
 /// The first value of each member is the token id, the second value are the bytes of the token.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct Specials {
     /// The unknown token.
-    pub unk:  Option<(u32, Vec<u8>)>,
+    pub unk: Option<(u32, Vec<u8>)>,
     /// The padding token.
-    pub pad:  Option<(u32, Vec<u8>)>,
+    pub pad: Option<(u32, Vec<u8>)>,
     /// The beginning of sequence token.
-    pub bos:  Option<(u32, Vec<u8>)>,
+    pub bos: Option<(u32, Vec<u8>)>,
     /// The end of sequence token.
-    pub eos:  Option<(u32, Vec<u8>)>,
+    pub eos: Option<(u32, Vec<u8>)>,
     /// The separator token.
-    pub sep:  Option<(u32, Vec<u8>)>,
+    pub sep: Option<(u32, Vec<u8>)>,
+    /// The class token.
+    pub cls: Option<(u32, Vec<u8>)>,
     /// The mask token.
-    pub mask: Option<(u32, Vec<u8>)>,
-}
-
-/// Configuration for the tokenizer.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub struct Configuration {
-    /// The regex used to split text into parts during encoding.
-    pub split:         String,
-    /// The tokenization mode.
-    pub mode:          Mode,
-    /// The normalization scheme.
-    pub normalization: Normalization,
-    /// The special tokens.
-    pub specials:      Specials,
+    pub msk: Option<(u32, Vec<u8>)>,
 }
 
 /// Errors returned when the configuration fails to validate.
 #[non_exhaustive]
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-pub enum ValidationError {
-    /// The unknown token `specials.unk` must be set when `collapse_unknown` is enabled.
-    #[cfg_attr(
-        feature = "std",
-        error("unknown_token_id must be set when collapse_unknown is enabled")
-    )]
-    InvalidCollapseUnknown,
-    /// The normalization scheme is not supported. The `unicode-normalization` feature must be enabled to use normalization.
+pub enum ConfigurationError {
+    /// The normalization scheme is not supported. The `unicode-normalization` feature must be enabled to use Unicode normalization.
     #[cfg_attr(
         feature = "std",
         error(
             "unsupported normalization: {0:?} (the `unicode-normalization` feature must be enabled)"
         )
     )]
-    InvalidNormalization(UnicodeNormalization),
+    InvalidNormalization(Normalization),
+}
+
+/// Configuration for the tokenizer.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub struct Configuration {
+    /// The tokenization mode.
+    pub mode:          Mode,
+    /// The special tokens.
+    pub specials:      Specials,
+    /// The input normalization scheme.
+    pub normalization: Vec<Normalization>,
+    /// The pre-tokenization split behavior.
+    pub split:         Vec<Split>,
+    /// The post-tokenization processing.
+    pub processing:    Vec<Processing>,
+    /// The post-decode processing.
+    pub decoding:      Vec<Decoding>,
 }
 
 impl Configuration {
     /// Validates the configuration.
     ///
     /// Returns an error if the configuration is invalid.
-    pub fn validate(&self) -> Result<(), ValidationError> {
-        let normalization = &self.normalization;
-        if normalization.collapse_unknown && self.specials.unk.is_none() {
-            return Err(ValidationError::InvalidCollapseUnknown);
-        }
-        if normalize_unicode_in_place(&mut String::new(), normalization.unicode).is_none() {
-            return Err(ValidationError::InvalidNormalization(normalization.unicode));
+    pub fn validate(&self) -> Result<(), ConfigurationError> {
+        #[cfg(not(feature = "unicode-normalization"))]
+        if let Some(normalization) = self
+            .normalization
+            .iter()
+            .find(|&norm| matches!(norm, Normalization::Unicode { .. }))
+        {
+            return Err(ConfigurationError::InvalidNormalization(normalization.clone()));
         }
         Ok(())
     }
 
-    /// Returns whether normalization of input data before encoding is enabled.
-    pub fn normalize_encode_input_enabled(&self) -> bool {
-        let normalization = &self.normalization;
-        normalization.unicode != UnicodeNormalization::None
-            || normalization.collapse_whitespace
-            || normalization.trim_whitespace
-            || normalization.prefix_whitespace
-    }
-
-    pub(crate) fn normalize_encode_input(&self, text: &mut String) {
-        let normalization = &self.normalization;
-        if normalization.unicode != UnicodeNormalization::None {
-            normalize_unicode_in_place(text, normalization.unicode);
-        }
-        if normalization.collapse_whitespace {
-            collapse_whitespace_in_place(text);
-        }
-        if normalization.trim_whitespace {
-            trim_whitespace_in_place(unsafe { text.as_mut_vec() }, None);
-        }
-        if normalization.prefix_whitespace {
-            text.insert(0, ' ');
+    /// Normalizes the input before tokenization.
+    #[inline(always)]
+    pub fn normalize(&self, text: &mut Cow<str>) {
+        for norm in &self.normalization {
+            norm.normalize(text);
         }
     }
 
-    /// Returns whether normalization of output data after encoding is enabled.
-    pub fn normalize_encode_output_enabled(&self) -> bool {
-        let normalization = &self.normalization;
-        normalization.collapse_unknown && self.specials.unk.is_some()
+    /// Splits the input into parts to tokenize.
+    #[inline(always)]
+    pub fn split(&self, text: &str) -> Vec<(usize, usize)> {
+        if self.split.is_empty() {
+            return Vec::from([(0, text.len())]);
+        }
+        if self.split.len() == 1 {
+            return self.split[0].split(text);
+        }
+        let mut matches = Vec::from([(0, text.len())]);
+        for split in &self.split {
+            let split_matches = matches.iter().map(|&(start, end)| {
+                let mut split_match = split.split(&text[start..end]);
+                split_match.iter_mut().for_each(|(split_start, split_end)| {
+                    *split_start += start;
+                    *split_end += start;
+                });
+                split_match
+            });
+            matches = split_matches.flatten().collect();
+        }
+        matches
     }
 
-    pub(crate) fn normalize_encode_output(&self, tokens: &mut Vec<u32>) {
-        let normalization = &self.normalization;
-        if normalization.collapse_unknown {
-            if let Some((unk_id, _)) = self.specials.unk {
-                collapse_tokens_in_place(tokens, unk_id);
-            }
+    /// Processes the tokens after tokenization.
+    #[inline(always)]
+    pub fn process(&self, tokens: &mut Vec<u32>) {
+        for processing in &self.processing {
+            processing.process(tokens);
         }
     }
 
-    /// Returns whether normalization of output data after decoding is enabled.
-    pub fn normalize_decode_output_enabled(&self) -> bool {
-        let normalization = &self.normalization;
-        normalization.trim_whitespace || normalization.prefix_whitespace
-    }
-
-    pub(crate) fn normalize_decode_output(&self, text: &mut Vec<u8>) {
-        let normalization = &self.normalization;
-        if normalization.trim_whitespace {
-            trim_whitespace_in_place(text, self.specials.unk.as_ref().map(|(_, unk)| unk.as_ref()));
-        }
-        if normalization.prefix_whitespace
-            && !text.is_empty()
-            && text[0] == b' '
-            && (self.specials.unk.is_none()
-                || !text.starts_with(self.specials.unk.as_ref().map(|(_, unk)| unk).unwrap()))
-        {
-            text.remove(0);
+    /// Postprocesses the bytes after detokenization.
+    #[inline(always)]
+    pub fn decode(&self, tokens: &mut Vec<u8>) {
+        for decoding in &self.decoding {
+            decoding.decode(tokens);
         }
     }
 }
