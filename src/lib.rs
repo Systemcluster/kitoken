@@ -65,6 +65,7 @@ use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::num::NonZeroUsize;
+use core::ops::Range;
 use core::str::Utf8Error;
 
 use debug_ignore::DebugIgnore;
@@ -162,20 +163,27 @@ pub(crate) struct Token {
     token: u32,
     score: f32,
 }
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Score {
+    score: u32,
+}
 
+pub(crate) type ScoreMap = HashMap<Vec<u8>, Score>;
 pub(crate) type EncoderMap = HashMap<Vec<u8>, Token>;
 pub(crate) type DecoderMap = HashMap<u32, Vec<u8>>;
 
 pub(crate) type PieceHeap = DaryHeapOfIndices<u32, LinkedPart, 4>;
 
-static HEAP_PIECE_SIZE: usize = 256;
+const ENCODE_LINEAR_LIMIT: usize = 192;
+const ENCODE_BUFFER_SIZE: usize = 256;
 
 /// Kitoken tokenizer.
 /// A fast and versatile tokenizer for language models.
 #[derive(Debug)]
 pub struct Kitoken {
-    encoder: DebugIgnore<EncoderMap>,
-    decoder: DebugIgnore<DecoderMap>,
+    encoder:       DebugIgnore<EncoderMap>,
+    score_encoder: DebugIgnore<ScoreMap>,
+    decoder:       DebugIgnore<DecoderMap>,
 
     special_encoder: DebugIgnore<EncoderMap>,
     special_decoder: DebugIgnore<DecoderMap>,
@@ -186,6 +194,7 @@ pub struct Kitoken {
     meta:   Metadata,
 
     max_token_bytes: usize,
+    min_token_bytes: usize,
 }
 impl Kitoken {
     /// Creates a tokenizer from the given encoder, specials, scores and config.
@@ -209,6 +218,15 @@ impl Kitoken {
             return Err(InitializationError::InvalidScores);
         }
 
+        let decoder = vocab.iter().map(|(k, v)| (*v, k.clone())).collect::<DecoderMap>();
+        if vocab.len() != decoder.len() {
+            return Err(InitializationError::InvalidEncoder);
+        }
+        let special_decoder = specials.iter().map(|(k, v)| (*v, k.clone())).collect::<DecoderMap>();
+        if specials.len() != special_decoder.len() {
+            return Err(InitializationError::InvalidSpecialEncoder);
+        }
+
         let special_split = Regex::new(
             &specials
                 .iter()
@@ -220,28 +238,29 @@ impl Kitoken {
                 .join("|"),
         )?;
 
-        let decoder = vocab.iter().map(|(k, v)| (*v, k.clone())).collect::<DecoderMap>();
-        if vocab.len() != decoder.len() {
-            return Err(InitializationError::InvalidEncoder);
-        }
-        let special_decoder = specials.iter().map(|(k, v)| (*v, k.clone())).collect::<DecoderMap>();
-        if specials.len() != special_decoder.len() {
-            return Err(InitializationError::InvalidSpecialEncoder);
-        }
-
+        let score_encoder = vocab
+            .iter()
+            .enumerate()
+            .map(|(i, (k, _))| (k.clone(), Score { score: i as u32 }))
+            .collect::<ScoreMap>();
         let encoder = vocab
             .into_iter()
             .enumerate()
             .map(|(i, (k, v))| {
-                let score = if config.mode == Mode::Unigram {
-                    scores[i]
+                if config.mode == Mode::Unigram {
+                    (k, Token {
+                        token: v,
+                        score: scores[i],
+                    })
                 } else {
-                    i as f32
-                };
-                Some((k, Token { token: v, score }))
+                    (k, Token {
+                        token: v,
+                        score: 0.0,
+                    })
+                }
             })
-            .collect::<Option<EncoderMap>>()
-            .ok_or(InitializationError::InvalidScores)?;
+            .collect::<EncoderMap>();
+
         let special_encoder = specials
             .into_iter()
             .enumerate()
@@ -253,10 +272,12 @@ impl Kitoken {
             })
             .collect::<EncoderMap>();
 
-        let max_token_bytes = encoder.keys().map(|k| k.len()).max().unwrap();
+        let max_token_bytes = encoder.keys().map(|k| k.len()).max().unwrap().max(1);
+        let min_token_bytes = encoder.keys().map(|k| k.len()).min().unwrap().max(1);
         let meta = Metadata::default();
 
         Ok(Self {
+            score_encoder: DebugIgnore(score_encoder),
             encoder: DebugIgnore(encoder),
             decoder: DebugIgnore(decoder),
             special_encoder: DebugIgnore(special_encoder),
@@ -265,6 +286,7 @@ impl Kitoken {
             config,
             meta,
             max_token_bytes,
+            min_token_bytes,
         })
     }
 
@@ -296,7 +318,7 @@ impl Kitoken {
         &self, tokens: impl AsRef<[u32]>, decode_specials: bool,
     ) -> Result<Vec<u8>, DecodeError> {
         let tokens = tokens.as_ref();
-        let mut result = Vec::<u8>::with_capacity(tokens.len() * 4);
+        let mut result = Vec::<u8>::with_capacity(tokens.len() * self.max_token_bytes);
         for token in tokens {
             if let Some((unk_id, unk)) = &self.config.specials.unk {
                 if token == unk_id {
@@ -324,6 +346,9 @@ impl Kitoken {
     /// Returns a list of parts.
     #[inline(never)]
     fn split_into_parts(&self, text: &str, split_specials: bool) -> Vec<TextPart> {
+        if text.is_empty() {
+            return Vec::new();
+        }
         let mut parts = Vec::<TextPart>::with_capacity(text.len() / 6);
         let mut posit = 0;
         loop {
@@ -361,78 +386,82 @@ impl Kitoken {
     /// Returns an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
     #[inline(never)]
     fn encode_parts(&self, text: &str, parts: &[TextPart]) -> Result<Vec<u32>, EncodeError> {
-        let mut result = Vec::with_capacity(text.len() / 3);
+        if parts.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut result =
+            Vec::with_capacity(text.len() / self.min_token_bytes + self.max_token_bytes);
         match self.config.mode {
             Mode::BytePair => {
-                let mut buffer = Vec::with_capacity(HEAP_PIECE_SIZE);
+                let mut buffer = Vec::with_capacity(ENCODE_BUFFER_SIZE);
                 for part in parts {
-                    let piece = &text[part.start..part.end.get()];
+                    let piece = &text[part.range()];
                     if part.special {
                         result.push(self.special_encoder[piece.as_bytes()].token);
                         continue;
                     }
-                    if let Some(&token) = self.encoder.get(piece.as_bytes()) {
-                        result.push(token.token);
-                        continue;
+                    if piece.len() <= self.max_token_bytes && piece.len() >= self.min_token_bytes {
+                        if let Some(&token) = self.encoder.get(piece.as_bytes()) {
+                            result.push(token.token);
+                            continue;
+                        }
                     }
-                    if piece.len() >= HEAP_PIECE_SIZE {
-                        self.encode_pairs_heap(
+                    if piece.len() > ENCODE_LINEAR_LIMIT {
+                        self.encode_pairs_heap::<false>(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
                             (0..piece.len()).map(|i| (i as _, 1)),
-                            false,
                         )?;
                     } else {
-                        self.encode_pairs(
+                        self.encode_pairs::<false>(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
                             0..piece.len(),
-                            false,
                         )?;
                     }
                     buffer.clear();
                 }
             }
             Mode::CharPair => {
-                let mut buffer = Vec::with_capacity(HEAP_PIECE_SIZE);
-                let mut indices = Vec::with_capacity(HEAP_PIECE_SIZE);
+                let mut buffer = Vec::with_capacity(ENCODE_BUFFER_SIZE);
+                let mut indices = Vec::with_capacity(ENCODE_BUFFER_SIZE);
                 for part in parts {
-                    let piece = &text[part.start..part.end.get()];
+                    let piece = &text[part.range()];
                     if part.special {
                         result.push(self.special_encoder[piece.as_bytes()].token);
                         continue;
                     }
-                    if let Some(&token) = self.encoder.get(piece.as_bytes()) {
-                        result.push(token.token);
-                        continue;
+                    if piece.len() <= self.max_token_bytes && piece.len() >= self.min_token_bytes {
+                        if let Some(&token) = self.encoder.get(piece.as_bytes()) {
+                            result.push(token.token);
+                            continue;
+                        }
                     }
                     indices.extend(piece.char_indices());
-                    if indices.len() >= HEAP_PIECE_SIZE {
-                        self.encode_pairs_heap(
+                    if indices.len() > ENCODE_LINEAR_LIMIT {
+                        self.encode_pairs_heap::<true>(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
                             indices.drain(..).map(|(i, c)| (i as _, c.len_utf8() as _)),
-                            true,
                         )?;
                     } else {
-                        self.encode_pairs(
+                        self.encode_pairs::<true>(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
                             indices.drain(..).map(|(i, _)| i),
-                            true,
                         )?;
                     }
                     buffer.clear();
                 }
             }
             Mode::Unigram => {
-                let mut buffer = Vec::with_capacity(HEAP_PIECE_SIZE);
+                let mut buffer = Vec::with_capacity(ENCODE_BUFFER_SIZE);
                 for part in parts {
-                    let piece = &text[part.start..part.end.get()];
+                    let piece = &text[part.range()];
                     if part.special {
                         result.push(self.special_encoder[piece.as_bytes()].token);
                         continue;
@@ -450,50 +479,51 @@ impl Kitoken {
         Ok(result)
     }
 
+    /// Returns the score for the given token in piece between start and end of parts.
+    #[inline(always)]
+    fn get_score(&self, piece: &[u8], parts: &[Part], start: usize, end: usize) -> u32 {
+        if end < parts.len() {
+            self.score_encoder
+                .get(
+                    &piece[unsafe {
+                        parts.get_unchecked(start).start..parts.get_unchecked(end).start
+                    }],
+                )
+                .map(|t| t.score)
+                .unwrap_or(u32::MAX)
+        } else {
+            u32::MAX
+        }
+    }
+
     /// Merges the given parts according to the BPE algorithm, prioritizing merges with the lowest score.
     #[inline(never)]
     fn merge_bpe_parts(&self, piece: &[u8], parts: &mut Vec<Part>, start: usize) {
         if parts.len() <= start + 1 {
             return;
         }
-        let update_bpe_part = {
-            #[inline(always)]
-            |piece: &[u8], parts: &mut [Part], start: usize, end: usize| {
-                if end >= parts.len()
-                    || parts[end].start - parts[start].start > self.max_token_bytes
-                {
-                    parts[start].score = f32::MAX;
-                } else if let Some(entry) =
-                    self.encoder.get(&piece[parts[start].start..parts[end].start])
-                {
-                    parts[start].score = entry.score;
-                    parts[start].token = entry.token;
-                } else {
-                    parts[start].score = f32::MAX;
-                }
+        let mut min_score = u32::MAX;
+        let mut i = start;
+        for j in start..parts.len() - 1 {
+            parts[j].score = self.get_score(piece, &parts[..], j, j + 2);
+            if parts[j].score < min_score {
+                min_score = parts[j].score;
+                i = j;
             }
-        };
-        for i in start..parts.len() - 1 {
-            update_bpe_part(piece, &mut parts[..], i, i + 2);
         }
-        while parts.len() > start + 1 {
-            let mut min_score = f32::MAX;
-            let mut i = start;
+        while min_score != u32::MAX {
+            parts[i].score = self.get_score(piece, parts, i, i + 3);
+            if i > start {
+                parts[i - 1].score = self.get_score(piece, parts, i - 1, i + 2);
+            }
+            parts.remove(i + 1);
+            min_score = u32::MAX;
             for (j, &Part { score, .. }) in parts[start..parts.len() - 1].iter().enumerate() {
                 if score < min_score {
                     min_score = score;
                     i = j + start;
                 }
             }
-            if min_score == f32::MAX {
-                break;
-            }
-            update_bpe_part(piece, parts, i, i + 3);
-            if i > start {
-                update_bpe_part(piece, parts, i - 1, i + 2);
-                parts[i - 1].token = u32::MAX;
-            }
-            parts.remove(i + 1);
         }
     }
 
@@ -501,33 +531,27 @@ impl Kitoken {
     ///
     /// Returns an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
     #[inline(never)]
-    fn encode_pairs(
+    fn encode_pairs<const CHAR_PAIRS: bool>(
         &self, piece: &[u8], buffer: &mut Vec<Part>, result: &mut Vec<u32>,
-        indices: impl Iterator<Item = usize>, byte_pair_fallback: bool,
+        indices: impl Iterator<Item = usize>,
     ) -> Result<(), EncodeError> {
         let start = buffer.len();
         buffer.extend(indices.map(|i| Part {
             start: i,
-            score: f32::MAX,
-            token: u32::MAX,
+            score: u32::MAX,
         }));
         buffer.push(Part {
             start: piece.len(),
-            score: f32::MAX,
-            token: u32::MAX,
+            score: u32::MAX,
         });
         self.merge_bpe_parts(piece, buffer, start);
         let end = buffer.len() - 1;
         for i in start..end {
-            if buffer[i].token != u32::MAX {
-                result.push(buffer[i].token);
-                continue;
-            }
             let piece = &piece[buffer[i].start..buffer[i + 1].start];
             if let Some(token) = self.encoder.get(piece) {
                 result.push(token.token);
-            } else if byte_pair_fallback {
-                self.encode_pairs(piece, buffer, result, 0..piece.len(), false)?;
+            } else if CHAR_PAIRS {
+                self.encode_pairs::<false>(piece, buffer, result, 0..piece.len())?;
             } else if let Some((unk_id, _)) = self.config.specials.unk {
                 result.push(unk_id);
             } else {
@@ -545,7 +569,7 @@ impl Kitoken {
     fn merge_bpe_parts_heap(&self, piece: &[u8], heap: &mut PieceHeap) {
         while heap.len() > 1 {
             let &(i, mut part) = heap.peek().unwrap();
-            if part.score == f32::MAX {
+            if part.score == u32::MAX {
                 break;
             }
             let next = heap.remove(&part.after);
@@ -554,28 +578,26 @@ impl Kitoken {
             if part.after != u32::MAX {
                 let mut next = heap.key_of(&part.after).unwrap();
                 if let Some(token) =
-                    self.encoder.get(&piece[part.start as _..(next.start + next.width) as _])
+                    self.score_encoder.get(&piece[part.start as _..(next.start + next.width) as _])
                 {
                     part.score = token.score;
-                    part.token = token.token;
                 } else {
-                    part.score = f32::MAX;
+                    part.score = u32::MAX;
                 }
                 next.prior = i;
                 heap.update_key(&part.after, next);
             } else {
-                part.score = f32::MAX;
+                part.score = u32::MAX;
             }
             if part.prior != u32::MAX {
                 let mut prior = heap.key_of(&(part.prior)).unwrap();
                 if let Some(token) =
-                    self.encoder.get(&piece[prior.start as _..(part.start + part.width) as _])
+                    self.score_encoder.get(&piece[prior.start as _..(part.start + part.width) as _])
                 {
                     prior.score = token.score;
                 } else {
-                    prior.score = f32::MAX;
+                    prior.score = u32::MAX;
                 }
-                prior.token = u32::MAX;
                 heap.update_key(&part.prior, prior);
             }
             heap.update_key(&i, part);
@@ -586,9 +608,9 @@ impl Kitoken {
     ///
     /// This version uses a heap for tracking the merge candidates.
     #[inline(never)]
-    fn encode_pairs_heap(
+    fn encode_pairs_heap<const CHAR_PAIRS: bool>(
         &self, piece: &[u8], buffer: &mut Vec<Part>, result: &mut Vec<u32>,
-        indices: impl Iterator<Item = (u32, u32)>, byte_pair_fallback: bool,
+        indices: impl Iterator<Item = (u32, u32)>,
     ) -> Result<(), EncodeError> {
         let mut heap = PieceHeap::with_index_bound(piece.len());
         let mut prior = u32::MAX;
@@ -609,14 +631,13 @@ impl Kitoken {
                     u32::MAX
                 },
                 score: if let Some((_, (_, n))) = next {
-                    self.encoder
+                    self.score_encoder
                         .get(&piece[i as _..(i + c + n) as _])
                         .map(|t| t.score)
-                        .unwrap_or(f32::MAX)
+                        .unwrap_or(u32::MAX)
                 } else {
-                    f32::MAX
+                    u32::MAX
                 },
-                token: u32::MAX,
             });
             prior = e as _;
         }
@@ -624,16 +645,11 @@ impl Kitoken {
         let mut e = 0;
         while e <= prior {
             let part = heap.key_of(&e).unwrap();
-            if part.token != u32::MAX {
-                result.push(part.token);
-                e = part.after;
-                continue;
-            }
             let piece = &piece[part.start as _..(part.start + part.width) as _];
             if let Some(token) = self.encoder.get(piece) {
                 result.push(token.token);
-            } else if byte_pair_fallback {
-                self.encode_pairs(piece, buffer, result, 0..piece.len(), false)?;
+            } else if CHAR_PAIRS {
+                self.encode_pairs::<false>(piece, buffer, result, 0..piece.len())?;
             } else if let Some((unk_id, _)) = self.config.specials.unk {
                 result.push(unk_id);
             } else {
@@ -712,12 +728,17 @@ struct TextPart {
     end:     NonZeroUsize,
     special: bool,
 }
+impl TextPart {
+    #[inline(always)]
+    fn range(&self) -> Range<usize> {
+        self.start..self.end.get()
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 struct Part {
     start: usize,
-    score: f32,
-    token: u32,
+    score: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -726,8 +747,7 @@ struct LinkedPart {
     width: u32,
     prior: u32,
     after: u32,
-    score: f32,
-    token: u32,
+    score: u32,
 }
 impl PartialEq for LinkedPart {
     #[inline(always)]

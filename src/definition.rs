@@ -123,11 +123,22 @@ impl Kitoken {
     /// See [`Definition`] for more details.
     #[inline(never)]
     pub fn to_definition(&self) -> Definition {
-        let mut vocab = self.encoder.iter().map(|(k, v)| (k.clone(), v)).collect::<Vec<_>>();
-        vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
-            Ordering::Equal => a.token.cmp(&b.token),
-            other => other,
-        });
+        let mut vocab = self.encoder.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
+        if self.config.mode == Mode::Unigram {
+            vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
+                Ordering::Equal => a.token.cmp(&b.token),
+                other => other,
+            });
+        } else {
+            vocab.sort_by(|(ta, a), (tb, b)| {
+                let sa = self.score_encoder.get(ta).copied().unwrap();
+                let sb = self.score_encoder.get(tb).copied().unwrap();
+                match sa.score.cmp(&sb.score) {
+                    Ordering::Equal => a.token.cmp(&b.token),
+                    other => other,
+                }
+            });
+        };
         let scores = if self.config.mode == Mode::Unigram {
             vocab.iter().map(|(_, v)| v.score).collect::<Scores>()
         } else {
