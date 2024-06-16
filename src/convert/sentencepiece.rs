@@ -72,12 +72,12 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         if trainer.treat_whitespace_as_suffix() {
             treat_whitespace_as_suffix = true;
             config.split.push(Split::Pattern {
-                pattern:  Regex::new(r"[ ]+")?,
+                pattern:  Regex::new(r"[▁]+")?,
                 behavior: SplitBehavior::MergeLeft,
             });
         } else {
             config.split.push(Split::Pattern {
-                pattern:  Regex::new(r"[ ]+")?,
+                pattern:  Regex::new(r"[▁]+")?,
                 behavior: SplitBehavior::MergeRight,
             });
         }
@@ -92,7 +92,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         model_type = trainer.model_type();
     } else {
         config.split.push(Split::Pattern {
-            pattern:  Regex::new(r"[ ]+")?,
+            pattern:  Regex::new(r"[▁]+")?,
             behavior: SplitBehavior::MergeRight,
         });
     }
@@ -165,18 +165,26 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         }
         if normalizer.add_dummy_prefix() {
             config.normalization.push(Normalization::Extend {
-                character: ' ',
+                character: '▁',
                 left:      if treat_whitespace_as_suffix { 0 } else { 1 },
                 right:     if treat_whitespace_as_suffix { 1 } else { 0 },
                 pad:       false,
             });
             config.decoding.push(Decoding::Strip {
-                character: ' ',
+                character: '▁',
                 left:      if treat_whitespace_as_suffix { 0 } else { 1 },
                 right:     if treat_whitespace_as_suffix { 1 } else { 0 },
             });
         }
     }
+    config.normalization.push(Normalization::Replace {
+        pattern:     Regex::new(" ")?,
+        replacement: "▁".to_string(),
+    });
+    config.decoding.push(Decoding::Replace {
+        pattern:     "▁".to_string(),
+        replacement: " ".to_string(),
+    });
 
     let mut vocab = HashMap::<Vec<u8>, ParsedPiece>::with_capacity(model.pieces.len());
     let mut specials = HashMap::<Vec<u8>, ParsedPiece>::default();
@@ -195,7 +203,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                 .map_err(|e| ConversionError::InvalidNumber(format!("{:?}", e)))?;
             [rune as u8].to_vec()
         } else {
-            text.to_string().replace('▁', " ").as_bytes().to_vec()
+            text.as_bytes().to_vec()
         };
 
         if piece_type == Type::UserDefined

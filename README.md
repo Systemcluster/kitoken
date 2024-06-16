@@ -80,9 +80,8 @@ If the model does not contain a trainer definition, `Unigram` will be used as th
 
 Normalization options and the unicode normalization scheme are taken from the contained normalizer definition.
 
-Kitoken differs from SentencePiece in the tokenization of two characters:
+Kitoken differs from SentencePiece in the tokenization of one character:
 
-- SentencePiece uses the `▁` character to indicate whitespace in its vocabulary, which results in any `▁` in inputs also being treated as whitespace. When converting to a Kitoken definition, `▁` is replaced with a regular space in the vocabulary, and Kitoken will treat `▁` and space as different characters.
 - SentencePiece uses [different `nfkc` normalization rules in the `nmt_nfkc` and `nmt_nfkc_cf` schemes](https://github.com/google/sentencepiece/blob/master/doc/normalization.md) than during regular `nfkc` normalization. This difference is not entirely additive and prevents the normalization of `～` to `~`. Kitoken uses the regular `nfkc` normalization rules for `nmt_nfkc` and `nmt_nfkc_cf` and normalizes `～` to `~`.
 
 ### Tokenizers

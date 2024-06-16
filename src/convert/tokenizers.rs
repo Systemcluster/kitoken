@@ -415,7 +415,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
 
     let mut decode_byte_runes = false;
     let mut decode_byte_chars = false;
-    let mut decode_metaspace = None;
 
     let mut normalizers = VecDeque::from_iter(tokenizer.normalizer);
     let mut pre_tokenizers = VecDeque::from_iter(tokenizer.pre_tokenizer);
@@ -588,16 +587,22 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                         character: ' ',
                         left:      1,
                         right:     0,
-                        pad:       false,
+                        pad:       true,
                     });
                 }
+                config.normalization.push(Normalization::Replace {
+                    pattern:     Regex::new(r" ")?,
+                    replacement: replacement.to_string(),
+                });
                 if split {
                     config.split.push(Split::Pattern {
-                        pattern:  Regex::new(r"[ ]+")?,
+                        pattern:  Regex::new(&format!(
+                            "{}+",
+                            crate::regex::escape(&replacement.to_string())
+                        ))?,
                         behavior: SplitBehavior::MergeRight,
                     });
                 }
-                decode_metaspace = Some(replacement);
             }
             PreTokenizer::Whitespace => {
                 config.split.push(Split::Pattern {
@@ -727,14 +732,10 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             Decoder::Metaspace {
                 prepend_scheme,
                 add_prefix_space,
+                replacement,
                 ..
             } => {
                 use hf::PrependScheme;
-                if decode_metaspace.is_none() {
-                    return Err(ConversionError::UnsupportedConfiguration(
-                        "Metaspace decoder without Metaspace pre-tokenizer".to_string(),
-                    ));
-                }
                 if add_prefix_space == Some(false) && prepend_scheme != PrependScheme::Never {
                     return Err(ConversionError::UnsupportedConfiguration(
                         "Metaspace decoder with prepend_scheme != Never and add_prefix_space = false"
@@ -743,11 +744,15 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 }
                 if prepend_scheme != PrependScheme::Never {
                     config.decoding.push(Decoding::Strip {
-                        character: ' ',
+                        character: replacement,
                         left:      1,
                         right:     0,
                     });
                 }
+                config.decoding.push(Decoding::Replace {
+                    pattern:     replacement.to_string(),
+                    replacement: " ".to_string(),
+                });
             }
             Decoder::CTC {
                 pad_token,
@@ -821,58 +826,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 decode_byte_runes = true;
             }
         }
-    }
-
-    // Detect manual Metaspace normalization
-    if config.normalization.iter().any(|n| {
-        matches!(n,
-            Normalization::Replace { pattern, replacement }
-            if pattern.as_ref() == r" " && replacement == "▁")
-    }) && config.decoding.iter().any(|d| {
-        matches!(d,
-            Decoding::Replace { pattern, replacement }
-            if pattern == "▁" && replacement == " ")
-    }) {
-        config.normalization.retain(|n| {
-            !matches!(n,
-                Normalization::Replace { pattern, replacement }
-                if pattern.as_ref() == r" " && replacement == "▁")
-        });
-        config.decoding.retain(|d| {
-            !matches!(d,
-                Decoding::Replace { pattern, replacement }
-                if pattern == "▁" && replacement == " ")
-        });
-        decode_metaspace = Some('▁');
-
-        if config.normalization.iter().any(|n| {
-            matches!(n,
-                Normalization::Prepend {prepend}
-                if prepend == "▁")
-        }) && config.decoding.iter().any(|d| {
-            matches!(d,
-                Decoding::Strip {character: ' ', left, right}
-                if *left == 1 && *right == 0)
-        }) {
-            config.normalization.retain(|n| {
-                !matches!(n,
-                    Normalization::Prepend {prepend}
-                    if prepend == "▁")
-            });
-            config.normalization.push(Normalization::Extend {
-                character: ' ',
-                left:      1,
-                right:     0,
-                pad:       false,
-            });
-        }
-    }
-
-    if decode_metaspace.is_some() && config.split.is_empty() {
-        config.split.push(Split::Pattern {
-            pattern:  Regex::new("[ ]+")?,
-            behavior: SplitBehavior::MergeRight,
-        });
     }
 
     // Convert vocab
@@ -1041,18 +994,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
         }
     };
 
-    // Replace Metaspace placeholders
-    if let Some(metaspace) = decode_metaspace {
-        let mut buffer = [0; 4];
-        let metaspace = metaspace.encode_utf8(&mut buffer).as_bytes();
-        let replace_metaspace = |vocab: &mut Vocab| {
-            vocab.iter_mut().for_each(|(token, _)| {
-                *token = token.replace(metaspace, " ");
-            });
-        };
-        replace_metaspace(&mut vocab);
-        replace_metaspace(&mut specials);
-    }
     // Replace byte character placeholders
     if decode_byte_chars {
         let (byte_encoder, _) = build_byte_encoder_decoder();
