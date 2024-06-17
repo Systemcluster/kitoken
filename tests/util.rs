@@ -66,38 +66,39 @@ pub fn read_tokens_full(path: impl Into<PathBuf>) -> Vec<u32> {
 }
 
 pub fn check_encode_decode_same(
-    tokenizer: &Kitoken, input: &str, tokens: &[u32],
+    tokenizer: &Kitoken, input: &str, tokens: &[u32], encode_specials: bool,
 ) -> (bool, Vec<u32>, bool, Vec<u8>) {
-    check_encode_decode_different(tokenizer, input, tokens, input)
+    check_encode_decode_different(tokenizer, input, tokens, input, encode_specials)
 }
 
 pub fn check_encode_decode_different(
-    tokenizer: &Kitoken, input: &str, tokens: &[u32], output: &str,
+    tokenizer: &Kitoken, input: &str, tokens: &[u32], output: &str, encode_specials: bool,
 ) -> (bool, Vec<u32>, bool, Vec<u8>) {
-    let encode_result = tokenizer.encode(input, true).unwrap();
+    let encode_result = tokenizer.encode(input, encode_specials).unwrap();
     let encode_ok = encode_result == tokens;
-    let decode_result = tokenizer.decode(&encode_result, true).unwrap();
+    let decode_result = tokenizer.decode(&encode_result, encode_specials).unwrap();
     let decode_ok = decode_result == output.as_bytes();
     (encode_ok, encode_result, decode_ok, decode_result)
 }
 
 pub fn test_encode_decode_full_same(
     tokenizer: &Kitoken, input: impl Into<PathBuf>, tokens: impl Into<PathBuf>,
+    encode_specials: bool,
 ) {
     let input = input.into();
-    test_encode_decode_full_different(tokenizer, &input, tokens, &input);
+    test_encode_decode_full_different(tokenizer, &input, tokens, &input, encode_specials);
 }
 
 pub fn test_encode_decode_full_different(
     tokenizer: &Kitoken, input: impl Into<PathBuf>, tokens: impl Into<PathBuf>,
-    output: impl Into<PathBuf>,
+    output: impl Into<PathBuf>, encode_specials: bool,
 ) {
     let input = read_full(test_data_path().join(input.into()));
     let tokens = read_tokens_full(test_data_path().join(tokens.into()));
     let output = read_full(test_data_path().join(output.into()));
     eprintln!();
     let (encode_ok, _, decode_ok, _) =
-        check_encode_decode_different(tokenizer, &input, &tokens, &output);
+        check_encode_decode_different(tokenizer, &input, &tokens, &output, encode_specials);
     if !encode_ok {
         let line = style("encode mismatch".to_string()).on_red();
         eprintln!("{}", line);
@@ -111,15 +112,23 @@ pub fn test_encode_decode_full_different(
 }
 
 pub fn test_encode_decode_lines_same(
-    tokenizer: &Kitoken, input: impl Into<PathBuf>, tokens: impl Into<PathBuf>, exit_on_error: bool,
+    tokenizer: &Kitoken, input: impl Into<PathBuf>, tokens: impl Into<PathBuf>,
+    encode_specials: bool, exit_on_error: bool,
 ) {
     let input = input.into();
-    test_encode_decode_lines_different(tokenizer, &input, tokens, &input, exit_on_error);
+    test_encode_decode_lines_different(
+        tokenizer,
+        &input,
+        tokens,
+        &input,
+        encode_specials,
+        exit_on_error,
+    );
 }
 
 pub fn test_encode_decode_lines_different(
     tokenizer: &Kitoken, input: impl Into<PathBuf>, tokens: impl Into<PathBuf>,
-    output: impl Into<PathBuf>, exit_on_error: bool,
+    output: impl Into<PathBuf>, encode_specials: bool, exit_on_error: bool,
 ) {
     let input_lines = read_lines(test_data_path().join(input.into()));
     let tokens_lines = read_token_lines(test_data_path().join(tokens.into()));
@@ -141,7 +150,7 @@ pub fn test_encode_decode_lines_different(
         input_lines.iter().zip(tokens_lines.iter()).zip(output_lines.iter()).enumerate()
     {
         let (encode_ok, encode_result, decode_ok, decode_result) =
-            check_encode_decode_different(tokenizer, input, tokens, output);
+            check_encode_decode_different(tokenizer, input, tokens, output, encode_specials);
         if !encode_ok {
             let line = style(format!("encode mismatch #{}", i + 1)).on_red();
             eprintln!("{}{} {:?}", line, sep, encode_result);

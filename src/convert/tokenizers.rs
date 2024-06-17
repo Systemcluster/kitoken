@@ -17,7 +17,8 @@ use hashbrown::HashMap;
 use crate::convert::ConversionError;
 use crate::{
     Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, Normalization,
-    Processing, Regex, Scores, Split, SplitBehavior, UnicodeNormalization, Vocab,
+    Processing, Regex, Scores, SpecialToken, SpecialTokenKind, Split, SplitBehavior,
+    UnicodeNormalization, Vocab,
 };
 
 mod hf {
@@ -828,8 +829,44 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
         }
     }
 
+    let get_specials = |unk_token: Option<&String>, unk_id: Option<u32>| {
+        let mut specials = HashMap::<Vec<u8>, SpecialToken>::with_capacity(
+            tokenizer.added_tokens.as_ref().map_or(0, |added| added.len()),
+        );
+        for (
+            i,
+            AddedToken {
+                content,
+                id,
+                special,
+                ..
+            },
+        ) in tokenizer.added_tokens.iter().flatten().enumerate()
+        {
+            let is_unk = unk_id.as_ref() == Some(id) || unk_token == Some(content);
+            specials.insert(content.as_bytes().to_vec(), SpecialToken {
+                id:    *id,
+                bytes: content.as_bytes().to_vec(),
+                kind:  if is_unk {
+                    SpecialTokenKind::Unknown
+                } else if *special {
+                    SpecialTokenKind::Control
+                } else {
+                    SpecialTokenKind::Priority
+                },
+                score: i as f32,
+                ident: if is_unk {
+                    Some("unk".to_string())
+                } else {
+                    None
+                },
+            });
+        }
+        specials
+    };
+
     // Convert vocab
-    let (mut vocab, mut specials, scores) = match tokenizer.model {
+    let (mut vocab, specials, scores) = match tokenizer.model {
         Model::BPE(model) => {
             if decode_byte_chars {
                 config.mode = Mode::BytePair;
@@ -838,25 +875,18 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             }
 
             let mut vocab = HashMap::<Vec<u8>, u32>::with_capacity(model.vocab.len());
-            let mut specials = HashMap::<Vec<u8>, u32>::with_capacity(
-                tokenizer.added_tokens.as_ref().map_or(0, |added| added.len()),
-            );
             for (token, id) in model.vocab {
                 vocab.insert(token.as_bytes().to_vec(), id);
             }
-            for AddedToken { content, id, .. } in tokenizer.added_tokens.iter().flatten() {
-                let token = content.as_bytes().to_vec();
-                specials.insert(token, *id);
-            }
+            let specials = get_specials(model.unk_token.as_ref(), None);
             for special in specials.keys() {
                 vocab.remove(special);
             }
 
             if let Some(unk) = model.unk_token {
-                if let Some(&id) = specials.get(unk.as_bytes()) {
-                    config.specials.unk = Some((id, unk.as_bytes().to_vec()));
+                if let Some(special) = specials.get(unk.as_bytes()) {
                     if let Some(true) = model.fuse_unk {
-                        config.processing.push(Processing::Collapse { id });
+                        config.processing.push(Processing::Collapse { id: special.id });
                     }
                 } else {
                     return Err(ConversionError::InvalidData(format!(
@@ -908,8 +938,9 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             };
             let mut vocab = vocab.into_iter().collect::<Vec<_>>();
             sort_vocab(&mut vocab);
-            let mut specials = specials.into_iter().collect::<Vec<_>>();
-            sort_vocab(&mut specials);
+
+            let mut specials = specials.into_values().collect::<Vec<_>>();
+            specials.sort();
 
             let scores = Vec::with_capacity(0);
             (vocab, specials, scores)
@@ -918,9 +949,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             config.mode = Mode::Unigram;
 
             let mut vocab = HashMap::<Vec<u8>, ParsedPiece>::with_capacity(model.vocab.len());
-            let mut specials = HashMap::<Vec<u8>, ParsedPiece>::with_capacity(
-                tokenizer.added_tokens.as_ref().map_or(0, |added| added.len()),
-            );
 
             for (index, (token, score)) in model.vocab.into_iter().enumerate() {
                 vocab.insert(token.as_bytes().to_vec(), ParsedPiece {
@@ -928,41 +956,16 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     score: score as f32,
                 });
             }
-            for AddedToken {
-                content,
-                id,
-                special,
-                ..
-            } in tokenizer.added_tokens.iter().flatten()
-            {
-                let token = content.as_bytes().to_vec();
-                if *special {
-                    specials.insert(token, ParsedPiece {
-                        index: *id,
-                        score: 0.0,
-                    });
-                } else if let Some(ParsedPiece { index, .. }) = vocab.get(&token) {
-                    if index != id {
-                        return Err(ConversionError::InvalidData(format!(
-                            "Added token {:?} is already in vocab as {:?}",
-                            content, index
-                        )));
-                    }
-                } else {
-                    vocab.insert(token, ParsedPiece {
-                        index: *id,
-                        score: 0.0,
-                    });
-                }
-            }
+            let specials = get_specials(None, model.unk_id.map(|id| id as u32));
             for special in specials.keys() {
                 vocab.remove(special);
             }
 
             if let Some(unk) = model.unk_id {
-                if let Some((token, _)) = specials.iter().find(|(_, s)| s.index == unk as u32) {
-                    config.specials.unk = Some((unk as u32, token.clone()));
-                    config.processing.push(Processing::Collapse { id: unk as u32 })
+                if let Some((_, special)) =
+                    specials.iter().find(|(_, special)| special.id == unk as u32)
+                {
+                    config.processing.push(Processing::Collapse { id: special.id });
                 } else {
                     return Err(ConversionError::InvalidData(format!(
                         "Unknown token {:?} not found in specials",
@@ -982,13 +985,9 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             let scores = vocab.iter().map(|(_, piece)| piece.score).collect::<Scores>();
             let vocab =
                 vocab.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
-            let mut specials = specials.into_iter().collect::<Vec<_>>();
-            specials.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
-                Ordering::Equal => a.index.cmp(&b.index),
-                other => other,
-            });
-            let specials =
-                specials.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
+
+            let mut specials = specials.into_values().collect::<Vec<_>>();
+            specials.sort();
 
             (vocab, specials, scores)
         }
@@ -1011,7 +1010,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             });
         };
         replace_byte_chars(&mut vocab);
-        replace_byte_chars(&mut specials);
     }
     // Replace byte rune placeholders
     if decode_byte_runes {
@@ -1043,7 +1041,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 .collect();
         };
         replace_byte_runes(&mut vocab);
-        replace_byte_runes(&mut specials);
     }
     // Remove duplicate tokens
     let deduplicate = |vocab: &mut Vocab| {
@@ -1064,7 +1061,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
         });
     };
     deduplicate(&mut vocab);
-    deduplicate(&mut specials);
 
     let meta = Metadata {
         source: DefinitionSource::Tokenizers,

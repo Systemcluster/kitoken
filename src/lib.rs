@@ -62,15 +62,21 @@ mod serialization;
 pub mod convert;
 
 use alloc::borrow::Cow;
+use alloc::fmt::Debug;
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::num::NonZeroUsize;
 use core::ops::Range;
 use core::str::Utf8Error;
 
+use bstr::ByteSlice;
 use debug_ignore::DebugIgnore;
 use hashbrown::HashMap;
 use orx_priority_queue::{DaryHeapOfIndices, PriorityQueue, PriorityQueueDecKey};
+
+#[cfg(feature = "serialization")]
+use serde::{Deserialize, Serialize};
 
 pub use crate::charsmap::*;
 pub use crate::config::*;
@@ -80,8 +86,68 @@ pub use crate::regex::*;
 #[cfg(feature = "serialization")]
 pub use crate::serialization::*;
 
+/// Special token type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u8)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum SpecialTokenKind {
+    /// Placeholder for unknown tokens during encoding.
+    Unknown,
+    /// Control tokens like padding, beginning of sequence, end of sequence, and similar.
+    Control,
+    /// Priotitized during encoding.
+    Priority,
+}
+
+/// Special token.
+#[derive(Clone, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub struct SpecialToken {
+    /// The token id. The numeric value of the token.
+    pub id:    u32,
+    /// The token bytes. The byte sequence of the token.
+    pub bytes: Vec<u8>,
+    /// The token type.
+    pub kind:  SpecialTokenKind,
+    /// Common identifier for the token. Used for control tokens like "cls", "sep", "pad", "mask" and similar.
+    pub ident: Option<String>,
+    /// The token score. Used for prioritizing special tokens during encoding.
+    pub score: f32,
+}
+impl Eq for SpecialToken {}
+impl PartialOrd for SpecialToken {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for SpecialToken {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let mut ord = self.kind.cmp(&other.kind);
+        if ord == Ordering::Equal {
+            ord = self.score.partial_cmp(&other.score).unwrap();
+        }
+        if ord == Ordering::Equal {
+            ord = self.id.cmp(&other.id);
+        }
+        ord
+    }
+}
+impl Debug for SpecialToken {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SpecialToken")
+            .field("id", &self.id)
+            .field("bytes", &self.bytes.as_bstr())
+            .field("kind", &self.kind)
+            .field("ident", &self.ident)
+            .field("score", &self.score)
+            .finish()
+    }
+}
+
 /// List of token bytes and their id.
 pub type Vocab = Vec<(Vec<u8>, u32)>;
+/// List of special tokens.
+pub type SpecialVocab = Vec<SpecialToken>;
 /// List of token ids and their score.
 pub type Scores = Vec<f32>;
 
@@ -170,7 +236,9 @@ pub(crate) struct Score {
 
 pub(crate) type ScoreMap = HashMap<Vec<u8>, Score>;
 pub(crate) type EncoderMap = HashMap<Vec<u8>, Token>;
+pub(crate) type SpecialEncoderMap = HashMap<Vec<u8>, SpecialToken>;
 pub(crate) type DecoderMap = HashMap<u32, Vec<u8>>;
+pub(crate) type SpecialDecoderMap = HashMap<u32, SpecialToken>;
 
 pub(crate) type PieceHeap = DaryHeapOfIndices<u32, LinkedPart, 4>;
 
@@ -185,13 +253,14 @@ pub struct Kitoken {
     score_encoder: DebugIgnore<ScoreMap>,
     decoder:       DebugIgnore<DecoderMap>,
 
-    special_encoder: DebugIgnore<EncoderMap>,
-    special_decoder: DebugIgnore<DecoderMap>,
+    special_encoder: DebugIgnore<SpecialEncoderMap>,
+    special_decoder: DebugIgnore<SpecialDecoderMap>,
 
     special_split: Regex,
 
-    config: Configuration,
-    meta:   Metadata,
+    config:  Configuration,
+    meta:    Metadata,
+    unknown: Option<(u32, Vec<u8>)>,
 
     max_token_bytes: usize,
     min_token_bytes: usize,
@@ -203,7 +272,7 @@ impl Kitoken {
     /// or the encoder and scores have different lengths in unigram mode.
     #[inline(never)]
     pub fn new(
-        vocab: impl Into<Vocab>, specials: impl Into<Vocab>, scores: impl Into<Scores>,
+        vocab: impl Into<Vocab>, specials: impl Into<SpecialVocab>, scores: impl Into<Scores>,
         config: Configuration,
     ) -> Result<Self, InitializationError> {
         if let Err(error) = config.validate() {
@@ -211,7 +280,7 @@ impl Kitoken {
         }
 
         let vocab: Vocab = vocab.into();
-        let specials: Vocab = specials.into();
+        let specials: SpecialVocab = specials.into();
         let scores: Scores = scores.into();
 
         if config.mode == Mode::Unigram && vocab.len() != scores.len() {
@@ -222,7 +291,10 @@ impl Kitoken {
         if vocab.len() != decoder.len() {
             return Err(InitializationError::InvalidEncoder);
         }
-        let special_decoder = specials.iter().map(|(k, v)| (*v, k.clone())).collect::<DecoderMap>();
+        let special_decoder = specials
+            .iter()
+            .map(|special| (special.id, special.clone()))
+            .collect::<SpecialDecoderMap>();
         if specials.len() != special_decoder.len() {
             return Err(InitializationError::InvalidSpecialEncoder);
         }
@@ -230,7 +302,7 @@ impl Kitoken {
         let special_split = Regex::new(
             &specials
                 .iter()
-                .map(|(s, _)| core::str::from_utf8(s))
+                .map(|special| core::str::from_utf8(&special.bytes))
                 .collect::<Result<Vec<_>, _>>()?
                 .into_iter()
                 .map(|s| regex::escape(s))
@@ -261,16 +333,15 @@ impl Kitoken {
             })
             .collect::<EncoderMap>();
 
+        let unknown = specials
+            .iter()
+            .find(|special| special.kind == SpecialTokenKind::Unknown)
+            .map(|special| (special.id, special.bytes.clone()));
+
         let special_encoder = specials
             .into_iter()
-            .enumerate()
-            .map(|(i, (k, v))| {
-                (k, Token {
-                    token: v,
-                    score: i as f32,
-                })
-            })
-            .collect::<EncoderMap>();
+            .map(|special| (special.bytes.clone(), special))
+            .collect::<SpecialEncoderMap>();
 
         let max_token_bytes = encoder.keys().map(|k| k.len()).max().unwrap().max(1);
         let min_token_bytes = encoder.keys().map(|k| k.len()).min().unwrap().max(1);
@@ -285,6 +356,7 @@ impl Kitoken {
             special_split,
             config,
             meta,
+            unknown,
             max_token_bytes,
             min_token_bytes,
         })
@@ -292,7 +364,7 @@ impl Kitoken {
 
     /// Encodes the given text into a sequence of tokens.
     ///
-    /// If `encode_specials` is `true`, the text is first split around special tokens which are separately encoded with the special encoder.
+    /// If `encode_specials` is `true`, control tokens are tokenized with their ids, otherwise they are tokenized with the regular vocabulary.
     ///
     /// Returns a list of tokens, or an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
     #[inline(never)]
@@ -301,16 +373,15 @@ impl Kitoken {
     ) -> Result<Vec<u32>, EncodeError> {
         let mut text = Cow::Borrowed(text.as_ref());
         self.config.normalize(&mut text);
-        if text.is_empty() {
-            return Ok(Vec::new());
-        }
-        let parts = self.split_into_parts(&text, encode_specials);
-        let mut result = self.encode_parts(&text, &parts)?;
+        let parts = self.split_into_parts(&text);
+        let mut result = self.encode_parts(&text, &parts, encode_specials)?;
         self.config.process(&mut result);
         Ok(result)
     }
 
     /// Decodes the given sequence of tokens into text.
+    ///
+    /// If `decode_specials` is `false`, control tokens are ignored.
     ///
     /// Returns a list of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
     #[inline(never)]
@@ -320,19 +391,24 @@ impl Kitoken {
         let tokens = tokens.as_ref();
         let mut result = Vec::<u8>::with_capacity(tokens.len() * self.max_token_bytes);
         for token in tokens {
-            if let Some((unk_id, unk)) = &self.config.specials.unk {
+            if let Some((unk_id, unk)) = &self.unknown {
                 if token == unk_id {
                     result.extend(unk);
                     continue;
                 }
             }
-            if let Some(bytes) = self.special_decoder.get(token) {
-                if decode_specials {
-                    result.extend(bytes);
-                }
-                continue;
-            }
-            let bytes = self.decoder.get(token).ok_or(DecodeError::InvalidToken(*token))?;
+            let bytes = self
+                .decoder
+                .get(token)
+                .or_else(|| {
+                    self.special_decoder
+                        .get(token)
+                        .filter(|&special| {
+                            special.kind != SpecialTokenKind::Control || decode_specials
+                        })
+                        .map(|special| &special.bytes)
+                })
+                .ok_or(DecodeError::InvalidToken(*token))?;
             result.extend(bytes);
         }
         self.config.decode(&mut result);
@@ -341,22 +417,16 @@ impl Kitoken {
 
     /// Splits the given text into parts according to the split regex.
     ///
-    /// If `split_specials` is `true`, the text is first split around special tokens.
-    ///
     /// Returns a list of parts.
     #[inline(never)]
-    fn split_into_parts(&self, text: &str, split_specials: bool) -> Vec<TextPart> {
+    fn split_into_parts(&self, text: &str) -> Vec<TextPart> {
         if text.is_empty() {
             return Vec::new();
         }
         let mut parts = Vec::<TextPart>::with_capacity(text.len() / 6);
         let mut posit = 0;
         loop {
-            let next_special = if split_specials {
-                self.special_split.find(&text[posit..])
-            } else {
-                None
-            };
+            let next_special = self.special_split.find(&text[posit..]);
             let end = next_special.map_or(text.len(), |(start, _)| start + posit);
             for (start, end) in self.config.split(&text[posit..end]) {
                 if end > start {
@@ -383,9 +453,13 @@ impl Kitoken {
 
     /// Encodes the given piece into a sequence of tokens.
     ///
+    /// If `encode_specials` is `true`, control tokens are tokenized with their ids, otherwise they are tokenized with the regular vocabulary.
+    ///
     /// Returns an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
     #[inline(never)]
-    fn encode_parts(&self, text: &str, parts: &[TextPart]) -> Result<Vec<u32>, EncodeError> {
+    fn encode_parts(
+        &self, text: &str, parts: &[TextPart], encode_specials: bool,
+    ) -> Result<Vec<u32>, EncodeError> {
         if parts.is_empty() {
             return Ok(Vec::new());
         }
@@ -397,8 +471,11 @@ impl Kitoken {
                 for part in parts {
                     let piece = &text[part.range()];
                     if part.special {
-                        result.push(self.special_encoder[piece.as_bytes()].token);
-                        continue;
+                        let special = &self.special_encoder[piece.as_bytes()];
+                        if special.kind != SpecialTokenKind::Control || encode_specials {
+                            result.push(special.id);
+                            continue;
+                        }
                     }
                     if piece.len() <= self.max_token_bytes && piece.len() >= self.min_token_bytes {
                         if let Some(&token) = self.encoder.get(piece.as_bytes()) {
@@ -430,8 +507,11 @@ impl Kitoken {
                 for part in parts {
                     let piece = &text[part.range()];
                     if part.special {
-                        result.push(self.special_encoder[piece.as_bytes()].token);
-                        continue;
+                        let special = &self.special_encoder[piece.as_bytes()];
+                        if special.kind != SpecialTokenKind::Control || encode_specials {
+                            result.push(special.id);
+                            continue;
+                        }
                     }
                     if piece.len() <= self.max_token_bytes && piece.len() >= self.min_token_bytes {
                         if let Some(&token) = self.encoder.get(piece.as_bytes()) {
@@ -463,8 +543,11 @@ impl Kitoken {
                 for part in parts {
                     let piece = &text[part.range()];
                     if part.special {
-                        result.push(self.special_encoder[piece.as_bytes()].token);
-                        continue;
+                        let special = &self.special_encoder[piece.as_bytes()];
+                        if special.kind != SpecialTokenKind::Control || encode_specials {
+                            result.push(special.id);
+                            continue;
+                        }
                     }
                     self.encode_unigram(
                         piece.as_bytes(),
@@ -552,7 +635,7 @@ impl Kitoken {
                 result.push(token.token);
             } else if CHAR_PAIRS {
                 self.encode_pairs::<false>(piece, buffer, result, 0..piece.len())?;
-            } else if let Some((unk_id, _)) = self.config.specials.unk {
+            } else if let Some((unk_id, _)) = self.unknown {
                 result.push(unk_id);
             } else {
                 return Err(EncodeError::InvalidPiece(piece.into()));
@@ -650,7 +733,7 @@ impl Kitoken {
                 result.push(token.token);
             } else if CHAR_PAIRS {
                 self.encode_pairs::<false>(piece, buffer, result, 0..piece.len())?;
-            } else if let Some((unk_id, _)) = self.config.specials.unk {
+            } else if let Some((unk_id, _)) = self.unknown {
                 result.push(unk_id);
             } else {
                 return Err(EncodeError::InvalidPiece(piece.into()));
@@ -705,7 +788,7 @@ impl Kitoken {
         let mut sub_end = end - 1;
         while sub_end > start {
             if buffer[sub_end].token == u32::MAX {
-                if let Some((unk_id, _)) = self.config.specials.unk {
+                if let Some((unk_id, _)) = self.unknown {
                     result.push(unk_id);
                 } else {
                     let part = &piece[buffer[sub_end - 1].start..buffer[sub_end].start];

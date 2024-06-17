@@ -3,13 +3,14 @@
 use core::cmp::Ordering;
 use core::fmt::Debug;
 
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-use crate::{Configuration, InitializationError, Kitoken, Mode, Scores, Vocab};
+use crate::{Configuration, InitializationError, Kitoken, Mode, Scores, SpecialVocab, Vocab};
 
 /// The source of the definition.
 #[derive(Debug, Clone, PartialEq)]
@@ -62,7 +63,7 @@ pub struct Definition {
     pub vocab:    Vocab,
     /// The special encoder vocabulary. Prioritized over the vocabulary during encoding and decoding.
     /// Sorted by split priority.
-    pub specials: Vocab,
+    pub specials: SpecialVocab,
     /// The scores for each token.
     /// Only used in unigram mode.
     pub scores:   Scores,
@@ -145,13 +146,8 @@ impl Kitoken {
             Scores::new()
         };
         let vocab = vocab.into_iter().map(|(k, v)| (k, v.token)).collect();
-        let mut specials =
-            self.special_encoder.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
-        specials.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
-            Ordering::Equal => a.token.cmp(&b.token),
-            other => other,
-        });
-        let specials = specials.into_iter().map(|(k, v)| (k, v.token)).collect();
+        let mut specials = self.special_encoder.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
+        specials.sort();
         let config = self.config.clone();
         let meta = self.meta.clone();
         Definition {

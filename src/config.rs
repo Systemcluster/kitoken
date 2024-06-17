@@ -33,28 +33,6 @@ impl Default for Mode {
     }
 }
 
-/// Special tokens.
-///
-/// The first value of each member is the token id, the second value are the bytes of the token.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub struct Specials {
-    /// The unknown token.
-    pub unk: Option<(u32, Vec<u8>)>,
-    /// The padding token.
-    pub pad: Option<(u32, Vec<u8>)>,
-    /// The beginning of sequence token.
-    pub bos: Option<(u32, Vec<u8>)>,
-    /// The end of sequence token.
-    pub eos: Option<(u32, Vec<u8>)>,
-    /// The separator token.
-    pub sep: Option<(u32, Vec<u8>)>,
-    /// The class token.
-    pub cls: Option<(u32, Vec<u8>)>,
-    /// The mask token.
-    pub msk: Option<(u32, Vec<u8>)>,
-}
-
 /// Errors returned when the configuration fails to validate.
 #[non_exhaustive]
 #[derive(Debug)]
@@ -76,8 +54,6 @@ pub enum ConfigurationError {
 pub struct Configuration {
     /// The tokenization mode.
     pub mode:          Mode,
-    /// The special tokens.
-    pub specials:      Specials,
     /// The input normalization scheme.
     pub normalization: Vec<Normalization>,
     /// The pre-tokenization split behavior.
@@ -107,6 +83,9 @@ impl Configuration {
     /// Normalizes the input before tokenization.
     #[inline(always)]
     pub fn normalize(&self, text: &mut Cow<str>) {
+        if text.is_empty() {
+            return;
+        }
         for norm in &self.normalization {
             norm.normalize(text);
         }
@@ -115,6 +94,9 @@ impl Configuration {
     /// Splits the input into parts to tokenize.
     #[inline(always)]
     pub fn split(&self, text: &str) -> Vec<(usize, usize)> {
+        if text.is_empty() {
+            return Vec::new();
+        }
         if self.split.is_empty() {
             return Vec::from([(0, text.len())]);
         }
@@ -139,6 +121,9 @@ impl Configuration {
     /// Processes the tokens after tokenization.
     #[inline(always)]
     pub fn process(&self, tokens: &mut Vec<u32>) {
+        if tokens.is_empty() {
+            return;
+        }
         for processing in &self.processing {
             processing.process(tokens);
         }
@@ -147,6 +132,9 @@ impl Configuration {
     /// Postprocesses the bytes after detokenization.
     #[inline(always)]
     pub fn decode(&self, tokens: &mut Vec<u8>) {
+        if tokens.is_empty() {
+            return;
+        }
         for decoding in &self.decoding {
             decoding.decode(tokens);
         }

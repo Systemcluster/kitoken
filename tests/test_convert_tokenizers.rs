@@ -60,6 +60,7 @@ fn test_small_lines() {
                 "small_input.txt",
                 ["tokenizers/small_tokens_", name, ".txt"].concat(),
                 ["tokenizers/small_output_", name, ".txt"].concat(),
+                true,
                 false,
             );
         } else {
@@ -67,6 +68,7 @@ fn test_small_lines() {
                 &tokenizer,
                 "small_input.txt",
                 ["tokenizers/small_tokens_", name, ".txt"].concat(),
+                true,
                 false,
             );
         }
@@ -108,12 +110,14 @@ fn test_utf8_full() {
                 "utf8_input.txt",
                 ["tokenizers/utf8_tokens_", name, ".txt"].concat(),
                 ["tokenizers/utf8_output_", name, ".txt"].concat(),
+                true,
             );
         } else {
             test_encode_decode_full_same(
                 &tokenizer,
                 "utf8_input.txt",
                 ["tokenizers/utf8_tokens_", name, ".txt"].concat(),
+                true,
             );
         }
     }

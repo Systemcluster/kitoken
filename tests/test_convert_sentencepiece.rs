@@ -61,12 +61,14 @@ fn test_small_lines() {
                 ["sentencepiece/small_tokens_", name, ".txt"].concat(),
                 ["sentencepiece/small_output_", name, ".txt"].concat(),
                 false,
+                false,
             );
         } else {
             test_encode_decode_lines_same(
                 &tokenizer,
                 "small_input.txt",
                 ["sentencepiece/small_tokens_", name, ".txt"].concat(),
+                false,
                 false,
             );
         }
@@ -108,12 +110,14 @@ fn test_utf8_full() {
                 "utf8_input.txt",
                 ["sentencepiece/utf8_tokens_", name, ".txt"].concat(),
                 ["sentencepiece/utf8_output_", name, ".txt"].concat(),
+                false,
             );
         } else {
             test_encode_decode_full_same(
                 &tokenizer,
                 "utf8_input.txt",
                 ["sentencepiece/utf8_tokens_", name, ".txt"].concat(),
+                false,
             );
         }
     }

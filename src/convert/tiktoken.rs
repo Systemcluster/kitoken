@@ -13,8 +13,8 @@ use bstr::ByteSlice;
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Regex, Split,
-    SplitBehavior,
+    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Regex, SpecialToken,
+    SpecialTokenKind, Split, SplitBehavior,
 };
 
 static BASE64: engine::GeneralPurpose =
@@ -83,20 +83,30 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
         mode: Mode::BytePair,
         ..Configuration::default()
     };
-    let specials = if vocab.len() >= 100000 {
+    let mut specials = if vocab.len() >= 100000 {
         config.split.push(Split::Pattern { pattern:
             Regex::new(r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+")?,
             behavior: SplitBehavior::Isolate
         });
-        Vec::from([
-            ("<|endoftext|>".into(), 100257),
-            ("<|fim_prefix|>".into(), 100258),
-            ("<|fim_middle|>".into(), 100259),
-            ("<|fim_suffix|>".into(), 100260),
-            ("<|endofprompt|>".into(), 100276),
-            ("<|im_start|>".into(), 100264),
-            ("<|im_end|>".into(), 100265),
-        ])
+        [
+            ("<|endoftext|>", 100257),
+            ("<|fim_prefix|>", 100258),
+            ("<|fim_middle|>", 100259),
+            ("<|fim_suffix|>", 100260),
+            ("<|endofprompt|>", 100276),
+            ("<|im_start|>", 100264),
+            ("<|im_end|>", 100265),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (s, t))| SpecialToken {
+            id:    t,
+            bytes: s.as_bytes().to_vec(),
+            kind:  SpecialTokenKind::Control,
+            ident: None,
+            score: i as f32,
+        })
+        .collect::<Vec<_>>()
     } else {
         config.split.push(Split::Pattern {
             pattern:  Regex::new(
@@ -104,15 +114,26 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
             )?,
             behavior: SplitBehavior::Isolate,
         });
-        Vec::from([
-            ("<|endoftext|>".into(), 50256),
-            ("<|fim_prefix|>".into(), 50281),
-            ("<|fim_middle|>".into(), 50282),
-            ("<|fim_suffix|>".into(), 50283),
-        ])
+        [
+            ("<|endoftext|>", 50256),
+            ("<|fim_prefix|>", 50281),
+            ("<|fim_middle|>", 50282),
+            ("<|fim_suffix|>", 50283),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (s, t))| SpecialToken {
+            id:    t,
+            bytes: s.as_bytes().to_vec(),
+            kind:  SpecialTokenKind::Control,
+            ident: None,
+            score: i as f32,
+        })
+        .collect::<Vec<_>>()
     };
-    let scores = Vec::new();
+    specials.sort();
 
+    let scores = Vec::new();
     let meta = Metadata {
         source: DefinitionSource::Tiktoken,
         ..Metadata::default()

@@ -17,7 +17,8 @@ use sentencepiece_model::{ModelType, SentencePieceModel, Type};
 use crate::convert::ConversionError;
 use crate::{
     Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, Normalization,
-    Processing, Regex, Scores, Split, SplitBehavior, UnicodeNormalization, Vocab,
+    Processing, Regex, Scores, SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior,
+    UnicodeNormalization, Vocab,
 };
 
 #[derive(Debug)]
@@ -68,6 +69,8 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
 
     let mut model_type = ModelType::Unigram;
     let mut treat_whitespace_as_suffix = false;
+    let mut specials = HashMap::<Vec<u8>, SpecialToken>::default();
+    let mut unk_id = None;
     if let Some(trainer) = model.trainer() {
         if trainer.treat_whitespace_as_suffix() {
             treat_whitespace_as_suffix = true;
@@ -81,14 +84,35 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                 behavior: SplitBehavior::MergeRight,
             });
         }
-        config.specials.unk =
-            Some((trainer.unk_id() as u32, trainer.unk_surface().as_bytes().to_vec()));
-        config.specials.bos =
-            Some((trainer.bos_id() as u32, trainer.bos_piece().as_bytes().to_vec()));
-        config.specials.eos =
-            Some((trainer.eos_id() as u32, trainer.eos_piece().as_bytes().to_vec()));
-        config.specials.pad =
-            Some((trainer.pad_id() as u32, trainer.pad_piece().as_bytes().to_vec()));
+        specials.insert(trainer.unk_piece().as_bytes().to_vec(), SpecialToken {
+            id:    trainer.unk_id() as _,
+            bytes: trainer.unk_surface().as_bytes().to_vec(),
+            kind:  SpecialTokenKind::Unknown,
+            ident: Some("unk".to_string()),
+            score: 0.0,
+        });
+        unk_id = Some(trainer.unk_id() as _);
+        specials.insert(trainer.bos_piece().as_bytes().to_vec(), SpecialToken {
+            id:    trainer.bos_id() as _,
+            bytes: trainer.bos_piece().as_bytes().to_vec(),
+            kind:  SpecialTokenKind::Control,
+            ident: Some("bos".to_string()),
+            score: 0.0,
+        });
+        specials.insert(trainer.eos_piece().as_bytes().to_vec(), SpecialToken {
+            id:    trainer.eos_id() as _,
+            bytes: trainer.eos_piece().as_bytes().to_vec(),
+            kind:  SpecialTokenKind::Control,
+            ident: Some("eos".to_string()),
+            score: 0.0,
+        });
+        specials.insert(trainer.pad_piece().as_bytes().to_vec(), SpecialToken {
+            id:    trainer.pad_id() as _,
+            bytes: trainer.pad_piece().as_bytes().to_vec(),
+            kind:  SpecialTokenKind::Control,
+            ident: Some("pad".to_string()),
+            score: 0.0,
+        });
         model_type = trainer.model_type();
     } else {
         config.split.push(Split::Pattern {
@@ -114,6 +138,87 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             model.pieces.len()
         )));
     }
+
+    let mut vocab = HashMap::<Vec<u8>, ParsedPiece>::with_capacity(model.pieces.len());
+
+    for (index, piece) in model.pieces.iter().enumerate() {
+        let text = piece
+            .piece
+            .as_ref()
+            .ok_or_else(|| ConversionError::InvalidData(format!("piece {} has no text", index)))?;
+        let piece_type = piece.r#type();
+
+        let text = if piece_type == Type::Byte {
+            // byte encoding in the form `<0xAA>`
+            let rune = &text[3..5];
+            let rune = u32::from_str_radix(rune, 16)
+                .map_err(|e| ConversionError::InvalidNumber(format!("{:?}", e)))?;
+            [rune as u8].to_vec()
+        } else {
+            text.as_bytes().to_vec()
+        };
+
+        if piece_type == Type::UserDefined
+            || piece_type == Type::Control
+            || piece_type == Type::Unknown
+        {
+            if piece_type == Type::Unknown {
+                if unk_id.is_some() && unk_id != Some(index as u32) {
+                    log::warn!("Multiple unknown pieces in vocab");
+                } else if unk_id.is_none() {
+                    specials.insert(text.clone(), SpecialToken {
+                        bytes: text.clone(),
+                        id:    index as u32,
+                        score: index as f32,
+                        kind:  SpecialTokenKind::Unknown,
+                        ident: Some("unk".to_string()),
+                    });
+                    unk_id = Some(index as u32);
+                }
+            } else {
+                specials.insert(text.clone(), SpecialToken {
+                    bytes: text.clone(),
+                    id:    index as u32,
+                    score: index as f32,
+                    kind:  match piece_type {
+                        Type::UserDefined => SpecialTokenKind::Priority,
+                        Type::Control => SpecialTokenKind::Control,
+                        Type::Unknown => SpecialTokenKind::Unknown,
+                        _ => SpecialTokenKind::Priority,
+                    },
+                    ident: None,
+                });
+            }
+            continue;
+        }
+        if let Some(existing) = vocab.get(&text) {
+            let existing_type = existing.type_;
+            if piece_type == Type::Byte && existing_type != Type::Byte {
+                log::debug!(
+                    "Byte piece already in vocab: {:>4} -> {:6?} (skipping {:?})",
+                    format!("{:?}", text.as_bstr()),
+                    existing.index,
+                    index
+                );
+                continue;
+            }
+        }
+        if let Some(skipped) = vocab.insert(text.clone(), ParsedPiece {
+            index: index as u32,
+            score: piece.score(),
+            type_: piece.r#type(),
+        }) {
+            log::debug!(
+                "Byte piece already in vocab: {:>4} -> {:6?} (replacing {:?})",
+                format!("{:?}", text.as_bstr()),
+                index,
+                skipped.index
+            );
+        };
+    }
+    specials.iter_mut().for_each(|(_, special)| {
+        special.score = 1.0 / (special.score + 1.0);
+    });
 
     if let Some(normalizer) = model.normalizer() {
         use UnicodeNormalization::*;
@@ -159,8 +264,8 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                 right:     u32::MAX,
             });
             config.normalization.push(Normalization::Collapse { character: ' ' });
-            if let Some(unk) = config.specials.unk.as_ref() {
-                config.processing.push(Processing::Collapse { id: unk.0 });
+            if let Some(unk) = unk_id {
+                config.processing.push(Processing::Collapse { id: unk });
             }
         }
         if normalizer.add_dummy_prefix() {
@@ -186,63 +291,6 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         replacement: " ".to_string(),
     });
 
-    let mut vocab = HashMap::<Vec<u8>, ParsedPiece>::with_capacity(model.pieces.len());
-    let mut specials = HashMap::<Vec<u8>, ParsedPiece>::default();
-
-    for (index, piece) in model.pieces.iter().enumerate() {
-        let text = piece
-            .piece
-            .as_ref()
-            .ok_or_else(|| ConversionError::InvalidData(format!("piece {} has no text", index)))?;
-        let piece_type = piece.r#type();
-
-        let text = if piece_type == Type::Byte {
-            // byte encoding in the form `<0xAA>`
-            let rune = &text[3..5];
-            let rune = u32::from_str_radix(rune, 16)
-                .map_err(|e| ConversionError::InvalidNumber(format!("{:?}", e)))?;
-            [rune as u8].to_vec()
-        } else {
-            text.as_bytes().to_vec()
-        };
-
-        if piece_type == Type::UserDefined
-            || piece_type == Type::Control
-            || piece_type == Type::Unknown
-        {
-            specials.insert(text, ParsedPiece {
-                index: index as u32,
-                score: index as f32,
-                type_: piece.r#type(),
-            });
-            continue;
-        }
-        if let Some(existing) = vocab.get(&text) {
-            let existing_type = existing.type_;
-            if piece_type == Type::Byte && existing_type != Type::Byte {
-                log::debug!(
-                    "Byte piece already in vocab: {:>4} -> {:6?} (skipping {:?})",
-                    format!("{:?}", text.as_bstr()),
-                    existing.index,
-                    index
-                );
-                continue;
-            }
-        }
-        if let Some(skipped) = vocab.insert(text.clone(), ParsedPiece {
-            index: index as u32,
-            score: piece.score(),
-            type_: piece.r#type(),
-        }) {
-            log::debug!(
-                "Byte piece already in vocab: {:>4} -> {:6?} (replacing {:?})",
-                format!("{:?}", text.as_bstr()),
-                index,
-                skipped.index
-            );
-        };
-    }
-
     let (vocab, specials, scores) = match model_type {
         ModelType::Bpe => {
             let create_merges = |vocab: &HashMap<Vec<u8>, ParsedPiece>| {
@@ -261,7 +309,6 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                 merges
             };
             let vocab_merges = create_merges(&vocab);
-            let specials_merges = create_merges(&specials);
 
             let sort_vocab = |vocab: &mut Vocab, merges: &HashMap<u32, f32>| {
                 vocab.sort_by(|(_, ai), (_, bi)| {
@@ -284,9 +331,10 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             let mut vocab =
                 vocab.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
             sort_vocab(&mut vocab, &vocab_merges);
+
             let mut specials =
-                specials.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
-            sort_vocab(&mut specials, &specials_merges);
+                specials.into_iter().map(|(_, special)| special).collect::<SpecialVocab>();
+            specials.sort();
 
             let scores = Scores::with_capacity(0);
             (vocab, specials, scores)
@@ -300,13 +348,9 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             let scores = vocab.iter().map(|(_, piece)| piece.score).collect::<Scores>();
             let vocab =
                 vocab.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
-            let mut specials = specials.into_iter().collect::<Vec<_>>();
-            specials.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
-                Ordering::Equal => a.index.cmp(&b.index),
-                other => other,
-            });
-            let specials =
-                specials.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
+            let mut specials =
+                specials.into_iter().map(|(_, special)| special).collect::<SpecialVocab>();
+            specials.sort();
 
             (vocab, specials, scores)
         }
