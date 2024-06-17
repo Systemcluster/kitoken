@@ -534,7 +534,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
         match pre_tokenizer {
             PreTokenizer::BertPreTokenizer => {
                 config.split.push(Split::Pattern {
-                    pattern:  Regex::new(r"\s")?,
+                    pattern:  Regex::new(r"\s+")?,
                     behavior: SplitBehavior::Remove,
                 });
                 config.split.push(Split::Pattern {
@@ -564,9 +564,9 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 }
             }
             PreTokenizer::Delimiter { delimiter } => {
-                config.split.push(Split::Pattern {
-                    pattern:  Regex::new(&crate::regex::escape(&delimiter.to_string()))?,
-                    behavior: SplitBehavior::Remove,
+                config.split.push(Split::Character {
+                    character: delimiter,
+                    behavior:  SplitBehavior::Remove,
                 });
             }
             PreTokenizer::Metaspace {
@@ -583,18 +583,18 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                             .to_string(),
                     ));
                 }
+                config.normalization.push(Normalization::Replace {
+                    pattern:     Regex::new(r" ")?,
+                    replacement: replacement.to_string(),
+                });
                 if prepend_scheme != PrependScheme::Never {
                     config.normalization.push(Normalization::Extend {
-                        character: ' ',
+                        character: replacement,
                         left:      1,
                         right:     0,
                         pad:       true,
                     });
                 }
-                config.normalization.push(Normalization::Replace {
-                    pattern:     Regex::new(r" ")?,
-                    replacement: replacement.to_string(),
-                });
                 if split {
                     config.split.push(Split::Pattern {
                         pattern:  Regex::new(&format!(
@@ -620,21 +620,35 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 invert,
             } => {
                 use hf::{Pattern, SplitDelimiterBehavior};
-                let pattern = match pattern {
-                    Pattern::String(s) => crate::regex::escape(&s).to_string(),
-                    Pattern::Regex(r) => r,
+                let behavior = match behavior {
+                    SplitDelimiterBehavior::Removed if invert => SplitBehavior::Match,
+                    SplitDelimiterBehavior::Removed => SplitBehavior::Remove,
+                    SplitDelimiterBehavior::Isolated => SplitBehavior::Isolate,
+                    SplitDelimiterBehavior::MergedWithPrevious => SplitBehavior::MergeLeft,
+                    SplitDelimiterBehavior::MergedWithNext => SplitBehavior::MergeRight,
+                    SplitDelimiterBehavior::Contiguous => SplitBehavior::Merge,
                 };
-                config.split.push(Split::Pattern {
-                    pattern:  Regex::new(&pattern)?,
-                    behavior: match behavior {
-                        SplitDelimiterBehavior::Removed if invert => SplitBehavior::Match,
-                        SplitDelimiterBehavior::Removed => SplitBehavior::Remove,
-                        SplitDelimiterBehavior::Isolated => SplitBehavior::Isolate,
-                        SplitDelimiterBehavior::MergedWithPrevious => SplitBehavior::MergeLeft,
-                        SplitDelimiterBehavior::MergedWithNext => SplitBehavior::MergeRight,
-                        SplitDelimiterBehavior::Contiguous => SplitBehavior::Merge,
-                    },
-                });
+                match pattern {
+                    Pattern::String(s) => {
+                        if s.chars().count() == 1 {
+                            config.split.push(Split::Character {
+                                character: s.chars().next().unwrap(),
+                                behavior,
+                            });
+                        } else {
+                            config.split.push(Split::Pattern {
+                                pattern: Regex::new(&crate::regex::escape(&s))?,
+                                behavior,
+                            });
+                        }
+                    }
+                    Pattern::Regex(r) => {
+                        config.split.push(Split::Pattern {
+                            pattern: Regex::new(&r)?,
+                            behavior,
+                        });
+                    }
+                };
             }
             PreTokenizer::Punctuation { behavior } => {
                 use hf::SplitDelimiterBehavior;
@@ -658,6 +672,10 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     character: ' ',
                     left:      u32::MAX,
                     right:     u32::MAX,
+                });
+                config.split.push(Split::Character {
+                    character: ' ',
+                    behavior:  SplitBehavior::MergeRight,
                 });
             }
             PreTokenizer::Digits { individual_digits } => {

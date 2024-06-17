@@ -94,6 +94,11 @@ impl Regex {
     pub(crate) fn replace_all(&self, text: &str, replace: &str) -> String {
         self.regex.replace_all(text, replace)
     }
+
+    #[inline(always)]
+    pub(crate) fn escape(&self) -> Cow<str> {
+        fancy_regex::escape(&self.pattern)
+    }
 }
 impl PartialEq for Regex {
     #[inline(always)]
@@ -125,7 +130,7 @@ impl Display for Regex {
 impl Debug for Regex {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "Regex({})", self.pattern)
+        write!(f, "Regex({:?})", self.pattern)
     }
 }
 impl TryFrom<String> for Regex {

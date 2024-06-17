@@ -202,7 +202,11 @@ impl Normalization {
                 pattern,
                 replacement,
             } => {
-                *text.to_mut() = pattern.replace_all(text, replacement);
+                if pattern.as_ref() == pattern.escape().as_ref() && !replacement.contains("$") {
+                    *text.to_mut() = text.replace(pattern.as_ref(), replacement);
+                } else {
+                    *text.to_mut() = pattern.replace_all(text, replacement);
+                }
             }
             CharsMap { .. } => {
                 // TODO

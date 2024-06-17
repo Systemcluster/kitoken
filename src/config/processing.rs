@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum Processing {
+    /// Strip a token from the beginning and end.
+    Strip { id: u32, left: u32, right: u32 },
     /// Collapse repeated tokens.
     Collapse { id: u32 },
 }
@@ -16,6 +18,39 @@ impl Processing {
     pub fn process(&self, tokens: &mut Vec<u32>) {
         use Processing::*;
         match self {
+            Strip {
+                id,
+                mut left,
+                mut right,
+            } => {
+                let mut slice_start = 0;
+                let mut slice_end = 0;
+                if left > 0 {
+                    for c in tokens.iter() {
+                        if c != id || left == 0 {
+                            break;
+                        }
+                        slice_start += 1;
+                        left -= 1;
+                    }
+                }
+                if right > 0 {
+                    for c in tokens.iter().rev() {
+                        if c != id || right == 0 {
+                            break;
+                        }
+                        slice_end += 1;
+                        right -= 1;
+                    }
+                }
+                if slice_start > 0 {
+                    tokens.drain(..slice_start);
+                }
+                if slice_end > 0 {
+                    let len = tokens.len();
+                    tokens.drain(len - slice_end..);
+                }
+            }
             Collapse { id } => {
                 let mut last = None;
                 tokens.retain(|&token| {

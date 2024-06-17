@@ -69,21 +69,13 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
 
     let mut model_type = ModelType::Unigram;
     let mut treat_whitespace_as_suffix = false;
-    let mut specials = HashMap::<Vec<u8>, SpecialToken>::default();
+    let mut remove_extra_whitespaces = true;
+    let mut add_dummy_prefix = true;
     let mut unk_id = None;
+    let mut specials = HashMap::<Vec<u8>, SpecialToken>::default();
+
     if let Some(trainer) = model.trainer() {
-        if trainer.treat_whitespace_as_suffix() {
-            treat_whitespace_as_suffix = true;
-            config.split.push(Split::Pattern {
-                pattern:  Regex::new(r"[▁]+")?,
-                behavior: SplitBehavior::MergeLeft,
-            });
-        } else {
-            config.split.push(Split::Pattern {
-                pattern:  Regex::new(r"[▁]+")?,
-                behavior: SplitBehavior::MergeRight,
-            });
-        }
+        treat_whitespace_as_suffix = trainer.treat_whitespace_as_suffix();
         specials.insert(trainer.unk_piece().as_bytes().to_vec(), SpecialToken {
             id:    trainer.unk_id() as _,
             bytes: trainer.unk_surface().as_bytes().to_vec(),
@@ -114,11 +106,6 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             score: 0.0,
         });
         model_type = trainer.model_type();
-    } else {
-        config.split.push(Split::Pattern {
-            pattern:  Regex::new(r"[▁]+")?,
-            behavior: SplitBehavior::MergeRight,
-        });
     }
 
     match model_type {
@@ -257,35 +244,59 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                 )));
             }
         };
-        if normalizer.remove_extra_whitespaces() {
-            config.normalization.push(Normalization::Strip {
-                character: ' ',
-                left:      u32::MAX,
-                right:     u32::MAX,
-            });
-            config.normalization.push(Normalization::Collapse { character: ' ' });
-            if let Some(unk) = unk_id {
-                config.processing.push(Processing::Collapse { id: unk });
-            }
+        remove_extra_whitespaces = normalizer.remove_extra_whitespaces();
+        add_dummy_prefix = normalizer.add_dummy_prefix();
+    }
+
+    if remove_extra_whitespaces {
+        config.normalization.push(Normalization::Strip {
+            character: ' ',
+            left:      u32::MAX,
+            right:     u32::MAX,
+        });
+        config.normalization.push(Normalization::Collapse { character: ' ' });
+        if let Some(unk) = unk_id {
+            config.processing.push(Processing::Collapse { id: unk });
         }
-        if normalizer.add_dummy_prefix() {
-            config.normalization.push(Normalization::Extend {
+        if treat_whitespace_as_suffix {
+            config.split.push(Split::Character {
                 character: '▁',
-                left:      if treat_whitespace_as_suffix { 0 } else { 1 },
-                right:     if treat_whitespace_as_suffix { 1 } else { 0 },
-                pad:       false,
+                behavior:  SplitBehavior::MergeLeft,
             });
-            config.decoding.push(Decoding::Strip {
+        } else {
+            config.split.push(Split::Character {
                 character: '▁',
-                left:      if treat_whitespace_as_suffix { 0 } else { 1 },
-                right:     if treat_whitespace_as_suffix { 1 } else { 0 },
+                behavior:  SplitBehavior::MergeRight,
             });
         }
+    } else if treat_whitespace_as_suffix {
+        config.split.push(Split::Pattern {
+            pattern:  Regex::new(r"▁+")?,
+            behavior: SplitBehavior::MergeLeft,
+        });
+    } else {
+        config.split.push(Split::Pattern {
+            pattern:  Regex::new(r"▁+")?,
+            behavior: SplitBehavior::MergeRight,
+        });
     }
     config.normalization.push(Normalization::Replace {
-        pattern:     Regex::new(" ")?,
+        pattern:     Regex::new(r" ")?,
         replacement: "▁".to_string(),
     });
+    if add_dummy_prefix {
+        config.normalization.push(Normalization::Extend {
+            character: '▁',
+            left:      if treat_whitespace_as_suffix { 0 } else { 1 },
+            right:     if treat_whitespace_as_suffix { 1 } else { 0 },
+            pad:       false,
+        });
+        config.decoding.push(Decoding::Strip {
+            character: '▁',
+            left:      if treat_whitespace_as_suffix { 0 } else { 1 },
+            right:     if treat_whitespace_as_suffix { 1 } else { 0 },
+        });
+    };
     config.decoding.push(Decoding::Replace {
         pattern:     "▁".to_string(),
         replacement: " ".to_string(),
