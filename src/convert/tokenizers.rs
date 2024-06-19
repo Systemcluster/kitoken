@@ -16,8 +16,8 @@ use hashbrown::HashMap;
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, Normalization,
-    Processing, Regex, Scores, SpecialToken, SpecialTokenKind, Split, SplitBehavior,
+    Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, ModeFallback,
+    Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind, Split, SplitBehavior,
     UnicodeNormalization, Vocab,
 };
 
@@ -413,6 +413,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     })?;
 
     let mut config = Configuration::default();
+    config.fallback.push(ModeFallback::Skip);
 
     let mut decode_byte_runes = false;
     let mut decode_byte_chars = false;
@@ -888,12 +889,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     // Convert vocab
     let (mut vocab, specials, scores) = match tokenizer.model {
         Model::BPE(model) => {
-            if decode_byte_chars {
-                config.mode = Mode::BytePair;
-            } else {
-                config.mode = Mode::CharPair;
-            }
-
             let mut vocab = HashMap::<Vec<u8>, u32>::with_capacity(model.vocab.len());
             for (token, id) in model.vocab {
                 vocab.insert(token.as_bytes().to_vec(), id);
@@ -905,6 +900,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
 
             if let Some(unk) = model.unk_token {
                 if let Some(special) = specials.get(unk.as_bytes()) {
+                    config.fallback.insert(0, ModeFallback::Unknown);
                     if let Some(true) = model.fuse_unk {
                         config.processing.push(Processing::Collapse { id: special.id });
                     }
@@ -913,6 +909,14 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                         "Unknown token {:?} not found in specials",
                         unk
                     )));
+                }
+            }
+            if decode_byte_chars {
+                config.mode = Mode::BytePair;
+            } else {
+                config.mode = Mode::CharPair;
+                if model.byte_fallback.unwrap_or(false) {
+                    config.fallback.insert(0, ModeFallback::Bytes);
                 }
             }
             if let Some(true) = model.byte_fallback {
@@ -1004,6 +1008,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 if let Some((_, special)) =
                     specials.iter().find(|(_, special)| special.id == unk as u32)
                 {
+                    config.fallback.insert(0, ModeFallback::Unknown);
                     config.processing.push(Processing::Collapse { id: special.id });
                 } else {
                     return Err(ConversionError::InvalidData(format!(
@@ -1013,6 +1018,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 }
             }
             if let Some(true) = model.byte_fallback {
+                config.fallback.insert(0, ModeFallback::Bytes);
                 decode_byte_runes = true;
             }
 

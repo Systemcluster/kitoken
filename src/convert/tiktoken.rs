@@ -13,8 +13,8 @@ use bstr::ByteSlice;
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, Regex, SpecialToken,
-    SpecialTokenKind, Split, SplitBehavior,
+    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, ModeFallback, Regex,
+    SpecialToken, SpecialTokenKind, Split, SplitBehavior,
 };
 
 static BASE64: engine::GeneralPurpose =
@@ -83,6 +83,8 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
         mode: Mode::BytePair,
         ..Configuration::default()
     };
+    config.fallback.push(ModeFallback::Skip);
+
     let specials: &[(&str, u32)] = if vocab.len() >= 199990 {
         config.split.push(Split::Pattern { pattern:
             Regex::new(&[

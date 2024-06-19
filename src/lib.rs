@@ -381,7 +381,7 @@ impl Kitoken {
     ///
     /// If `encode_specials` is `true`, control tokens are tokenized with their ids, otherwise they are tokenized with the regular vocabulary.
     ///
-    /// Returns a list of tokens, or an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
+    /// Returns a list of tokens, or an error if no token for a part exists in the encoder, and the configuration has no unknown token or skip fallback set.
     #[inline(never)]
     pub fn encode(
         &self, text: impl AsRef<str>, encode_specials: bool,
@@ -492,7 +492,7 @@ impl Kitoken {
     ///
     /// If `decode_specials` is `false`, control tokens are ignored.
     ///
-    /// Returns a list of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
+    /// Returns a list of bytes, or an error if no byte sequence for a token exists.
     #[inline(never)]
     pub fn decode(
         &self, tokens: impl AsRef<[u32]>, decode_specials: bool,
@@ -500,25 +500,16 @@ impl Kitoken {
         let tokens = tokens.as_ref();
         let mut result = Vec::<u8>::with_capacity(tokens.len() * self.max_token_bytes);
         for token in tokens {
-            if let Some((unk_id, unk)) = &self.unknown {
-                if token == unk_id {
-                    result.extend(unk);
-                    continue;
+            let bytes = self.decoder.get(token);
+            if let Some(bytes) = bytes {
+                result.extend(bytes);
+            } else if let Some(special) = self.special_decoder.get(token) {
+                if special.kind != SpecialTokenKind::Control || decode_specials {
+                    result.extend(&special.bytes);
                 }
+            } else {
+                return Err(DecodeError::InvalidToken(*token));
             }
-            let bytes = self
-                .decoder
-                .get(token)
-                .or_else(|| {
-                    self.special_decoder
-                        .get(token)
-                        .filter(|&special| {
-                            special.kind != SpecialTokenKind::Control || decode_specials
-                        })
-                        .map(|special| &special.bytes)
-                })
-                .ok_or(DecodeError::InvalidToken(*token))?;
-            result.extend(bytes);
         }
         self.config.decode(&mut result);
         Ok(result)
@@ -528,7 +519,7 @@ impl Kitoken {
     ///
     /// If `encode_specials` is `true`, control tokens are tokenized with their ids, otherwise they are tokenized with the regular vocabulary.
     ///
-    /// Returns an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
+    /// Returns an error if no token for a part exists in the encoder, and the configuration has no unknown token or skip fallback set.
     #[inline(never)]
     fn encode_parts(
         &self, text: &str, parts: &[TextPart], encode_specials: bool,
@@ -557,18 +548,20 @@ impl Kitoken {
                         }
                     }
                     if piece.len() > ENCODE_LINEAR_LIMIT {
-                        self.encode_pairs_heap::<false>(
+                        self.encode_pairs_heap(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
                             (0..piece.len()).map(|i| (i as _, 1)),
+                            &self.config.fallback,
                         )?;
                     } else {
-                        self.encode_pairs::<false>(
+                        self.encode_pairs(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
                             0..piece.len(),
+                            &self.config.fallback,
                         )?;
                     }
                     buffer.clear();
@@ -594,18 +587,20 @@ impl Kitoken {
                     }
                     indices.extend(piece.char_indices());
                     if indices.len() > ENCODE_LINEAR_LIMIT {
-                        self.encode_pairs_heap::<true>(
+                        self.encode_pairs_heap(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
                             indices.drain(..).map(|(i, c)| (i as _, c.len_utf8() as _)),
+                            &self.config.fallback,
                         )?;
                     } else {
-                        self.encode_pairs::<true>(
+                        self.encode_pairs(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
                             indices.drain(..).map(|(i, _)| i),
+                            &self.config.fallback,
                         )?;
                     }
                     buffer.clear();
@@ -627,6 +622,7 @@ impl Kitoken {
                         &mut buffer,
                         &mut result,
                         piece.char_indices().map(|(i, _)| i),
+                        &self.config.fallback,
                     )?;
                     buffer.clear();
                 }
@@ -685,11 +681,11 @@ impl Kitoken {
 
     /// Encodes the given piece into a sequence of tokens using the BPE algorithm.
     ///
-    /// Returns an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
+    /// Returns an error if no token for a part exists in the encoder, no unknown token id is set in the configuration, and no fallback is set.
     #[inline(never)]
-    fn encode_pairs<const CHAR_PAIRS: bool>(
+    fn encode_pairs(
         &self, piece: &[u8], buffer: &mut Vec<Part>, result: &mut Vec<u32>,
-        indices: impl Iterator<Item = usize>,
+        indices: impl Iterator<Item = usize>, fallback: &[ModeFallback],
     ) -> Result<(), EncodeError> {
         let start = buffer.len();
         buffer.extend(indices.map(|i| Part {
@@ -706,10 +702,17 @@ impl Kitoken {
             let piece = &piece[buffer[i].start..buffer[i + 1].start];
             if let Some(token) = self.encoder.get(piece) {
                 result.push(token.token);
-            } else if CHAR_PAIRS {
-                self.encode_pairs::<false>(piece, buffer, result, 0..piece.len())?;
-            } else if let Some((unk_id, _)) = self.unknown {
-                result.push(unk_id);
+            } else if fallback.first() == Some(&ModeFallback::Bytes) {
+                self.encode_pairs(
+                    piece,
+                    buffer,
+                    result,
+                    0..piece.len(),
+                    &fallback[fallback.len().min(1)..],
+                )?;
+            } else if fallback.first() == Some(&ModeFallback::Unknown) && self.unknown.is_some() {
+                result.push(self.unknown.as_ref().unwrap().0);
+            } else if fallback.first() == Some(&ModeFallback::Skip) {
             } else {
                 return Err(EncodeError::InvalidPiece(piece.into()));
             }
@@ -763,10 +766,12 @@ impl Kitoken {
     /// Encodes the given piece into a sequence of tokens using the BPE algorithm.
     ///
     /// This version uses a heap for tracking the merge candidates.
+    ///
+    /// Returns an error if no token for a part exists in the encoder, no unknown token id is set in the configuration, and no fallback is set.
     #[inline(never)]
-    fn encode_pairs_heap<const CHAR_PAIRS: bool>(
+    fn encode_pairs_heap(
         &self, piece: &[u8], buffer: &mut Vec<Part>, result: &mut Vec<u32>,
-        indices: impl Iterator<Item = (u32, u32)>,
+        indices: impl Iterator<Item = (u32, u32)>, fallback: &[ModeFallback],
     ) -> Result<(), EncodeError> {
         let mut heap = PieceHeap::with_index_bound(piece.len());
         let mut prior = u32::MAX;
@@ -804,10 +809,17 @@ impl Kitoken {
             let piece = &piece[part.start as _..(part.start + part.width) as _];
             if let Some(token) = self.encoder.get(piece) {
                 result.push(token.token);
-            } else if CHAR_PAIRS {
-                self.encode_pairs::<false>(piece, buffer, result, 0..piece.len())?;
-            } else if let Some((unk_id, _)) = self.unknown {
-                result.push(unk_id);
+            } else if fallback.first() == Some(&ModeFallback::Bytes) {
+                self.encode_pairs(
+                    piece,
+                    buffer,
+                    result,
+                    0..piece.len(),
+                    &fallback[fallback.len().min(1)..],
+                )?;
+            } else if fallback.first() == Some(&ModeFallback::Unknown) && self.unknown.is_some() {
+                result.push(self.unknown.as_ref().unwrap().0);
+            } else if fallback.first() == Some(&ModeFallback::Skip) {
             } else {
                 return Err(EncodeError::InvalidPiece(piece.into()));
             }
@@ -819,11 +831,11 @@ impl Kitoken {
     /// Encodes the given piece into a sequence of tokens using the unigram algorithm.
     /// This algorithm merges the highest scored subword units.
     ///
-    /// Returns an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
+    /// Returns an error if no token for a part exists in the encoder, no unknown token id is set in the configuration, and no fallback is set.
     #[inline(never)]
     fn encode_unigram(
         &self, piece: &[u8], buffer: &mut Vec<SizedPart>, result: &mut Vec<u32>,
-        indices: impl Iterator<Item = usize>,
+        indices: impl Iterator<Item = usize>, fallback: &[ModeFallback],
     ) -> Result<(), EncodeError> {
         let start = buffer.len();
         buffer.extend(indices.map(|c| SizedPart {
@@ -861,13 +873,24 @@ impl Kitoken {
         let mut sub_end = end - 1;
         while sub_end > start {
             if buffer[sub_end].token == u32::MAX {
-                if let Some((unk_id, _)) = self.unknown {
-                    result.push(unk_id);
+                if fallback.first() == Some(&ModeFallback::Bytes) {
+                    let part = &piece[buffer[sub_end - 1].start..buffer[sub_end].start];
+                    self.encode_unigram(
+                        part,
+                        buffer,
+                        result,
+                        0..part.len(),
+                        &fallback[fallback.len().min(1)..],
+                    )?;
+                } else if fallback.first() == Some(&ModeFallback::Unknown) && self.unknown.is_some()
+                {
+                    result.push(self.unknown.as_ref().unwrap().0);
+                } else if fallback.first() == Some(&ModeFallback::Skip) {
                 } else {
                     let part = &piece[buffer[sub_end - 1].start..buffer[sub_end].start];
                     return Err(EncodeError::InvalidPiece(part.into()));
                 }
-                sub_end -= 1;
+                sub_end -= buffer[sub_end].width;
                 continue;
             }
             result.push(buffer[sub_end].token);

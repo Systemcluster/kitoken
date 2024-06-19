@@ -104,6 +104,10 @@ Normalization, pre-tokenization, post-processing and decoding options contained 
 
 Some normalization, post-processing and decoding options used by Tokenizers are used for converting alternative token-byte representations during encoding and decoding. Kitoken always stores and operates on tokens as byte sequences, and will use these options to pre-normalize the vocabulary during conversion.
 
+Kitoken differs from Tokenizers in the tokenization of one edge case:
+
+- When using a `BPE` definition with a limited vocabulary and without an `unk` token, Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually.
+
 ### Tiktoken
 
 ```rust

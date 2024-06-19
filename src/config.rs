@@ -33,6 +33,18 @@ impl Default for Mode {
     }
 }
 
+/// Tokenization mode fallback.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum ModeFallback {
+    /// Skip pieces that cannot be tokenized.
+    Skip,
+    /// Replace pieces that cannot be tokenized with an unknown token.
+    Unknown,
+    /// Merge pieces that cannot be tokenized starting from individual bytes.
+    Bytes,
+}
+
 /// Errors returned when the configuration fails to validate.
 #[non_exhaustive]
 #[derive(Debug)]
@@ -54,6 +66,8 @@ pub enum ConfigurationError {
 pub struct Configuration {
     /// The tokenization mode.
     pub mode:          Mode,
+    /// The tokenization mode fallback.
+    pub fallback:      Vec<ModeFallback>,
     /// The input normalization scheme.
     pub normalization: Vec<Normalization>,
     /// The pre-tokenization split behavior.

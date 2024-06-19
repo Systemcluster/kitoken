@@ -16,9 +16,9 @@ use sentencepiece_model::{ModelType, SentencePieceModel, Type};
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, Normalization,
-    Processing, Regex, Scores, SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior,
-    UnicodeNormalization, Vocab,
+    Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, ModeFallback,
+    Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind, SpecialVocab, Split,
+    SplitBehavior, UnicodeNormalization, Vocab,
 };
 
 #[derive(Debug)]
@@ -66,6 +66,8 @@ pub fn convert_sentencepiece(data: impl AsRef<[u8]>) -> Result<Definition, Conve
 }
 fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, ConversionError> {
     let mut config = Configuration::default();
+    config.fallback.push(ModeFallback::Unknown);
+    config.fallback.push(ModeFallback::Skip);
 
     let mut model_type = ModelType::Unigram;
     let mut treat_whitespace_as_suffix = false;
@@ -110,6 +112,9 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             extract: false,
         });
         model_type = trainer.model_type();
+        if trainer.byte_fallback() {
+            config.fallback.insert(0, ModeFallback::Bytes);
+        }
     }
 
     match model_type {

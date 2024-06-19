@@ -1,0 +1,211 @@
+UTF-8 encoded sample plain-text file
+ <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk> <unk>
+
+Markus Kuhn [<unk>mark<unk>s ku<unk>n] <http://www.cl.cam.ac.uk/~mgk25/> — 2002-07-25 CC BY
+
+
+The ASCII compatible UTF-8 encoding used in this plain-text file
+is defined in Unicode, ISO 10646-1, and RFC 2279.
+
+
+Using Unicode/UTF-8, you can write in emails and source code things such as
+
+Mathematics and sciences:
+
+  <unk> E<unk>da = Q,  n <unk> <unk>, <unk> f(i) = <unk> g(i),      <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+                                            <unk><unk><unk><unk>a2+b3 <unk><unk><unk>
+  <unk>x<unk>R: <unk>x<unk> = <unk><unk><unk>x<unk>, α <unk> <unk><unk> = <unk>(<unk>α <unk> <unk>),    <unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk>
+                                            <unk><unk><unk><unk> c8   <unk><unk><unk>
+  N <unk> N0 <unk> Z <unk> Q <unk> R <unk> C,                   <unk><unk><unk>       <unk><unk><unk>
+                                            <unk><unk><unk> <unk>     <unk><unk><unk>
+  <unk> < a <unk> b <unk> c <unk> d <unk> <unk> <unk> (<unk>A<unk> <unk> <unk>B<unk>),      <unk><unk><unk> <unk>     <unk><unk><unk>
+                                            <unk><unk><unk> <unk>ai-bi<unk><unk><unk>
+  2H2 + O2 <unk> 2H2O, R = 4.7 k<unk>, <unk> 200 mm     <unk><unk><unk>i=1    <unk><unk><unk>
+
+Linguistics and dictionaries:
+
+  <unk>i <unk>nt<unk><unk>n<unk><unk><unk>n<unk>l f<unk><unk>n<unk>t<unk>k <unk>so<unk>si<unk>e<unk><unk>n
+  Y [<unk><unk>psil<unk>n], Yen [j<unk>n], Yoga [<unk>jo<unk>g<unk>]
+
+APL:
+
+  ((V<unk>V)=<unk><unk>V)/V<unk>,V    <unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk>
+
+Nicer typography in plain text files:
+
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk>                                          <unk>
+  <unk>   <unk> ‘single’ and <unk>double<unk> quotes         <unk>
+  <unk>                                          <unk>
+  <unk>   <unk> Curly apostrophes: <unk>We’ve been here<unk> <unk>
+  <unk>                                          <unk>
+  <unk>   <unk> Latin-1 apostrophe and accents: ' <unk>`  <unk>
+  <unk>                                          <unk>
+  <unk>   <unk> <unk>deutsche‘ <unk>Anführungszeichen<unk>       <unk>
+  <unk>                                          <unk>
+  <unk>   <unk> <unk>, <unk>, <unk>, <unk>, 3–4, —, <unk>5/+5, TM, ...      <unk>
+  <unk>                                          <unk>
+  <unk>   <unk> ASCII safety test: 1lI|, 0OD, 8B     <unk>
+  <unk>                      <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>         <unk>
+  <unk>   <unk> the euro symbol: <unk> 14.95 € <unk>         <unk>
+  <unk>                      <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>         <unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+
+Combining characters:
+
+  STARG<unk><unk>TE SG-1, a = v<unk> = r̈, a<unk> <unk> b<unk>
+
+Greek (in Polytonic):
+
+  The Greek anthem:
+
+  <unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk>π<unk> <unk><unk><unk> <unk><unk>ψ<unk>
+  <unk><unk><unk> <unk>παθ<unk><unk><unk> <unk><unk><unk> <unk><unk><unk>μ<unk><unk><unk>,
+  <unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk>π<unk> <unk><unk><unk> <unk>ψ<unk>
+  π<unk><unk> μ<unk> <unk><unk>α μ<unk><unk><unk><unk><unk><unk> <unk><unk> <unk><unk>.
+
+   <unk><unk>π <unk> <unk><unk> <unk><unk><unk><unk>α<unk>α <unk><unk>α<unk>μ<unk><unk><unk>
+  <unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk>
+  <unk>α<unk> <unk><unk><unk> π<unk><unk><unk>α <unk><unk><unk><unk><unk><unk><unk>μ<unk><unk><unk>
+  <unk>α<unk><unk><unk>, <unk> <unk>α<unk><unk><unk>,  <unk><unk><unk><unk><unk>θ<unk><unk><unk><unk>!
+
+  From a speech of Demosthenes in the 4th century BC:
+
+  <unk><unk><unk><unk> <unk>α<unk><unk><unk> πα<unk><unk><unk><unk>α<unk>α<unk> μ<unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>, <unk> <unk><unk><unk><unk><unk><unk>  <unk><unk>θ<unk><unk>α<unk><unk><unk>,
+  <unk><unk>α<unk> <unk> <unk> <unk><unk><unk> <unk><unk> π<unk><unk><unk>μα<unk>α <unk>π<unk><unk><unk><unk>ψ<unk> <unk>α<unk> <unk><unk>α<unk> π<unk><unk><unk> <unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk> μ<unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk> π<unk><unk><unk> <unk><unk><unk>
+  <unk><unk>μ<unk><unk><unk><unk>α<unk>θα<unk> <unk><unk><unk><unk>ππ<unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk>μ<unk><unk><unk><unk><unk>, <unk><unk> <unk><unk> π<unk><unk><unk>μα<unk> <unk>
+  <unk><unk><unk> <unk><unk><unk><unk><unk> π<unk><unk><unk><unk><unk><unk><unk>α,  <unk><unk>θ <unk> <unk>π<unk><unk> μ<unk> π<unk><unk><unk><unk>μ<unk>θ <unk> α<unk><unk><unk><unk>
+  π<unk><unk><unk><unk><unk><unk><unk> <unk>α<unk><unk><unk> <unk><unk><unk>ψα<unk>θα<unk> <unk><unk><unk><unk>. <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk> μ<unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk> <unk><unk> <unk><unk><unk>α<unk><unk>α <unk><unk><unk><unk><unk><unk><unk><unk> <unk> <unk><unk><unk> <unk>π<unk>θ<unk><unk><unk><unk>, π<unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk>θα<unk>,
+  <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk>α<unk> πα<unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk>μ<unk><unk> <unk>μα<unk><unk><unk><unk><unk><unk><unk>. <unk><unk><unk> <unk><unk>, <unk><unk><unk> μ<unk><unk>
+  π<unk><unk> <unk> <unk><unk><unk><unk> <unk><unk> π<unk><unk><unk><unk> <unk>α<unk> <unk><unk> α<unk><unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk>α<unk><unk><unk> <unk>α<unk> <unk><unk><unk><unk>ππ<unk><unk>
+  <unk><unk>μ<unk><unk><unk><unk>α<unk>θα<unk>, <unk>α<unk> μ<unk><unk> <unk> <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk>α<unk> <unk>π <unk> <unk>μ<unk><unk> <unk><unk><unk>, <unk><unk> π<unk><unk>α<unk>
+  <unk><unk><unk><unk><unk><unk><unk> <unk>α<unk><unk> <unk> <unk>μ<unk><unk><unk><unk><unk>α<unk> <unk><unk><unk> μ<unk><unk><unk><unk><unk> π<unk>π<unk><unk><unk>μα<unk> <unk><unk><unk>θ <unk> <unk><unk>α<unk><unk><unk>
+  π<unk><unk><unk>α<unk><unk><unk><unk> <unk>μ<unk><unk> <unk><unk><unk>α<unk> <unk><unk><unk> π<unk><unk><unk><unk><unk>, <unk>π<unk><unk> <unk><unk><unk><unk> <unk><unk>μμ<unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk>μ<unk><unk>. <unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk>α<unk><unk><unk> <unk>π<unk><unk><unk><unk>, <unk><unk><unk><unk> <unk>α<unk> π<unk><unk><unk> <unk><unk><unk>
+  <unk><unk><unk>α <unk><unk>μ<unk><unk><unk><unk><unk><unk>α<unk> <unk><unk><unk> <unk>α<unk> <unk><unk> <unk><unk><unk>π<unk><unk> <unk><unk><unk><unk><unk>α<unk> <unk><unk><unk>π<unk><unk><unk><unk> π<unk><unk><unk> <unk><unk>
+  <unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk>θ<unk><unk> <unk>π<unk>θ<unk><unk>θα<unk>, μ<unk><unk>α<unk><unk><unk> <unk><unk><unk><unk>μα<unk> π<unk><unk><unk> <unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk> π<unk><unk><unk><unk><unk>θα<unk> <unk><unk><unk><unk><unk>.
+
+  <unk><unk>μ<unk><unk>θ<unk><unk><unk><unk><unk>, <unk> <unk>  <unk><unk><unk><unk><unk>θ<unk>α<unk><unk><unk>
+
+Georgian:
+
+  From a Unicode conference invitation:
+
+  <unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> Unicode-<unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>, <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> 10-12 <unk><unk><unk><unk><unk>,
+  <unk>. <unk><unk><unk><unk><unk><unk><unk>, <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>. <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk> Unicode-<unk>,
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>, Unicode-<unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>, <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>, <unk><unk><unk><unk><unk><unk><unk><unk><unk>,
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>.
+
+Russian:
+
+  From a Unicode conference invitation:
+
+  <unk>аре<unk>и<unk>трир<unk><unk>те<unk><unk> <unk>е<unk><unk>а<unk> <unk>а <unk>е<unk><unk>т<unk><unk> <unk>е<unk>д<unk><unk>ар<unk>д<unk><unk><unk> <unk><unk><unk><unk>ере<unk><unk>и<unk> <unk><unk>
+  Unicode, к<unk>т<unk>ра<unk> <unk><unk><unk>т<unk>ит<unk><unk> 10-12 марта 1997 <unk><unk>да в <unk>а<unk><unk><unk>е в <unk>ерма<unk>ии.
+  <unk><unk><unk><unk>ере<unk><unk>и<unk> <unk><unk><unk>ерет <unk>ир<unk>ки<unk> кр<unk><unk> <unk>к<unk><unk>ерт<unk>в <unk><unk>  в<unk><unk>р<unk><unk>ам <unk>л<unk><unk>ал<unk><unk><unk><unk><unk>
+  <unk><unk>тер<unk>ета и Unicode, л<unk>кали<unk>а<unk>ии и и<unk>тер<unk>а<unk>и<unk><unk>али<unk>а<unk>ии, в<unk><unk>л<unk><unk>е<unk>и<unk> и
+  <unk>риме<unk>е<unk>и<unk> Unicode в ра<unk>ли<unk><unk><unk><unk> <unk><unk>ера<unk>и<unk><unk><unk><unk><unk> <unk>и<unk>тема<unk> и <unk>р<unk><unk>рамм<unk><unk><unk>
+  <unk>рил<unk><unk>е<unk>и<unk><unk>, <unk>ри<unk>та<unk>, вер<unk>тке и м<unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> к<unk>м<unk><unk><unk>тер<unk><unk><unk> <unk>и<unk>тема<unk>.
+
+Thai (UCS Level 2):
+
+  Excerpt from a poetry on The Romance of The Three Kingdoms (a Chinese
+  classic 'San Gua'):
+
+  [----------------------------|------------------------]
+    <unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>       <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+    <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>           <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>         <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+    <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>      <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>          <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+    <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>          <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>           <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk>
+
+  (The above is a two-column text. If combining characters are handled
+  correctly, the lines of the second column should be aligned with the
+  | character above.)
+
+Ethiopian:
+
+  Proverbs in the Amharic language:
+
+  <unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk>
+  <unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk>
+  <unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk>
+  <unk><unk> <unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk>
+  <unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk><unk>
+  <unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk>
+  <unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk><unk>
+  <unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk>
+  <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk>
+  <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk>
+  <unk><unk><unk><unk> <unk><unk> <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk>
+
+Runes:
+
+  <unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk> <unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk>
+
+  (Old English, which transcribed into Latin reads 'He cwaeth that he
+  bude thaem lande northweardum with tha Westsae.' and means 'He said
+  that he lived in the northern land near the Western Sea.')
+
+Braille:
+
+  <unk><unk><unk><unk> <unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk>
+
+  <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk> <unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk>
+  <unk><unk><unk><unk><unk> <unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk> <unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk>
+  <unk><unk><unk><unk> <unk><unk> <unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk>
+
+  <unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk> <unk><unk> <unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+
+  <unk><unk><unk><unk> <unk> <unk><unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk> <unk><unk><unk> <unk><unk><unk> <unk> <unk><unk><unk><unk> <unk><unk> <unk><unk>
+  <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk>
+  <unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk> <unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk><unk>
+  <unk><unk><unk><unk><unk> <unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk> <unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk> <unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk> <unk><unk><unk> <unk><unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk><unk><unk> <unk><unk>
+  <unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk> <unk><unk> <unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk>
+  <unk><unk><unk><unk><unk> <unk><unk><unk> <unk><unk> <unk><unk><unk><unk> <unk><unk> <unk> <unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+
+  (The first couple of paragraphs of "A Christmas Carol" by Dickens)
+
+Compact font selection example text:
+
+  ABCDEFGHIJKLMNOPQRSTUVWXYZ /0123456789
+  abcdefghijklmnopqrstuvwxyz £<unk>μ<unk><unk>Ö<unk><unk>éö<unk>
+  –—‘<unk><unk><unk><unk><unk>...<unk>TM<unk><unk><unk><unk>€ <unk><unk><unk><unk><unk>α<unk><unk><unk><unk> <unk><unk><unk><unk><unk>а<unk>в<unk>д
+  <unk><unk><unk>R<unk><unk><unk><unk> <unk><unk><unk><unk><unk> <unk><unk><unk><unk><unk><unk><unk><unk> fi�<unk>2<unk><unk><unk><unk><unk><unk><unk><unk><unk><unk>
+
+Greetings in various languages:
+
+  Hello world, <unk>α<unk><unk>μ<unk><unk>α <unk><unk><unk>μ<unk>, <unk><unk><unk><unk><unk>
+
+Box drawing alignment tests:                                          <unk>
+                                                                      <unk>
+  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk>   <unk>  <unk> <unk><unk><unk> <unk><unk><unk>    <unk> <unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk><unk><unk> <unk><unk><unk>    <unk> <unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk> <unk><unk><unk>  <unk><unk>   <unk><unk>  <unk><unk> <unk> <unk><unk>  <unk><unk> <unk> <unk><unk>  <unk><unk> <unk> <unk><unk>  <unk><unk><unk><unk>   <unk>  <unk> <unk><unk><unk> <unk><unk><unk>    <unk> <unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk> <unk> <unk><unk>  <unk><unk>   <unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk>     <unk><unk><unk><unk> <unk> <unk><unk><unk><unk> <unk> <unk> <unk><unk><unk><unk><unk><unk><unk>
+  <unk><unk><unk> <unk><unk><unk>  <unk><unk>   <unk><unk>  <unk><unk> <unk> <unk><unk>  <unk><unk> <unk> <unk><unk>  <unk><unk> <unk> <unk><unk>  <unk><unk><unk><unk><unk><unk><unk><unk> <unk>  <unk> <unk> <unk>  <unk> <unk> <unk>
+  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk><unk> <unk>  <unk> <unk> <unk>  <unk> <unk> <unk>
+  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk><unk>  <unk><unk><unk><unk><unk><unk>   <unk><unk><unk><unk> <unk> <unk><unk><unk><unk> <unk>   <unk><unk><unk><unk><unk><unk><unk>
+                                               <unk><unk><unk><unk><unk><unk>
