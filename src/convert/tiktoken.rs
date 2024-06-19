@@ -129,11 +129,12 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
         .iter()
         .enumerate()
         .map(|(i, &(s, t))| SpecialToken {
-            id:    t,
-            bytes: s.as_bytes().to_vec(),
-            kind:  SpecialTokenKind::Control,
-            ident: None,
-            score: i as f32,
+            id:      t,
+            bytes:   s.as_bytes().to_vec(),
+            kind:    SpecialTokenKind::Control,
+            ident:   None,
+            score:   i as f32,
+            extract: true,
         })
         .collect::<Vec<_>>();
     specials.sort();

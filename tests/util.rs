@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Once;
 
 use bstr::ByteSlice;
@@ -26,6 +26,131 @@ pub fn test_models_path() -> std::path::PathBuf {
 
 pub fn test_data_path() -> std::path::PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data")
+}
+
+pub fn test_models(path: impl AsRef<str>, extension: impl AsRef<str>) -> Vec<PathBuf> {
+    let mut models = std::fs::read_dir(test_models_path().join(path.as_ref()))
+        .unwrap()
+        .map(|x| x.unwrap())
+        .filter(|x| x.file_type().unwrap().is_file())
+        .collect::<Vec<_>>();
+    models.sort_by_key(|x| x.file_name());
+    let models_arg = std::env::var_os("MODELS")
+        .map(|file| {
+            file.to_string_lossy()
+                .split(",")
+                .map(|file| file.to_string())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let models = models
+        .into_iter()
+        .map(|x| x.path())
+        .filter(|x| x.extension().filter(|&e| e == extension.as_ref()).is_some())
+        .filter(|x| {
+            let name = x.file_name().unwrap().to_string_lossy();
+            if !models_arg.is_empty() && !models_arg.iter().any(|model| name.starts_with(model)) {
+                log::info!("skipping: {}", x.to_string_lossy());
+                return false;
+            }
+            true
+        })
+        .collect::<Vec<_>>();
+    models
+}
+
+pub fn test_encode_decode_lines(
+    path: impl AsRef<str>, extension: impl AsRef<str>, input: impl AsRef<str>, specials: bool,
+    init: impl Fn(&Path) -> Kitoken,
+) {
+    eprintln!();
+    let path = path.as_ref();
+    let extension = extension.as_ref();
+    let input = input.as_ref();
+    for model in test_models(path, extension) {
+        let name = model.file_name().unwrap().to_string_lossy();
+        let name = name.trim_end_matches(extension).trim_end_matches('.');
+        let tokens = std::fs::metadata(
+            test_data_path().join(path).join([input, "_tokens_", name, ".txt"].concat()),
+        );
+        if !tokens.is_ok_and(|tokens| tokens.is_file()) {
+            log::warn!(
+                "{}_input.txt: {}: skipping (no token data)",
+                input,
+                model.to_string_lossy()
+            );
+            continue;
+        }
+        let output = std::fs::metadata(
+            test_data_path().join(path).join([input, "_output_", name, ".txt"].concat()),
+        );
+        log::info!("{}_input.txt: {}", input, model.to_string_lossy());
+        let tokenizer = init(&model);
+        if output.is_ok_and(|output| output.is_file()) {
+            test_encode_decode_lines_different(
+                &tokenizer,
+                [input, "_input.txt"].concat(),
+                [path, "/", input, "_tokens_", name, ".txt"].concat(),
+                [path, "/", input, "_output_", name, ".txt"].concat(),
+                specials,
+                false,
+            );
+        } else {
+            test_encode_decode_lines_same(
+                &tokenizer,
+                [input, "_input.txt"].concat(),
+                [path, "/", input, "_tokens_", name, ".txt"].concat(),
+                specials,
+                false,
+            );
+        }
+    }
+}
+
+pub fn test_encode_decode_full(
+    path: impl AsRef<str>, extension: impl AsRef<str>, input: impl AsRef<str>, specials: bool,
+    init: impl Fn(&Path) -> Kitoken,
+) {
+    eprintln!();
+    let path = path.as_ref();
+    let extension = extension.as_ref();
+    let input = input.as_ref();
+    for model in test_models(path, extension) {
+        let name = model.file_name().unwrap().to_string_lossy();
+        let name = name.trim_end_matches(extension).trim_end_matches('.');
+        let tokens = std::fs::metadata(
+            test_data_path().join(path).join([input, "_tokens_", name, ".txt"].concat()),
+        );
+        if !tokens.is_ok_and(|tokens| tokens.is_file()) {
+            log::warn!(
+                "{}_input.txt: {}: skipping (no token data)",
+                input,
+                model.to_string_lossy()
+            );
+            continue;
+        }
+        let output = std::fs::metadata(
+            test_data_path().join(path).join([input, "_output_", name, ".txt"].concat()),
+        );
+        log::info!("{}_input.txt: {}", input, model.to_string_lossy());
+        let tokenizer = init(&model);
+        if output.is_ok_and(|output| output.is_file()) {
+            test_encode_decode_full_different(
+                &tokenizer,
+                [input, "_input.txt"].concat(),
+                [path, "/", input, "_tokens_", name, ".txt"].concat(),
+                [path, "/", input, "_output_", name, ".txt"].concat(),
+                specials,
+            );
+        } else {
+            test_encode_decode_full_same(
+                &tokenizer,
+                [input, "_input.txt"].concat(),
+                [path, "/", input, "_tokens_", name, ".txt"].concat(),
+                specials,
+            );
+        }
+    }
 }
 
 pub fn read_lines(path: impl Into<PathBuf>) -> Vec<String> {
@@ -93,11 +218,18 @@ pub fn test_encode_decode_full_different(
     tokenizer: &Kitoken, input: impl Into<PathBuf>, tokens: impl Into<PathBuf>,
     output: impl Into<PathBuf>, encode_specials: bool,
 ) {
+    let output = output.into();
+    let tokens = tokens.into();
+    let tokens_dump_path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+        .join(PathBuf::from(&tokens).file_name().unwrap())
+        .with_extension("error.txt");
+    let output_dump_path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())
+        .join(PathBuf::from(&output).file_name().unwrap())
+        .with_extension("error.txt");
     let input = read_full(test_data_path().join(input.into()));
-    let tokens = read_tokens_full(test_data_path().join(tokens.into()));
-    let output = read_full(test_data_path().join(output.into()));
-    eprintln!();
-    let (encode_ok, _, decode_ok, _) =
+    let tokens = read_tokens_full(test_data_path().join(tokens));
+    let output = read_full(test_data_path().join(output));
+    let (encode_ok, encode_result, decode_ok, decode_result) =
         check_encode_decode_different(tokenizer, &input, &tokens, &output, encode_specials);
     if !encode_ok {
         let line = style("encode mismatch".to_string()).on_red();
@@ -106,6 +238,27 @@ pub fn test_encode_decode_full_different(
     if !decode_ok {
         let line = style("decode mismatch".to_string()).on_red();
         eprintln!("{}", line);
+    }
+    if !encode_ok && std::env::var("DUMP_ERRORS").is_ok() {
+        use std::io::Write;
+        let file = std::fs::File::create(&tokens_dump_path).unwrap();
+        let mut writer = std::io::BufWriter::new(file);
+        writer
+            .write_all(
+                encode_result
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+                    .as_bytes(),
+            )
+            .unwrap();
+    }
+    if !decode_ok && std::env::var_os("DUMP_ERRORS").is_some() {
+        use std::io::Write;
+        let file = std::fs::File::create(&output_dump_path).unwrap();
+        let mut writer = std::io::BufWriter::new(file);
+        writer.write_all(decode_result.as_bstr()).unwrap();
     }
     assert!(encode_ok, "encoding passes");
     assert!(decode_ok, "decoding passes");
@@ -143,7 +296,6 @@ pub fn test_encode_decode_lines_different(
         output_lines.len(),
         "input lines and output lines have same number of lines"
     );
-    eprintln!();
     let sep = style(":").dim();
     let mut results = Vec::with_capacity(input_lines.len());
     for (i, ((input, tokens), output)) in

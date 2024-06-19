@@ -9,15 +9,10 @@ use util::*;
 #[test]
 fn test_serialize_deserialize() {
     init_env();
-    let mut models = std::fs::read_dir(test_models_path().join("sentencepiece"))
-        .unwrap()
-        .map(|x| x.unwrap())
-        .filter(|x| x.file_type().unwrap().is_file())
-        .collect::<Vec<_>>();
-    models.sort_by_key(|x| x.file_name());
-    for model in models {
-        log::info!("converting: {:?}", model);
-        let data = std::fs::read(model.path()).unwrap();
+    eprintln!();
+    for model in test_models("sentencepiece", "model") {
+        log::info!("converting: {}", model.to_string_lossy());
+        let data = std::fs::read(model).unwrap();
         let definition1 = convert_sentencepiece(data).unwrap();
         let tokenizer = Kitoken::from_definition(definition1.clone()).unwrap();
         let definition2 = tokenizer.to_definition();
@@ -28,97 +23,23 @@ fn test_serialize_deserialize() {
 #[test]
 fn test_small_lines() {
     init_env();
-    let mut models = std::fs::read_dir(test_models_path().join("sentencepiece"))
-        .unwrap()
-        .map(|x| x.unwrap())
-        .filter(|x| x.file_type().unwrap().is_file())
-        .collect::<Vec<_>>();
-    models.sort_by_key(|x| x.file_name());
-    for model in models {
-        let name = model.file_name();
-        let name = name.to_str().unwrap();
-        let name = name.trim_end_matches(".model");
-        let tokens = std::fs::metadata(
-            test_data_path()
-                .join("sentencepiece")
-                .join(["small_tokens_", name, ".txt"].concat()),
-        );
-        if !tokens.is_ok_and(|tokens| tokens.is_file()) {
-            log::warn!("small_input.txt: {:?}: skipping (no token data)", model);
-            continue;
-        }
-        let output = std::fs::metadata(
-            test_data_path()
-                .join("sentencepiece")
-                .join(["small_output_", name, ".txt"].concat()),
-        );
-        log::info!("small_input.txt: {:?}", model);
-        let tokenizer = Kitoken::from_sentencepiece_file(model.path()).unwrap();
-        if output.is_ok_and(|output| output.is_file()) {
-            test_encode_decode_lines_different(
-                &tokenizer,
-                "small_input.txt",
-                ["sentencepiece/small_tokens_", name, ".txt"].concat(),
-                ["sentencepiece/small_output_", name, ".txt"].concat(),
-                false,
-                false,
-            );
-        } else {
-            test_encode_decode_lines_same(
-                &tokenizer,
-                "small_input.txt",
-                ["sentencepiece/small_tokens_", name, ".txt"].concat(),
-                false,
-                false,
-            );
-        }
-    }
+    test_encode_decode_lines("sentencepiece", "model", "small", false, |model| {
+        Kitoken::from_sentencepiece_file(model).unwrap()
+    })
 }
 
 #[test]
 fn test_utf8_full() {
     init_env();
-    let mut models = std::fs::read_dir(test_models_path().join("sentencepiece"))
-        .unwrap()
-        .map(|x| x.unwrap())
-        .filter(|x| x.file_type().unwrap().is_file())
-        .collect::<Vec<_>>();
-    models.sort_by_key(|x| x.file_name());
-    for model in models {
-        let name = model.file_name();
-        let name = name.to_str().unwrap();
-        let name = name.trim_end_matches(".model");
-        let tokens = std::fs::metadata(
-            test_data_path()
-                .join("sentencepiece")
-                .join(["utf8_tokens_", name, ".txt"].concat()),
-        );
-        if !tokens.is_ok_and(|tokens| tokens.is_file()) {
-            log::warn!("utf8_input.txt: {:?}: skipping (no token data)", model);
-            continue;
-        }
-        let output = std::fs::metadata(
-            test_data_path()
-                .join("sentencepiece")
-                .join(["utf8_output_", name, ".txt"].concat()),
-        );
-        log::info!("utf8_input.txt: {:?}", model);
-        let tokenizer = Kitoken::from_sentencepiece_file(model.path()).unwrap();
-        if output.is_ok_and(|output| output.is_file()) {
-            test_encode_decode_full_different(
-                &tokenizer,
-                "utf8_input.txt",
-                ["sentencepiece/utf8_tokens_", name, ".txt"].concat(),
-                ["sentencepiece/utf8_output_", name, ".txt"].concat(),
-                false,
-            );
-        } else {
-            test_encode_decode_full_same(
-                &tokenizer,
-                "utf8_input.txt",
-                ["sentencepiece/utf8_tokens_", name, ".txt"].concat(),
-                false,
-            );
-        }
-    }
+    test_encode_decode_full("sentencepiece", "model", "utf8", false, |model| {
+        Kitoken::from_sentencepiece_file(model).unwrap()
+    })
+}
+
+#[test]
+fn test_mixed_lines() {
+    init_env();
+    test_encode_decode_lines("sentencepiece", "model", "mixed", false, |model| {
+        Kitoken::from_sentencepiece_file(model).unwrap()
+    })
 }

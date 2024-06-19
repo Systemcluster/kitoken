@@ -857,27 +857,29 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 content,
                 id,
                 special,
+                normalized,
                 ..
             },
         ) in tokenizer.added_tokens.iter().flatten().enumerate()
         {
             let is_unk = unk_id.as_ref() == Some(id) || unk_token == Some(content);
             specials.insert(content.as_bytes().to_vec(), SpecialToken {
-                id:    *id,
-                bytes: content.as_bytes().to_vec(),
-                kind:  if is_unk {
+                id:      *id,
+                bytes:   content.as_bytes().to_vec(),
+                kind:    if is_unk {
                     SpecialTokenKind::Unknown
                 } else if *special {
                     SpecialTokenKind::Control
                 } else {
                     SpecialTokenKind::Priority
                 },
-                score: i as f32,
-                ident: if is_unk {
+                score:   i as f32,
+                ident:   if is_unk {
                     Some("unk".to_string())
                 } else {
                     None
                 },
+                extract: !normalized,
             });
         }
         specials
@@ -959,6 +961,25 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
 
             let mut specials = specials.into_values().collect::<Vec<_>>();
             specials.sort();
+
+            // Fix special tokens with invalid IDs
+            let vocab_rev = vocab.iter().map(|(token, id)| (id, token)).collect::<HashMap<_, _>>();
+            let mut vocab_max_id = vocab.iter().map(|(_, id)| *id).max().unwrap_or(0);
+            for special in specials.iter_mut() {
+                if let Some(&v) = vocab_rev.get(&special.id) {
+                    if &special.bytes != v {
+                        log::warn!(
+                            "Special token with invalid ID: {:?} -> {} (replacing with {})",
+                            special.bytes.as_bstr(),
+                            special.id,
+                            vocab_max_id + 1
+                        );
+                        special.id = vocab_max_id + 1;
+                        vocab_max_id += 1;
+                    }
+                }
+            }
+            drop(vocab_rev);
 
             let scores = Vec::with_capacity(0);
             (vocab, specials, scores)

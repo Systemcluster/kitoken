@@ -66,8 +66,6 @@ use alloc::fmt::Debug;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
-use core::num::NonZeroUsize;
-use core::ops::Range;
 use core::str::Utf8Error;
 
 use bstr::ByteSlice;
@@ -104,15 +102,17 @@ pub enum SpecialTokenKind {
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct SpecialToken {
     /// The token id. The numeric value of the token.
-    pub id:    u32,
+    pub id:      u32,
     /// The token bytes. The byte sequence of the token.
-    pub bytes: Vec<u8>,
+    pub bytes:   Vec<u8>,
     /// The token type.
-    pub kind:  SpecialTokenKind,
+    pub kind:    SpecialTokenKind,
     /// Common identifier for the token. Used for control tokens like "cls", "sep", "pad", "mask" and similar.
-    pub ident: Option<String>,
+    pub ident:   Option<String>,
     /// The token score. Used for prioritizing special tokens during encoding.
-    pub score: f32,
+    pub score:   f32,
+    /// Whether the token should be split pre-normalization.
+    pub extract: bool,
 }
 impl Eq for SpecialToken {}
 impl PartialOrd for SpecialToken {
@@ -140,6 +140,7 @@ impl Debug for SpecialToken {
             .field("kind", &self.kind)
             .field("ident", &self.ident)
             .field("score", &self.score)
+            .field("extract", &self.extract)
             .finish()
     }
 }
@@ -256,6 +257,7 @@ pub struct Kitoken {
     special_encoder: DebugIgnore<SpecialEncoderMap>,
     special_decoder: DebugIgnore<SpecialDecoderMap>,
 
+    extract_split: Regex,
     special_split: Regex,
 
     config:  Configuration,
@@ -302,6 +304,18 @@ impl Kitoken {
         let special_split = Regex::new(
             &specials
                 .iter()
+                .filter(|special| !special.extract)
+                .map(|special| core::str::from_utf8(&special.bytes))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .map(|s| regex::escape(s))
+                .collect::<Vec<_>>()
+                .join("|"),
+        )?;
+        let extract_split = Regex::new(
+            &specials
+                .iter()
+                .filter(|special| special.extract)
                 .map(|special| core::str::from_utf8(&special.bytes))
                 .collect::<Result<Vec<_>, _>>()?
                 .into_iter()
@@ -354,6 +368,7 @@ impl Kitoken {
             special_encoder: DebugIgnore(special_encoder),
             special_decoder: DebugIgnore(special_decoder),
             special_split,
+            extract_split,
             config,
             meta,
             unknown,
@@ -371,10 +386,104 @@ impl Kitoken {
     pub fn encode(
         &self, text: impl AsRef<str>, encode_specials: bool,
     ) -> Result<Vec<u32>, EncodeError> {
-        let mut text = Cow::Borrowed(text.as_ref());
-        self.config.normalize(&mut text);
-        let parts = self.split_into_parts(&text);
-        let mut result = self.encode_parts(&text, &parts, encode_specials)?;
+        let text = text.as_ref();
+        let mut extracted = if self.extract_split.is_empty() {
+            Vec::with_capacity(0)
+        } else {
+            let mut extracted = self.extract_split.find_iter(text);
+            extracted.reverse();
+            extracted
+        };
+        let mut parts = Vec::with_capacity(extracted.len() * 2 + 1);
+        let mut posit = 0;
+        while posit < text.len() {
+            if let Some(next) = extracted.pop() {
+                if next.0 > posit {
+                    let mut text = text[posit..next.0].into();
+                    self.config.normalize(&mut text);
+                    parts.push(TextPart {
+                        text,
+                        special: false,
+                    })
+                }
+                parts.push(TextPart {
+                    text:    text[next.0..next.1].into(),
+                    special: true,
+                });
+                posit = next.1;
+            } else {
+                let mut rest = text[posit..text.len()].into();
+                self.config.normalize(&mut rest);
+                parts.push(TextPart {
+                    text:    rest,
+                    special: false,
+                });
+                posit = text.len();
+            }
+        }
+        let parts = parts.iter().fold(Vec::with_capacity(text.len() / 6), |mut acc, part| {
+            let mut specials = if part.special {
+                if encode_specials
+                    || self.special_encoder[part.text.as_bytes()].kind != SpecialTokenKind::Control
+                {
+                    acc.push(part.clone());
+                    return acc;
+                }
+                Vec::with_capacity(0)
+            } else if self.special_split.is_empty() {
+                Vec::with_capacity(0)
+            } else {
+                let mut specials = self
+                    .special_split
+                    .find_iter(&part.text)
+                    .into_iter()
+                    .filter(|special| {
+                        if encode_specials {
+                            true
+                        } else {
+                            self.special_encoder
+                                .get(part.text[special.0..special.1].as_bytes())
+                                .filter(|special| special.kind != SpecialTokenKind::Control)
+                                .is_some()
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                specials.reverse();
+                specials
+            };
+            let mut posit = 0;
+            while posit < part.text.len() {
+                if let Some(next) = specials.pop() {
+                    if next.0 > posit {
+                        for (start, end) in self.config.split(&part.text[posit..next.0]) {
+                            if end > start {
+                                acc.push(TextPart {
+                                    text:    part.text[posit + start..posit + end].into(),
+                                    special: false,
+                                });
+                            }
+                        }
+                    }
+                    acc.push(TextPart {
+                        text:    part.text[next.0..next.1].into(),
+                        special: true,
+                    });
+                    posit = next.1;
+                } else {
+                    for (start, end) in self.config.split(&part.text[posit..part.text.len()]) {
+                        if end > start {
+                            acc.push(TextPart {
+                                text:    part.text[posit + start..posit + end].into(),
+                                special: false,
+                            });
+                        }
+                    }
+                    posit = part.text.len();
+                }
+            }
+            acc
+        });
+        let mut result = self.encode_parts(text, &parts, encode_specials)?;
         self.config.process(&mut result);
         Ok(result)
     }
@@ -415,42 +524,6 @@ impl Kitoken {
         Ok(result)
     }
 
-    /// Splits the given text into parts according to the split regex.
-    ///
-    /// Returns a list of parts.
-    #[inline(never)]
-    fn split_into_parts(&self, text: &str) -> Vec<TextPart> {
-        if text.is_empty() {
-            return Vec::new();
-        }
-        let mut parts = Vec::<TextPart>::with_capacity(text.len() / 6);
-        let mut posit = 0;
-        loop {
-            let next_special = self.special_split.find(&text[posit..]);
-            let end = next_special.map_or(text.len(), |(start, _)| start + posit);
-            for (start, end) in self.config.split(&text[posit..end]) {
-                if end > start {
-                    parts.push(TextPart {
-                        start:   start + posit,
-                        end:     unsafe { NonZeroUsize::new_unchecked(end + posit) },
-                        special: false,
-                    });
-                }
-            }
-            if let Some((start, end)) = next_special {
-                parts.push(TextPart {
-                    start:   start + posit,
-                    end:     unsafe { NonZeroUsize::new_unchecked(end + posit) },
-                    special: true,
-                });
-                posit += end
-            } else {
-                break;
-            }
-        }
-        parts
-    }
-
     /// Encodes the given piece into a sequence of tokens.
     ///
     /// If `encode_specials` is `true`, control tokens are tokenized with their ids, otherwise they are tokenized with the regular vocabulary.
@@ -469,7 +542,7 @@ impl Kitoken {
             Mode::BytePair => {
                 let mut buffer = Vec::with_capacity(ENCODE_BUFFER_SIZE);
                 for part in parts {
-                    let piece = &text[part.range()];
+                    let piece = &part.text;
                     if part.special {
                         let special = &self.special_encoder[piece.as_bytes()];
                         if special.kind != SpecialTokenKind::Control || encode_specials {
@@ -505,7 +578,7 @@ impl Kitoken {
                 let mut buffer = Vec::with_capacity(ENCODE_BUFFER_SIZE);
                 let mut indices = Vec::with_capacity(ENCODE_BUFFER_SIZE);
                 for part in parts {
-                    let piece = &text[part.range()];
+                    let piece = &part.text;
                     if part.special {
                         let special = &self.special_encoder[piece.as_bytes()];
                         if special.kind != SpecialTokenKind::Control || encode_specials {
@@ -541,7 +614,7 @@ impl Kitoken {
             Mode::Unigram => {
                 let mut buffer = Vec::with_capacity(ENCODE_BUFFER_SIZE);
                 for part in parts {
-                    let piece = &text[part.range()];
+                    let piece = &part.text;
                     if part.special {
                         let special = &self.special_encoder[piece.as_bytes()];
                         if special.kind != SpecialTokenKind::Control || encode_specials {
@@ -805,17 +878,10 @@ impl Kitoken {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct TextPart {
-    start:   usize,
-    end:     NonZeroUsize,
+#[derive(Debug, Clone)]
+struct TextPart<'a> {
+    text:    Cow<'a, str>,
     special: bool,
-}
-impl TextPart {
-    #[inline(always)]
-    fn range(&self) -> Range<usize> {
-        self.start..self.end.get()
-    }
 }
 
 #[derive(Debug, Clone, Copy)]

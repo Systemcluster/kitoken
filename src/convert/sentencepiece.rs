@@ -77,33 +77,37 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
     if let Some(trainer) = model.trainer() {
         treat_whitespace_as_suffix = trainer.treat_whitespace_as_suffix();
         specials.insert(trainer.unk_piece().as_bytes().to_vec(), SpecialToken {
-            id:    trainer.unk_id() as _,
-            bytes: trainer.unk_surface().as_bytes().to_vec(),
-            kind:  SpecialTokenKind::Unknown,
-            ident: Some("unk".to_string()),
-            score: 0.0,
+            id:      trainer.unk_id() as _,
+            bytes:   trainer.unk_surface().as_bytes().to_vec(),
+            kind:    SpecialTokenKind::Unknown,
+            ident:   Some("unk".to_string()),
+            score:   0.0,
+            extract: false,
         });
         unk_id = Some(trainer.unk_id() as _);
         specials.insert(trainer.bos_piece().as_bytes().to_vec(), SpecialToken {
-            id:    trainer.bos_id() as _,
-            bytes: trainer.bos_piece().as_bytes().to_vec(),
-            kind:  SpecialTokenKind::Control,
-            ident: Some("bos".to_string()),
-            score: 0.0,
+            id:      trainer.bos_id() as _,
+            bytes:   trainer.bos_piece().as_bytes().to_vec(),
+            kind:    SpecialTokenKind::Control,
+            ident:   Some("bos".to_string()),
+            score:   0.0,
+            extract: false,
         });
         specials.insert(trainer.eos_piece().as_bytes().to_vec(), SpecialToken {
-            id:    trainer.eos_id() as _,
-            bytes: trainer.eos_piece().as_bytes().to_vec(),
-            kind:  SpecialTokenKind::Control,
-            ident: Some("eos".to_string()),
-            score: 0.0,
+            id:      trainer.eos_id() as _,
+            bytes:   trainer.eos_piece().as_bytes().to_vec(),
+            kind:    SpecialTokenKind::Control,
+            ident:   Some("eos".to_string()),
+            score:   0.0,
+            extract: false,
         });
         specials.insert(trainer.pad_piece().as_bytes().to_vec(), SpecialToken {
-            id:    trainer.pad_id() as _,
-            bytes: trainer.pad_piece().as_bytes().to_vec(),
-            kind:  SpecialTokenKind::Control,
-            ident: Some("pad".to_string()),
-            score: 0.0,
+            id:      trainer.pad_id() as _,
+            bytes:   trainer.pad_piece().as_bytes().to_vec(),
+            kind:    SpecialTokenKind::Control,
+            ident:   Some("pad".to_string()),
+            score:   0.0,
+            extract: false,
         });
         model_type = trainer.model_type();
     }
@@ -148,32 +152,35 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         if piece_type == Type::UserDefined
             || piece_type == Type::Control
             || piece_type == Type::Unknown
+            || piece_type == Type::Unused
         {
             if piece_type == Type::Unknown {
                 if unk_id.is_some() && unk_id != Some(index as u32) {
                     log::warn!("Multiple unknown pieces in vocab");
                 } else if unk_id.is_none() {
                     specials.insert(text.clone(), SpecialToken {
-                        bytes: text.clone(),
-                        id:    index as u32,
-                        score: index as f32,
-                        kind:  SpecialTokenKind::Unknown,
-                        ident: Some("unk".to_string()),
+                        bytes:   text.clone(),
+                        id:      index as u32,
+                        score:   index as f32,
+                        kind:    SpecialTokenKind::Unknown,
+                        ident:   Some("unk".to_string()),
+                        extract: false,
                     });
                     unk_id = Some(index as u32);
                 }
+            } else if piece_type == Type::Unused {
+                log::warn!("Skipping unused piece {} ({:?})", index, piece.piece);
             } else {
                 specials.insert(text.clone(), SpecialToken {
-                    bytes: text.clone(),
-                    id:    index as u32,
-                    score: index as f32,
-                    kind:  match piece_type {
-                        Type::UserDefined => SpecialTokenKind::Priority,
+                    bytes:   text.clone(),
+                    id:      index as u32,
+                    score:   index as f32,
+                    kind:    match piece_type {
                         Type::Control => SpecialTokenKind::Control,
-                        Type::Unknown => SpecialTokenKind::Unknown,
                         _ => SpecialTokenKind::Priority,
                     },
-                    ident: None,
+                    ident:   None,
+                    extract: false,
                 });
             }
             continue;
