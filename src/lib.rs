@@ -860,8 +860,8 @@ impl Kitoken {
                 if let Some(token) =
                     self.encoder.get(&piece[buffer[sub_start].start..buffer[sub_end].start])
                 {
-                    let score = buffer[sub_start].score - token.score;
-                    if buffer[sub_end].token == u32::MAX || score < buffer[sub_end].score {
+                    let score = buffer[sub_start].score - token.score as f64;
+                    if buffer[sub_end].token == u32::MAX || score <= buffer[sub_end].score {
                         buffer[sub_end].score = score;
                         buffer[sub_end].width = sub_end - sub_start;
                         buffer[sub_end].token = token.token;
@@ -945,6 +945,6 @@ impl Ord for LinkedPart {
 struct SizedPart {
     start: usize,
     width: usize,
-    score: f32,
+    score: f64,
     token: u32,
 }
