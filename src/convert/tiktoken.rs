@@ -83,12 +83,26 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
         mode: Mode::BytePair,
         ..Configuration::default()
     };
-    let mut specials = if vocab.len() >= 100000 {
+    let specials: &[(&str, u32)] = if vocab.len() >= 199990 {
+        config.split.push(Split::Pattern { pattern:
+            Regex::new(&[
+                r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+                r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+                r"\p{N}{1,3}",
+                r" ?[^\s\p{L}\p{N}]+[\r\n/]*",
+                r"\s*[\r\n]+",
+                r"\s+(?!\S)",
+                r"\s+",
+            ].join("|"))?,
+            behavior: SplitBehavior::Isolate
+        });
+        &[("<|endoftext|>", 199999), ("<|endofprompt|>", 200018)]
+    } else if vocab.len() >= 100000 {
         config.split.push(Split::Pattern { pattern:
             Regex::new(r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+")?,
             behavior: SplitBehavior::Isolate
         });
-        [
+        &[
             ("<|endoftext|>", 100257),
             ("<|fim_prefix|>", 100258),
             ("<|fim_middle|>", 100259),
@@ -97,16 +111,6 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
             ("<|im_start|>", 100264),
             ("<|im_end|>", 100265),
         ]
-        .into_iter()
-        .enumerate()
-        .map(|(i, (s, t))| SpecialToken {
-            id:    t,
-            bytes: s.as_bytes().to_vec(),
-            kind:  SpecialTokenKind::Control,
-            ident: None,
-            score: i as f32,
-        })
-        .collect::<Vec<_>>()
     } else {
         config.split.push(Split::Pattern {
             pattern:  Regex::new(
@@ -114,23 +118,24 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
             )?,
             behavior: SplitBehavior::Isolate,
         });
-        [
+        &[
             ("<|endoftext|>", 50256),
             ("<|fim_prefix|>", 50281),
             ("<|fim_middle|>", 50282),
             ("<|fim_suffix|>", 50283),
         ]
-        .into_iter()
+    };
+    let mut specials = specials
+        .iter()
         .enumerate()
-        .map(|(i, (s, t))| SpecialToken {
+        .map(|(i, &(s, t))| SpecialToken {
             id:    t,
             bytes: s.as_bytes().to_vec(),
             kind:  SpecialTokenKind::Control,
             ident: None,
             score: i as f32,
         })
-        .collect::<Vec<_>>()
-    };
+        .collect::<Vec<_>>();
     specials.sort();
 
     let scores = Vec::new();

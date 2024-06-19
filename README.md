@@ -112,8 +112,7 @@ let encoder = Kitoken::from_tiktoken_file("models/cl100k_base.tiktoken")?;
 
 Tiktoken is a `BPE` tokenizer with a custom definition format used by OpenAI for GPT-3 and newer models.
 
-Tiktoken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids without any additional metadata. Special tokens and the split regex are expected to be provided separately, but will be inferred from the data for common models.
-
-For other models, or depending on the data and requirements, these values may need to be adjusted manually.
+Tiktoken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids without any additional metadata. Special tokens and the split regex are expected to be provided separately, but will be inferred from the data for common models including GPT-3, GPT-4 and GPT-4o.
+For other models, or depending on the data and requirements, these values can be adjusted manually.
 
 Tiktoken definitions are converted to `BytePair` definitions.
