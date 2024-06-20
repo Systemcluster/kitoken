@@ -1,3 +1,4 @@
 tests/data/* linguist-vendored
 tests/models/* linguist-vendored
 benches/data/* linguist-vendored
+benches/*.svg linguist-generated
