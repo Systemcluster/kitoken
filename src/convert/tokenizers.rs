@@ -559,7 +559,9 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 }
                 if use_regex {
                     config.split.push(Split::Pattern {
-                        pattern:  Regex::new(r"'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+")?,
+                        pattern:  Regex::new(
+                            r"'(?:[sdmt]|ll|ve|re)|\s?\p{L}+|\s?\p{N}+|\s?[^\s\p{L}\p{N}]+",
+                        )?,
                         behavior: SplitBehavior::Isolate,
                     });
                 }

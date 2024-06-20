@@ -94,14 +94,13 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
                 r" ?[^\s\p{L}\p{N}]+[\r\n/]*",
                 r"\s*[\r\n]+",
                 r"\s+(?!\S)",
-                r"\s+",
             ].join("|"))?,
             behavior: SplitBehavior::Isolate
         });
         &[("<|endoftext|>", 199999), ("<|endofprompt|>", 200018)]
     } else if vocab.len() >= 100000 {
         config.split.push(Split::Pattern { pattern:
-            Regex::new(r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+")?,
+            Regex::new(r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)")?,
             behavior: SplitBehavior::Isolate
         });
         &[
@@ -115,9 +114,7 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
         ]
     } else {
         config.split.push(Split::Pattern {
-            pattern:  Regex::new(
-                r"'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+",
-            )?,
+            pattern:  Regex::new(r"'(?:[sdmt]|ll|ve|re)|\s?\p{L}+|\s?\p{N}+|\s?[^\s\p{L}\p{N}]+")?,
             behavior: SplitBehavior::Isolate,
         });
         &[
