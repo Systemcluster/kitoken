@@ -16,9 +16,9 @@ use sentencepiece_model::{ModelType, SentencePieceModel, Type};
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, ModeFallback,
-    Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind, SpecialVocab, Split,
-    SplitBehavior, UnicodeNormalization, Vocab,
+    Configuration, Decoding, Definition, DefinitionSource, InsertionPosition, Kitoken, Metadata,
+    Mode, ModeFallback, Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind,
+    SpecialVocab, Split, SplitBehavior, Template, UnicodeNormalization, Vocab,
 };
 
 #[derive(Debug)]
@@ -95,6 +95,10 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             score:   0.0,
             extract: false,
         });
+        config.templates.push(Template {
+            content:  trainer.bos_piece().to_string(),
+            position: InsertionPosition::SequenceStart,
+        });
         specials.insert(trainer.eos_piece().as_bytes().to_vec(), SpecialToken {
             id:      trainer.eos_id() as _,
             bytes:   trainer.eos_piece().as_bytes().to_vec(),
@@ -102,6 +106,10 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             ident:   Some("eos".to_string()),
             score:   0.0,
             extract: false,
+        });
+        config.templates.push(Template {
+            content:  trainer.eos_piece().to_string(),
+            position: InsertionPosition::SequenceEnd,
         });
         specials.insert(trainer.pad_piece().as_bytes().to_vec(), SpecialToken {
             id:      trainer.pad_id() as _,

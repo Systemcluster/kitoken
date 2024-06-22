@@ -16,9 +16,9 @@ use hashbrown::HashMap;
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Decoding, Definition, DefinitionSource, Kitoken, Metadata, Mode, ModeFallback,
-    Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind, Split, SplitBehavior,
-    UnicodeNormalization, Vocab,
+    Configuration, Decoding, Definition, DefinitionSource, InsertionPosition, Kitoken, Metadata,
+    Mode, ModeFallback, Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind,
+    Split, SplitBehavior, Template, UnicodeNormalization, Vocab,
 };
 
 mod hf {
@@ -214,15 +214,14 @@ mod hf {
     #[derive(Deserialize, Debug, Clone, PartialEq)]
     #[serde(tag = "type")]
     pub enum PostProcessor {
-        #[allow(unused)]
         RobertaProcessing {
             sep:              (String, u32),
             cls:              (String, u32),
             #[allow(unused)]
             trim_offsets:     bool,
+            #[allow(unused)]
             add_prefix_space: bool,
         },
-        #[allow(unused)]
         BertProcessing {
             sep: (String, u32),
             cls: (String, u32),
@@ -234,7 +233,6 @@ mod hf {
             #[serde(default = "default_true")]
             use_regex:        bool,
         },
-        #[allow(unused)]
         TemplateProcessing {
             single:         Vec<TemplatePiece>,
             pair:           Vec<TemplatePiece>,
@@ -422,6 +420,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     let mut pre_tokenizers = VecDeque::from_iter(tokenizer.pre_tokenizer);
     let mut post_processors = VecDeque::from_iter(tokenizer.post_processor);
     let mut decoders = VecDeque::from_iter(tokenizer.decoder);
+    let mut specials = Vec::new();
 
     // Convert normalizers
     while let Some(normalizer) = normalizers.pop_front() {
@@ -706,11 +705,57 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     while let Some(post_processor) = post_processors.pop_front() {
         use hf::PostProcessor;
         match post_processor {
-            PostProcessor::RobertaProcessing { .. } => {
-                log::warn!("RobertaProcessing post-processor is not supported and will be ignored");
+            PostProcessor::RobertaProcessing { sep, cls, .. } => {
+                specials.push(SpecialToken {
+                    id:      sep.1,
+                    bytes:   sep.0.as_bytes().to_vec(),
+                    kind:    SpecialTokenKind::Control,
+                    ident:   Some("sep".to_string()),
+                    score:   0.0,
+                    extract: true,
+                });
+                specials.push(SpecialToken {
+                    id:      cls.1,
+                    bytes:   cls.0.as_bytes().to_vec(),
+                    kind:    SpecialTokenKind::Control,
+                    ident:   Some("cls".to_string()),
+                    score:   0.0,
+                    extract: true,
+                });
+                config.templates.push(Template {
+                    content:  sep.0,
+                    position: InsertionPosition::SequenceEnd,
+                });
+                config.templates.push(Template {
+                    content:  cls.0,
+                    position: InsertionPosition::SequenceStart,
+                });
             }
-            PostProcessor::BertProcessing { .. } => {
-                log::warn!("BertProcessing post-processor is not supported and will be ignored");
+            PostProcessor::BertProcessing { cls, sep } => {
+                specials.push(SpecialToken {
+                    id:      sep.1,
+                    bytes:   sep.0.as_bytes().to_vec(),
+                    kind:    SpecialTokenKind::Control,
+                    ident:   Some("sep".to_string()),
+                    score:   0.0,
+                    extract: true,
+                });
+                specials.push(SpecialToken {
+                    id:      cls.1,
+                    bytes:   cls.0.as_bytes().to_vec(),
+                    kind:    SpecialTokenKind::Control,
+                    ident:   Some("cls".to_string()),
+                    score:   0.0,
+                    extract: true,
+                });
+                config.templates.push(Template {
+                    content:  sep.0,
+                    position: InsertionPosition::SequenceEnd,
+                });
+                config.templates.push(Template {
+                    content:  cls.0,
+                    position: InsertionPosition::SequenceStart,
+                });
             }
             PostProcessor::ByteLevel { .. } => {
                 if !decode_byte_chars {
@@ -719,10 +764,124 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     ));
                 }
             }
-            PostProcessor::TemplateProcessing { .. } => {
-                log::warn!(
-                    "TemplateProcessing post-processor is not supported and will be ignored"
-                );
+            PostProcessor::TemplateProcessing {
+                single,
+                pair,
+                special_tokens,
+                ..
+            } => {
+                for special in special_tokens.values() {
+                    if special.tokens.len() > 1 {
+                        log::warn!(
+                            "Special token {} has more than one token, only the first will be used",
+                            special.id
+                        );
+                    }
+                    if special.tokens.is_empty() {
+                        log::warn!("Special token {} has no token", special.id);
+                        continue;
+                    }
+                    let token = special.tokens[0].as_bytes().to_vec();
+                    if special.ids.len() > 1 {
+                        log::warn!(
+                            "Special token {} has more than one id, only the first will be used",
+                            special.id
+                        );
+                    }
+                    if special.ids.is_empty() {
+                        log::warn!("Special token {} has no id", special.id);
+                        continue;
+                    }
+                    let id = special.ids[0];
+                    specials.push(SpecialToken {
+                        id,
+                        bytes: token,
+                        kind: SpecialTokenKind::Control,
+                        ident: Some(
+                            special
+                                .id
+                                .trim_end_matches(['>', ']'])
+                                .trim_start_matches(['<', '['])
+                                .to_string(),
+                        ),
+                        score: 0.0,
+                        extract: true,
+                    });
+                }
+                if !pair.is_empty() {
+                    let mut state = 0;
+                    let mut p0 = Vec::new();
+                    let mut p1 = Vec::new();
+                    let mut p2 = Vec::new();
+                    for piece in pair.iter() {
+                        use hf::TemplatePiece;
+                        match piece {
+                            TemplatePiece::Sequence { .. } => {
+                                state += 1;
+                            }
+                            TemplatePiece::SpecialToken { id, .. } => match state {
+                                0 => p0.push(id.clone()),
+                                1 => p1.push(id.clone()),
+                                2 => p2.push(id.clone()),
+                                _ => {}
+                            },
+                        }
+                    }
+                    p0.iter().filter(|&i| !p1.contains(i)).for_each(|i| {
+                        config.templates.push(Template {
+                            content:  i.clone(),
+                            position: InsertionPosition::SequenceStart,
+                        });
+                    });
+                    p0.iter().filter(|&i| p1.contains(i)).for_each(|i| {
+                        config.templates.push(Template {
+                            content:  i.clone(),
+                            position: InsertionPosition::SubSequenceStart,
+                        });
+                    });
+                    p1.iter().filter(|&i| !p0.contains(i) && !p2.contains(i)).for_each(|i| {
+                        config.templates.push(Template {
+                            content:  i.clone(),
+                            position: InsertionPosition::SequenceContinuation,
+                        });
+                    });
+                    p1.iter().filter(|&i| p2.contains(i)).for_each(|i| {
+                        config.templates.push(Template {
+                            content:  i.clone(),
+                            position: InsertionPosition::SubSequenceEnd,
+                        });
+                    });
+                    p2.iter().filter(|&i| !p1.contains(i)).for_each(|i| {
+                        config.templates.push(Template {
+                            content:  i.clone(),
+                            position: InsertionPosition::SequenceEnd,
+                        });
+                    });
+                }
+                if config.templates.is_empty() && !single.is_empty() {
+                    let mut state = 0;
+                    for (i, piece) in single.iter().enumerate() {
+                        use hf::TemplatePiece;
+                        match piece {
+                            TemplatePiece::Sequence { .. } => {
+                                state += 1;
+                            }
+                            TemplatePiece::SpecialToken { id, .. } => {
+                                config.templates.push(Template {
+                                    content:  id.clone(),
+                                    position: match state {
+                                        0 if i > 0 => InsertionPosition::SubSequenceStart,
+                                        0 => InsertionPosition::SequenceStart,
+                                        _ if i == single.len() - 1 => {
+                                            InsertionPosition::SequenceEnd
+                                        }
+                                        _ => InsertionPosition::SubSequenceEnd,
+                                    },
+                                });
+                            }
+                        }
+                    }
+                }
             }
             PostProcessor::Sequence { processors: p } => {
                 p.into_iter().for_each(|p| post_processors.push_back(p));
@@ -734,10 +893,16 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     while let Some(decoder) = decoders.pop_front() {
         use hf::Decoder;
         match decoder {
-            Decoder::BPEDecoder { .. } => {
-                return Err(ConversionError::UnsupportedConfiguration(
-                    "BPEDecoder decoder".to_string(),
-                ));
+            Decoder::BPEDecoder { suffix } => {
+                config.decoding.push(Decoding::Replace {
+                    pattern:     suffix,
+                    replacement: " ".to_string(),
+                });
+                config.decoding.push(Decoding::Strip {
+                    character: ' ',
+                    left:      0,
+                    right:     u32::MAX,
+                });
             }
             Decoder::ByteLevel { .. } => {
                 if !decode_byte_chars {
@@ -865,23 +1030,40 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             },
         ) in tokenizer.added_tokens.iter().flatten().enumerate()
         {
-            let is_unk = unk_id.as_ref() == Some(id) || unk_token == Some(content);
+            let kind = if unk_id.as_ref() == Some(id) || unk_token == Some(content) {
+                SpecialTokenKind::Unknown
+            } else if *special {
+                SpecialTokenKind::Control
+            } else {
+                SpecialTokenKind::Priority
+            };
+            let ident = match kind {
+                SpecialTokenKind::Unknown => Some("unk".to_string()),
+                SpecialTokenKind::Control => {
+                    if (content.starts_with('[') && content.ends_with(']'))
+                        || (content.starts_with('<') && content.ends_with('>'))
+                    {
+                        if content.len() == 5 || content.len() == 6 {
+                            Some(content[1..content.len() - 1].to_ascii_lowercase())
+                        } else if content == "<startoftext>" {
+                            Some("sot".to_string())
+                        } else if content == "<endoftext>" {
+                            Some("eot".to_string())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                SpecialTokenKind::Priority => None,
+            };
             specials.insert(content.as_bytes().to_vec(), SpecialToken {
-                id:      *id,
-                bytes:   content.as_bytes().to_vec(),
-                kind:    if is_unk {
-                    SpecialTokenKind::Unknown
-                } else if *special {
-                    SpecialTokenKind::Control
-                } else {
-                    SpecialTokenKind::Priority
-                },
-                score:   i as f32,
-                ident:   if is_unk {
-                    Some("unk".to_string())
-                } else {
-                    None
-                },
+                id: *id,
+                bytes: content.as_bytes().to_vec(),
+                kind,
+                score: i as f32,
+                ident,
                 extract: !normalized,
             });
         }
@@ -920,6 +1102,12 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 if model.byte_fallback.unwrap_or(false) {
                     config.fallback.insert(0, ModeFallback::Bytes);
                 }
+            }
+            if let Some(end_of_word_suffix) = model.end_of_word_suffix {
+                config.templates.push(Template {
+                    position: InsertionPosition::WordEnd,
+                    content:  end_of_word_suffix,
+                });
             }
             if let Some(true) = model.byte_fallback {
                 decode_byte_runes = true;

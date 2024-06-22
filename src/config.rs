@@ -1,6 +1,7 @@
 //! Configuration for the tokenizer.
 
 use alloc::borrow::Cow;
+use alloc::string::String;
 use alloc::vec::Vec;
 
 #[cfg(feature = "serialization")]
@@ -45,6 +46,35 @@ pub enum ModeFallback {
     Bytes,
 }
 
+
+/// Template insertion position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum InsertionPosition {
+    WordStart,
+    WordContinuation,
+    WordEnd,
+    SequenceStart,
+    SequenceContinuation,
+    SequenceEnd,
+    SubSequenceStart,
+    SubSequenceContinuation,
+    SubSequenceEnd,
+}
+
+/// Output template.
+///
+/// Specifies additional data to insert into the tokenization input.
+/// The `content` field contains the data to insert, and the `position` field specifies where to insert it.
+///
+/// Only [`InsertionPosition::WordEnd`] is used during tokenization. The other positions exist for manual lookup and future use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub struct Template {
+    pub content:  String,
+    pub position: InsertionPosition,
+}
+
 /// Errors returned when the configuration fails to validate.
 #[non_exhaustive]
 #[derive(Debug)]
@@ -76,6 +106,8 @@ pub struct Configuration {
     pub processing:    Vec<Processing>,
     /// The post-decode processing.
     pub decoding:      Vec<Decoding>,
+    /// The input templates.
+    pub templates:     Vec<Template>,
 }
 
 impl Configuration {

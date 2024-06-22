@@ -260,9 +260,10 @@ pub struct Kitoken {
     extract_split: Regex,
     special_split: Regex,
 
-    config:  Configuration,
-    meta:    Metadata,
-    unknown: Option<(u32, Vec<u8>)>,
+    config:      Configuration,
+    meta:        Metadata,
+    unknown:     Option<(u32, Vec<u8>)>,
+    end_of_word: Option<String>,
 
     max_token_bytes: usize,
     min_token_bytes: usize,
@@ -352,6 +353,15 @@ impl Kitoken {
             .find(|special| special.kind == SpecialTokenKind::Unknown)
             .map(|special| (special.id, special.bytes.clone()));
 
+        let end_of_word = config.templates.iter().find_map(|template| {
+            if template.position == InsertionPosition::WordEnd {
+                Some(template.content.clone())
+            } else {
+                None
+            }
+        });
+
+
         let special_encoder = specials
             .into_iter()
             .map(|special| (special.bytes.clone(), special))
@@ -372,6 +382,7 @@ impl Kitoken {
             config,
             meta,
             unknown,
+            end_of_word,
             max_token_bytes,
             min_token_bytes,
         })
@@ -421,7 +432,7 @@ impl Kitoken {
                 posit = text.len();
             }
         }
-        let parts = parts.iter().fold(Vec::with_capacity(text.len() / 6), |mut acc, part| {
+        let mut parts = parts.iter().fold(Vec::with_capacity(text.len() / 6), |mut acc, part| {
             let mut specials = if part.special {
                 if encode_specials
                     || self.special_encoder[part.text.as_bytes()].kind != SpecialTokenKind::Control
@@ -483,6 +494,13 @@ impl Kitoken {
             }
             acc
         });
+        if let Some(end_of_word) = &self.end_of_word {
+            for part in &mut parts {
+                if !part.special {
+                    part.text.to_mut().push_str(end_of_word);
+                }
+            }
+        }
         let mut result = self.encode_parts(text, &parts, encode_specials)?;
         self.config.process(&mut result);
         Ok(result)
@@ -547,22 +565,48 @@ impl Kitoken {
                             continue;
                         }
                     }
-                    if piece.len() > ENCODE_LINEAR_LIMIT {
-                        self.encode_pairs_heap(
-                            piece.as_bytes(),
-                            &mut buffer,
-                            &mut result,
-                            (0..piece.len()).map(|i| (i as _, 1)),
-                            &self.config.fallback,
-                        )?;
-                    } else {
-                        self.encode_pairs(
-                            piece.as_bytes(),
-                            &mut buffer,
-                            &mut result,
-                            0..piece.len(),
-                            &self.config.fallback,
-                        )?;
+                    match &self.end_of_word {
+                        Some(end_of_word) if piece.len() > ENCODE_LINEAR_LIMIT => {
+                            self.encode_pairs_heap(
+                                piece.as_bytes(),
+                                &mut buffer,
+                                &mut result,
+                                (0..piece.len() - end_of_word.len() - 1)
+                                    .map(|i| (i as _, 1))
+                                    .chain([(
+                                        (piece.len() - end_of_word.len() - 1) as _,
+                                        (end_of_word.len() + 1) as _,
+                                    )]),
+                                &self.config.fallback,
+                            )?;
+                        }
+                        None if piece.len() > ENCODE_LINEAR_LIMIT => {
+                            self.encode_pairs_heap(
+                                piece.as_bytes(),
+                                &mut buffer,
+                                &mut result,
+                                (0..piece.len()).map(|i| (i as _, 1)),
+                                &self.config.fallback,
+                            )?;
+                        }
+                        Some(end_of_word) => {
+                            self.encode_pairs(
+                                piece.as_bytes(),
+                                &mut buffer,
+                                &mut result,
+                                0..(piece.len() - end_of_word.len()),
+                                &self.config.fallback,
+                            )?;
+                        }
+                        None => {
+                            self.encode_pairs(
+                                piece.as_bytes(),
+                                &mut buffer,
+                                &mut result,
+                                0..piece.len(),
+                                &self.config.fallback,
+                            )?;
+                        }
                     }
                     buffer.clear();
                 }
@@ -570,6 +614,8 @@ impl Kitoken {
             Mode::CharPair => {
                 let mut buffer = Vec::with_capacity(ENCODE_BUFFER_SIZE);
                 let mut indices = Vec::with_capacity(ENCODE_BUFFER_SIZE);
+                let end_of_word_len =
+                    self.end_of_word.as_ref().map(|eow| eow.chars().count()).unwrap_or(0);
                 for part in parts {
                     let piece = &part.text;
                     if part.special {
@@ -585,16 +631,23 @@ impl Kitoken {
                             continue;
                         }
                     }
-                    indices.extend(piece.char_indices());
+                    indices.extend(piece.char_indices().map(|(i, c)| (i, c.len_utf8())));
                     if indices.len() > ENCODE_LINEAR_LIMIT {
+                        if end_of_word_len > 0 {
+                            indices.splice((indices.len() - end_of_word_len).., []);
+                            let _ = indices.last_mut().map(|(i, _)| *i += end_of_word_len);
+                        }
                         self.encode_pairs_heap(
                             piece.as_bytes(),
                             &mut buffer,
                             &mut result,
-                            indices.drain(..).map(|(i, c)| (i as _, c.len_utf8() as _)),
+                            indices.drain(..).map(|(i, c)| (i as _, c as _)),
                             &self.config.fallback,
                         )?;
                     } else {
+                        if end_of_word_len > 0 {
+                            indices.splice((indices.len() - end_of_word_len).., []);
+                        }
                         self.encode_pairs(
                             piece.as_bytes(),
                             &mut buffer,
@@ -703,13 +756,33 @@ impl Kitoken {
             if let Some(token) = self.encoder.get(piece) {
                 result.push(token.token);
             } else if fallback.first() == Some(&ModeFallback::Bytes) {
-                self.encode_pairs(
-                    piece,
-                    buffer,
-                    result,
-                    0..piece.len(),
-                    &fallback[fallback.len().min(1)..],
-                )?;
+                if let Some(end_of_word) = &self.end_of_word {
+                    if piece.ends_with(end_of_word.as_bytes()) {
+                        self.encode_pairs(
+                            piece,
+                            buffer,
+                            result,
+                            0..(piece.len() - end_of_word.len()),
+                            &fallback[fallback.len().min(1)..],
+                        )?;
+                    } else {
+                        self.encode_pairs(
+                            piece,
+                            buffer,
+                            result,
+                            0..piece.len(),
+                            &fallback[fallback.len().min(1)..],
+                        )?;
+                    }
+                } else {
+                    self.encode_pairs(
+                        piece,
+                        buffer,
+                        result,
+                        0..piece.len(),
+                        &fallback[fallback.len().min(1)..],
+                    )?;
+                }
             } else if fallback.first() == Some(&ModeFallback::Unknown) && self.unknown.is_some() {
                 result.push(self.unknown.as_ref().unwrap().0);
             } else if fallback.first() == Some(&ModeFallback::Skip) {
@@ -810,13 +883,33 @@ impl Kitoken {
             if let Some(token) = self.encoder.get(piece) {
                 result.push(token.token);
             } else if fallback.first() == Some(&ModeFallback::Bytes) {
-                self.encode_pairs(
-                    piece,
-                    buffer,
-                    result,
-                    0..piece.len(),
-                    &fallback[fallback.len().min(1)..],
-                )?;
+                if let Some(end_of_word) = &self.end_of_word {
+                    if piece.ends_with(end_of_word.as_bytes()) {
+                        self.encode_pairs(
+                            piece,
+                            buffer,
+                            result,
+                            0..(piece.len() - end_of_word.len()),
+                            &fallback[fallback.len().min(1)..],
+                        )?;
+                    } else {
+                        self.encode_pairs(
+                            piece,
+                            buffer,
+                            result,
+                            0..piece.len(),
+                            &fallback[fallback.len().min(1)..],
+                        )?;
+                    }
+                } else {
+                    self.encode_pairs(
+                        piece,
+                        buffer,
+                        result,
+                        0..piece.len(),
+                        &fallback[fallback.len().min(1)..],
+                    )?;
+                }
             } else if fallback.first() == Some(&ModeFallback::Unknown) && self.unknown.is_some() {
                 result.push(self.unknown.as_ref().unwrap().0);
             } else if fallback.first() == Some(&ModeFallback::Skip) {

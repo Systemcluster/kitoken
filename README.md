@@ -58,6 +58,7 @@ If the model does not contain a trainer definition, `Unigram` is assumed as the 
 <summary>Notes</summary>
 
 - SentencePiece uses [different `nfkc` normalization rules in the `nmt_nfkc` and `nmt_nfkc_cf` schemes](https://github.com/google/sentencepiece/blob/master/doc/normalization.md) than during regular `nfkc` normalization. This difference is not entirely additive and prevents the normalization of `～` to `~`. Kitoken uses the regular `nfkc` normalization rules for `nmt_nfkc` and `nmt_nfkc_cf` and normalizes `～` to `~`.
+- SentencePiece's implementation of Unigram merges pieces with the same merge priority differently depending on preceding non-encodable pieces. For example, with `xlnet_base_cased`, SentencePiece encodes `.nnn` and `Զnnn` as `.., 8705, 180` but `ԶԶnnn` as `.., 180, 8705`. Kitoken always merges pieces with the same merge priority in the same order, resulting in `.., 180, 8705` for either case in the example and matching the behavior of Tokenizers.
 
 </details>
 
@@ -77,7 +78,6 @@ Normalization, pre-tokenization, post-processing and decoding options contained 
 - `WordPiece` decoding is used only for `WordPiece` models and is not implemented.
 - `UnicodeScripts` pre-tokenization is not implemented.
 - `Replace` decoding with regex patterns is not supported as Kitoken allows non-unicode-compatible decoding output.
-- `TemplateProcessing`, `RobertaProcessing` and `Bert` post-processing is ignored as Kitoken does not support output templates.
 
 Some normalization, post-processing and decoding options used by Tokenizers are used for converting alternative token-byte representations during encoding and decoding. Kitoken always stores and operates on tokens as byte sequences, and will use these options to pre-normalize the vocabulary during conversion.
 
@@ -85,6 +85,7 @@ Some normalization, post-processing and decoding options used by Tokenizers are 
 <summary>Notes</summary>
 
 - When using a `BPE` definition with an incomplete vocabulary and without an `unk` token, Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually. This can result in different encodings depending on vocabulary coverage and inputs in this scenario.
+- Tokenizers normalizes inputs character-by-character, while Kitoken normalizes inputs as one. This can result in differences during case-folding in some cases. For example, greek letter `Σ` has two lowercase forms, `σ` for within-word and `ς` for end-of-word use. Tokenizers will always lowercase `Σ` to `σ`, while Kitoken will lowercase it to either depending on the context.
 
 </details>
 
