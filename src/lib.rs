@@ -30,7 +30,9 @@
 //! - `std`: Enables standard library features, including reading and writing definitions from and to files.
 //! - `serialization`: Enables `serde` implementations and methods for serialization and deserialization of definitions.
 //! - `unicode-normalization`: Enables unicode input normalization support. This is required for certain models.
-//!   Can be disabled to reduce binary size if normalization is not required.
+//!   Can be disabled to reduce binary size if unicode normalization is not required.
+//! - `charsmap-normalization`: Enables precompiled charsmap input normalization support. This is required for certain models.
+//!   Can be disabled to reduce binary size if charsmap normalization is not required.
 //! - `convert`: Enables conversion utilities for common tokenizer data formats. When disabled, individual converters can be enabled using the following features:
 //!   - `convert-tokenizers`: Enables conversion from HuggingFace Tokenizers tokenizer definitions.
 //!   - `convert-sentencepiece`: Enables conversion from SentencePiece tokenizer definitions.

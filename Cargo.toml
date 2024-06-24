@@ -31,6 +31,7 @@ default = [
     "serialization",
     "convert",
     "unicode-normalization",
+    "charsmap-normalization",
     "regex-perf",
 ]
 
@@ -42,6 +43,8 @@ serialization = ["dep:serde"]
 
 # Enables unicode input normalization support
 unicode-normalization = ["dep:unicode-normalization"]
+# Enables precompiled character map normalization support
+charsmap-normalization = ["bstr/unicode"]
 
 # Enables conversion for all supported tokenizer data formats.
 convert = ["convert-tiktoken", "convert-sentencepiece", "convert-tokenizers"]
@@ -118,6 +121,7 @@ kitoken = { path = ".", default-features = false, features = [
     "serialization",
     "convert",
     "unicode-normalization",
+    "charsmap-normalization",
     "regex-perf",
 ] }
 

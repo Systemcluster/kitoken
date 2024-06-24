@@ -114,12 +114,21 @@ impl Configuration {
     /// Validates the configuration.
     ///
     /// Returns an error if the configuration is invalid.
+    #[inline(always)]
     pub fn validate(&self) -> Result<(), ConfigurationError> {
         #[cfg(not(feature = "unicode-normalization"))]
         if let Some(normalization) = self
             .normalization
             .iter()
             .find(|&norm| matches!(norm, Normalization::Unicode { .. }))
+        {
+            return Err(ConfigurationError::InvalidNormalization(normalization.clone()));
+        }
+        #[cfg(not(feature = "charsmap-normalization"))]
+        if let Some(normalization) = self
+            .normalization
+            .iter()
+            .find(|&norm| matches!(norm, Normalization::CharsMap { .. }))
         {
             return Err(ConfigurationError::InvalidNormalization(normalization.clone()));
         }

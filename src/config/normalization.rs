@@ -8,8 +8,7 @@ use once_cell::race::OnceBox;
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-use crate::charsmap::CharsMap;
-use crate::Regex;
+use crate::{CharsMap, Regex};
 
 /// Unicode normalization scheme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,7 +90,7 @@ impl Normalization {
             }
             #[cfg(not(feature = "unicode-normalization"))]
             Unicode { scheme } => {
-                panic!("Unicode normalization must be enabled for {:?} normalization", scheme);
+                log::warn!("Unicode normalization must be enabled for {:?} normalization", scheme);
             }
             NMT => {
                 text.to_mut().retain(|c| !matches!(c, '\u{1}'..='\u{8}' | '\u{e}'..='\u{1f}' | '\u{b}' | '\u{7f}' | '\u{8f}' | '\u{9f}'));
@@ -208,8 +207,13 @@ impl Normalization {
                     *text.to_mut() = pattern.replace_all(text, replacement);
                 }
             }
+            #[cfg(feature = "charsmap-normalization")]
+            CharsMap { map } => {
+                *text = map.normalize(text).into();
+            }
+            #[cfg(not(feature = "charsmap-normalization"))]
             CharsMap { .. } => {
-                // TODO
+                log::warn!("CharsMap normalization must be enabled for CharsMap normalization");
             }
         }
     }
