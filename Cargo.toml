@@ -29,9 +29,18 @@ path = "src/lib.rs"
 default = [
     "std",
     "serialization",
+    "normalization",
     "convert",
-    "unicode-normalization",
-    "charsmap-normalization",
+    "regex-perf",
+]
+
+all = [
+    "std",
+    "serialization",
+    "normalization",
+    "convert",
+    "split",
+    "regex-unicode",
     "regex-perf",
 ]
 
@@ -39,14 +48,16 @@ default = [
 std = ["dep:thiserror", "orx-priority-queue/std", "memchr/std"]
 
 # Enables serialization and deserialization
-serialization = ["dep:serde"]
+serialization = ["dep:serde", "dep:postcard"]
 
+# Enables all input normalization features
+normalization = ["normalization-unicode", "normalization-charsmap"]
 # Enables unicode input normalization support
-unicode-normalization = ["dep:unicode-normalization"]
-# Enables precompiled character map normalization support
-charsmap-normalization = ["bstr/unicode"]
+normalization-unicode = ["dep:unicode-normalization"]
+# Enables precompiled charsmap input normalization support
+normalization-charsmap = ["bstr/unicode"]
 
-# Enables conversion for all supported tokenizer data formats.
+# Enables conversion for all supported tokenizer data formats
 convert = ["convert-tiktoken", "convert-sentencepiece", "convert-tokenizers"]
 # Enables conversion for the HuggingFace Tokenizers format
 convert-tokenizers = ["dep:base64", "dep:serde", "dep:serde_json", "hashbrown/serde"]
@@ -88,15 +99,15 @@ hashbrown = { version = "0.14", default-features = false, features = ["ahash", "
 ahash = { version = "0.8", default-features = false, features = ["const-random"] }
 once_cell = { version = "1.19", default-features = false, features = ["alloc", "race"] }
 orx-priority-queue = { version = "1.1", default-features = false }
-debug-ignore = { version = "1.0", default-features = false }
 memchr = { version = "2.7", default-features = false, features = ["alloc"] }
+derive_more = { version = "0.99" }
 
 # optional dependencies for the std feature
 thiserror = { version = "1.0", optional = true }
 
 # optional dependencies for the serialization feature
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive"], optional = true }
-postcard = { version = "1.0", default-features = false, features = ["alloc"] }
+postcard = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
 
 # optional dependencies for the regex-onig feature
 onig = { version = "6.4", default-features = false, optional = true }
@@ -120,8 +131,7 @@ kitoken = { path = ".", default-features = false, features = [
     "std",
     "serialization",
     "convert",
-    "unicode-normalization",
-    "charsmap-normalization",
+    "normalization",
     "regex-perf",
 ] }
 

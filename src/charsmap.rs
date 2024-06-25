@@ -1,4 +1,4 @@
-//! Character mapping structure for normalization.
+//! Character mapping structure for custom normalization rules.
 //! Based on the SentencePiece DoubleArray implementation.
 
 use core::fmt::Debug;
@@ -7,7 +7,7 @@ use alloc::format;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 
-#[cfg(feature = "charsmap-normalization")]
+#[cfg(feature = "normalization-charsmap")]
 use alloc::string::String;
 
 #[cfg(feature = "serialization")]
@@ -15,7 +15,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::convert::ConversionError;
 
-type Unit = u32;
 #[allow(unused)]
 trait UnitExt {
     fn value(&self) -> isize;
@@ -24,7 +23,7 @@ trait UnitExt {
     fn has_leaf(&self) -> bool;
 }
 #[allow(unused)]
-impl UnitExt for Unit {
+impl UnitExt for u32 {
     #[inline(always)]
     fn value(&self) -> isize {
         let s = *self as usize;
@@ -50,16 +49,19 @@ impl UnitExt for Unit {
     }
 }
 
-/// Character mapping structure for normalization.
+/// Character mapping structure for custom normalization rules.
+///
+/// Based on the SentencePiece DoubleArray implementation.
 #[derive(Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct CharsMap {
-    array:      Vec<Unit>,
+    array:      Vec<u32>,
     normalized: Vec<u8>,
 }
-#[cfg(feature = "charsmap-normalization")]
+#[cfg(feature = "normalization-charsmap")]
 impl CharsMap {
     /// Returns the prefix of the input key.
+    #[inline(never)]
     fn prefix(&self, key: &[u8]) -> Vec<isize> {
         let mut posit = 0;
         let mut result = Vec::new();
@@ -83,6 +85,7 @@ impl CharsMap {
     }
 
     /// Transforms the input chunk according to the character mapping.
+    #[inline(never)]
     fn transform(&self, chunk: &str) -> Option<&[u8]> {
         let prefix = self.prefix(chunk.as_bytes());
         if prefix.is_empty() {
@@ -101,6 +104,7 @@ impl CharsMap {
     }
 
     /// Normalizes the input string according to the character mapping.
+    #[inline(never)]
     pub fn normalize(&self, original: &str) -> String {
         use bstr::ByteSlice;
         let mut result = String::with_capacity(original.len());

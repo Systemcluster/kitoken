@@ -18,15 +18,8 @@ use crate::convert::ConversionError;
 use crate::{
     Configuration, Decoding, Definition, DefinitionSource, InsertionPosition, Kitoken, Metadata,
     Mode, ModeFallback, Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind,
-    SpecialVocab, Split, SplitBehavior, Template, UnicodeNormalization, Vocab,
+    SpecialVocab, Split, SplitBehavior, Template, Token, UnicodeNormalization, Vocab,
 };
-
-#[derive(Debug)]
-struct ParsedPiece {
-    index: u32,
-    score: f32,
-    type_: Type,
-}
 
 /// Converts a `sentencepiece` model into the definition format used by this crate.
 ///
@@ -156,7 +149,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             // byte encoding in the form `<0xAA>`
             let rune = &text[3..5];
             let rune = u32::from_str_radix(rune, 16)
-                .map_err(|e| ConversionError::InvalidNumber(format!("{:?}", e)))?;
+                .map_err(|e| ConversionError::InvalidData(format!("{:?}", e)))?;
             [rune as u8].to_vec()
         } else {
             text.as_bytes().to_vec()
@@ -279,29 +272,29 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             config.processing.push(Processing::Collapse { id: unk });
         }
         if treat_whitespace_as_suffix {
-            config.split.push(Split::Character {
-                character: '▁',
-                behavior:  SplitBehavior::MergeLeft,
+            config.split.push(Split::Pattern {
+                pattern:  '▁'.into(),
+                behavior: SplitBehavior::MergeLeft,
             });
         } else {
-            config.split.push(Split::Character {
-                character: '▁',
-                behavior:  SplitBehavior::MergeRight,
+            config.split.push(Split::Pattern {
+                pattern:  '▁'.into(),
+                behavior: SplitBehavior::MergeRight,
             });
         }
     } else if treat_whitespace_as_suffix {
         config.split.push(Split::Pattern {
-            pattern:  Regex::new(r"▁+")?,
+            pattern:  Regex::new(r"▁+")?.into(),
             behavior: SplitBehavior::MergeLeft,
         });
     } else {
         config.split.push(Split::Pattern {
-            pattern:  Regex::new(r"▁+")?,
+            pattern:  Regex::new(r"▁+")?.into(),
             behavior: SplitBehavior::MergeRight,
         });
     }
     config.normalization.push(Normalization::Replace {
-        pattern:     Regex::new(r" ")?,
+        pattern:     " ".into(),
         replacement: "▁".to_string(),
     });
     if add_dummy_prefix {
@@ -318,7 +311,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         });
     };
     config.decoding.push(Decoding::Replace {
-        pattern:     "▁".to_string(),
+        pattern:     "▁".into(),
         replacement: " ".to_string(),
     });
 
@@ -342,7 +335,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             let vocab_merges = create_merges(&vocab);
 
             let sort_vocab = |vocab: &mut Vocab, merges: &HashMap<u32, f32>| {
-                vocab.sort_by(|(_, ai), (_, bi)| {
+                vocab.sort_by(|Token { id: ai, .. }, Token { id: bi, .. }| {
                     if let (Some(ma), Some(mb)) = (merges.get(ai), merges.get(bi)) {
                         let comp = mb.partial_cmp(ma).unwrap();
                         if comp == Ordering::Equal {
@@ -359,8 +352,10 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                     }
                 });
             };
-            let mut vocab =
-                vocab.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
+            let mut vocab = vocab
+                .into_iter()
+                .map(|(text, piece)| (text, piece.index).into())
+                .collect::<Vocab>();
             sort_vocab(&mut vocab, &vocab_merges);
 
             let mut specials =
@@ -377,8 +372,10 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                 other => other,
             });
             let scores = vocab.iter().map(|(_, piece)| piece.score).collect::<Scores>();
-            let vocab =
-                vocab.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
+            let vocab = vocab
+                .into_iter()
+                .map(|(text, piece)| (text, piece.index).into())
+                .collect::<Vocab>();
             let mut specials =
                 specials.into_iter().map(|(_, special)| special).collect::<SpecialVocab>();
             specials.sort();
@@ -400,6 +397,13 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         scores,
         config,
     })
+}
+
+#[derive(Debug)]
+struct ParsedPiece {
+    index: u32,
+    score: f32,
+    type_: Type,
 }
 
 impl Definition {

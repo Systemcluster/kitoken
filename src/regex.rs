@@ -10,19 +10,22 @@ use alloc::vec::Vec;
 #[cfg(feature = "regex-onig")]
 use alloc::sync::Arc;
 
-use debug_ignore::DebugIgnore;
-
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
 /// Regex error type.
-#[derive(Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub struct RegexError(pub String);
 impl Display for RegexError {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{}", self.0)
+        Debug::fmt(&self.0, f)
+    }
+}
+impl Debug for RegexError {
+    #[inline(never)]
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_tuple("RegexError").field(&self.0).finish()
     }
 }
 
@@ -31,9 +34,9 @@ impl Display for RegexError {
 pub struct Regex {
     pub(crate) pattern: String,
     #[cfg(feature = "regex-onig")]
-    pub(crate) regex:   DebugIgnore<Arc<onig::Regex>>,
+    pub(crate) regex:   Arc<onig::Regex>,
     #[cfg(not(feature = "regex-onig"))]
-    pub(crate) regex:   DebugIgnore<fancy_regex::Regex>,
+    pub(crate) regex:   fancy_regex::Regex,
 }
 #[allow(dead_code)]
 impl Regex {
@@ -42,16 +45,12 @@ impl Regex {
         #[cfg(feature = "regex-onig")]
         return Ok(Self {
             pattern: pattern.to_string(),
-            regex:   DebugIgnore(Arc::new(
-                onig::Regex::new(pattern).map_err(|e| RegexError(e.to_string()))?,
-            )),
+            regex:   Arc::new(onig::Regex::new(pattern).map_err(|e| RegexError(e.to_string()))?),
         });
         #[cfg(not(feature = "regex-onig"))]
         return Ok(Self {
             pattern: pattern.to_string(),
-            regex:   DebugIgnore(
-                fancy_regex::Regex::new(pattern).map_err(|e| RegexError(e.to_string()))?,
-            ),
+            regex:   fancy_regex::Regex::new(pattern).map_err(|e| RegexError(e.to_string()))?,
         });
     }
 
@@ -124,13 +123,13 @@ impl AsRef<str> for Regex {
 impl Display for Regex {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "{}", self.pattern)
+        Display::fmt(&self.pattern, f)
     }
 }
 impl Debug for Regex {
-    #[inline(always)]
+    #[inline(never)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "Regex({:?})", self.pattern)
+        f.debug_tuple("Regex").field(&self.pattern).finish()
     }
 }
 impl TryFrom<String> for Regex {

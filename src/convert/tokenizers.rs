@@ -7,7 +7,7 @@ use std::path::Path;
 
 use alloc::collections::VecDeque;
 use alloc::format;
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 
@@ -18,7 +18,8 @@ use crate::convert::ConversionError;
 use crate::{
     Configuration, Decoding, Definition, DefinitionSource, InsertionPosition, Kitoken, Metadata,
     Mode, ModeFallback, Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind,
-    Split, SplitBehavior, Template, UnicodeNormalization, Vocab,
+    SpecialVocab, Split, SplitBehavior, Template, Token, TokenBytes, TokenId, UnicodeNormalization,
+    Vocab,
 };
 
 mod hf {
@@ -30,7 +31,7 @@ mod hf {
     use serde::{Deserialize, Deserializer};
 
     static BASE64: engine::GeneralPurpose =
-        engine::GeneralPurpose::new(&alphabet::STANDARD, engine::general_purpose::PAD);
+        const { engine::GeneralPurpose::new(&alphabet::STANDARD, engine::general_purpose::PAD) };
 
     fn from_base64<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
     where
@@ -357,12 +358,6 @@ mod hf {
 
 use hf::{AddedToken, Model, Tokenizer};
 
-#[derive(Debug)]
-struct ParsedPiece {
-    index: u32,
-    score: f32,
-}
-
 /// Converts a `tokenizers` definition into the definition format used by this crate.
 ///
 /// `data` is the JSON data used by the `tokenizers` library, commonly stored as `tokenizer.json`.
@@ -435,24 +430,24 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             } => {
                 if clean_text {
                     config.normalization.push(Normalization::Replace {
-                        pattern:     Regex::new(r"[\s\t\n\r]")?,
+                        pattern:     Regex::new(r"[\s\t\n\r]")?.into(),
                         replacement: " ".to_string(),
                     });
                     config.normalization.push(Normalization::Replace {
-                        pattern:     Regex::new(r"\p{C}")?,
+                        pattern:     Regex::new(r"\p{C}")?.into(),
                         replacement: "".to_string(),
                     });
                 }
                 if handle_chinese_chars {
                     config.normalization.push(Normalization::Replace {
-                            pattern:     Regex::new(r"([\x{4E00}-\x{9FFF}\x{3400}-\x{4DBF}\x{20000}-\x{2A6DF}\x{2A700}-\x{2B73F}\x{2B740}-\x{2B81F}\x{2B920}-\x{2CEAF}\x{F900}-\x{FAFF}\x{2F800}-\x{2FA1F}])")?,
+                            pattern:     Regex::new(r"([\x{4E00}-\x{9FFF}\x{3400}-\x{4DBF}\x{20000}-\x{2A6DF}\x{2A700}-\x{2B73F}\x{2B740}-\x{2B81F}\x{2B920}-\x{2CEAF}\x{F900}-\x{FAFF}\x{2F800}-\x{2FA1F}])")?.into(),
                             replacement: " $1 ".to_string(),
                         })
                 }
                 if strip_accents.unwrap_or(lowercase) {
                     config.normalization.push(Normalization::Unicode { scheme: NFD });
                     config.normalization.push(Normalization::Replace {
-                        pattern:     Regex::new(r"\p{Mn}")?,
+                        pattern:     Regex::new(r"\p{Mn}")?.into(),
                         replacement: "".to_string(),
                     });
                 }
@@ -466,20 +461,20 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             } => {
                 if strip_left {
                     config.normalization.push(Normalization::Replace {
-                        pattern:     Regex::new(r"^\s+")?,
+                        pattern:     Regex::new(r"^\s+")?.into(),
                         replacement: "".to_string(),
                     });
                 }
                 if strip_right {
                     config.normalization.push(Normalization::Replace {
-                        pattern:     Regex::new(r"\s+$")?,
+                        pattern:     Regex::new(r"\s+$")?.into(),
                         replacement: "".to_string(),
                     });
                 }
             }
             Normalizer::StripAccents => {
                 config.normalization.push(Normalization::Replace {
-                    pattern:     Regex::new(r"\p{M}")?,
+                    pattern:     Regex::new(r"\p{M}")?.into(),
                     replacement: "".to_string(),
                 });
             }
@@ -518,7 +513,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     Pattern::Regex(r) => r,
                 };
                 config.normalization.push(Normalization::Replace {
-                    pattern:     Regex::new(&pattern)?,
+                    pattern:     Regex::new(&pattern)?.into(),
                     replacement: content,
                 });
             }
@@ -534,11 +529,13 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
         match pre_tokenizer {
             PreTokenizer::BertPreTokenizer => {
                 config.split.push(Split::Pattern {
-                    pattern:  Regex::new(r"\s+")?,
+                    pattern:  Regex::new(r"\s+")?.into(),
                     behavior: SplitBehavior::Remove,
                 });
                 config.split.push(Split::Pattern {
-                    pattern:  Regex::new(r"[\x{0021}-\x{002F}\x{003A}-\x{0040}\x{005B}-\x{0060}\x{007B}-\x{007E}\p{P}]")?,
+                    pattern:  Regex::new(
+                        r"[\x{0021}-\x{002F}\x{003A}-\x{0040}\x{005B}-\x{0060}\x{007B}-\x{007E}\p{P}]",
+                    )?.into(),
                     behavior: SplitBehavior::Isolate,
                 });
             }
@@ -560,15 +557,16 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     config.split.push(Split::Pattern {
                         pattern:  Regex::new(
                             r"'(?:[sdmt]|ll|ve|re)|\s?\p{L}+|\s?\p{N}+|\s?[^\s\p{L}\p{N}]+",
-                        )?,
+                        )?
+                        .into(),
                         behavior: SplitBehavior::Isolate,
                     });
                 }
             }
             PreTokenizer::Delimiter { delimiter } => {
-                config.split.push(Split::Character {
-                    character: delimiter,
-                    behavior:  SplitBehavior::Remove,
+                config.split.push(Split::Pattern {
+                    pattern:  delimiter.into(),
+                    behavior: SplitBehavior::Remove,
                 });
             }
             PreTokenizer::Metaspace {
@@ -581,12 +579,11 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 use hf::PrependScheme;
                 if add_prefix_space == Some(false) && prepend_scheme != PrependScheme::Never {
                     return Err(ConversionError::UnsupportedConfiguration(
-                        "Metaspace pre-tokenizer with prepend_scheme != Never and add_prefix_space = false"
-                            .to_string(),
+                        "Metaspace pre-tokenizer with prepend_scheme != Never and add_prefix_space = false".to_string(),
                     ));
                 }
                 config.normalization.push(Normalization::Replace {
-                    pattern:     Regex::new(r" ")?,
+                    pattern:     Regex::new(r" ")?.into(),
                     replacement: replacement.to_string(),
                 });
                 if prepend_scheme != PrependScheme::Never {
@@ -602,14 +599,15 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                         pattern:  Regex::new(&format!(
                             "{}+",
                             crate::regex::escape(&replacement.to_string())
-                        ))?,
+                        ))?
+                        .into(),
                         behavior: SplitBehavior::MergeRight,
                     });
                 }
             }
             PreTokenizer::Whitespace => {
                 config.split.push(Split::Pattern {
-                    pattern:  Regex::new(r"\w+|[^\w\s]+")?,
+                    pattern:  Regex::new(r"\w+|[^\w\s]+")?.into(),
                     behavior: SplitBehavior::Match,
                 });
             }
@@ -633,20 +631,20 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 match pattern {
                     Pattern::String(s) => {
                         if s.chars().count() == 1 {
-                            config.split.push(Split::Character {
-                                character: s.chars().next().unwrap(),
+                            config.split.push(Split::Pattern {
+                                pattern: s.chars().next().unwrap().into(),
                                 behavior,
                             });
                         } else {
                             config.split.push(Split::Pattern {
-                                pattern: Regex::new(&crate::regex::escape(&s))?,
+                                pattern: Regex::new(&crate::regex::escape(&s))?.into(),
                                 behavior,
                             });
                         }
                     }
                     Pattern::Regex(r) => {
                         config.split.push(Split::Pattern {
-                            pattern: Regex::new(&r)?,
+                            pattern: Regex::new(&r)?.into(),
                             behavior,
                         });
                     }
@@ -655,7 +653,9 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             PreTokenizer::Punctuation { behavior } => {
                 use hf::SplitDelimiterBehavior;
                 config.split.push(Split::Pattern {
-                    pattern:  Regex::new(r"[\x{0021}-\x{002F}\x{003A}-\x{0040}\x{005B}-\x{0060}\x{007B}-\x{007E}\p{P}]")?,
+                    pattern:  Regex::new(
+                        r"[\x{0021}-\x{002F}\x{003A}-\x{0040}\x{005B}-\x{0060}\x{007B}-\x{007E}\p{P}]",
+                    )?.into(),
                     behavior: match behavior {
                         SplitDelimiterBehavior::Removed => SplitBehavior::Remove,
                         SplitDelimiterBehavior::Isolated => SplitBehavior::Isolate,
@@ -667,7 +667,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             }
             PreTokenizer::WhitespaceSplit => {
                 config.normalization.push(Normalization::Replace {
-                    pattern:     Regex::new(r"\s+")?,
+                    pattern:     Regex::new(r"\s+")?.into(),
                     replacement: " ".to_string(),
                 });
                 config.normalization.push(Normalization::Strip {
@@ -675,20 +675,20 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     left:      u32::MAX,
                     right:     u32::MAX,
                 });
-                config.split.push(Split::Character {
-                    character: ' ',
-                    behavior:  SplitBehavior::MergeRight,
+                config.split.push(Split::Pattern {
+                    pattern:  ' '.into(),
+                    behavior: SplitBehavior::MergeRight,
                 });
             }
             PreTokenizer::Digits { individual_digits } => {
                 if individual_digits {
                     config.split.push(Split::Pattern {
-                        pattern:  Regex::new(r"\p{N}")?,
+                        pattern:  Regex::new(r"\p{N}")?.into(),
                         behavior: SplitBehavior::Isolate,
                     });
                 } else {
                     config.split.push(Split::Pattern {
-                        pattern:  Regex::new(r"\p{N}+")?,
+                        pattern:  Regex::new(r"\p{N}+")?.into(),
                         behavior: SplitBehavior::Merge,
                     });
                 }
@@ -802,7 +802,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                                 .id
                                 .trim_end_matches(['>', ']'])
                                 .trim_start_matches(['<', '['])
-                                .to_string(),
+                                .into(),
                         ),
                         score: 0.0,
                         extract: true,
@@ -895,7 +895,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
         match decoder {
             Decoder::BPEDecoder { suffix } => {
                 config.decoding.push(Decoding::Replace {
-                    pattern:     suffix,
+                    pattern:     suffix.into(),
                     replacement: " ".to_string(),
                 });
                 config.decoding.push(Decoding::Strip {
@@ -925,8 +925,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 use hf::PrependScheme;
                 if add_prefix_space == Some(false) && prepend_scheme != PrependScheme::Never {
                     return Err(ConversionError::UnsupportedConfiguration(
-                        "Metaspace decoder with prepend_scheme != Never and add_prefix_space = false"
-                            .to_string(),
+                        "Metaspace decoder with prepend_scheme != Never and add_prefix_space = false".to_string(),
                     ));
                 }
                 if prepend_scheme != PrependScheme::Never {
@@ -937,7 +936,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     });
                 }
                 config.decoding.push(Decoding::Replace {
-                    pattern:     replacement.to_string(),
+                    pattern:     replacement.into(),
                     replacement: " ".to_string(),
                 });
             }
@@ -947,24 +946,24 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 cleanup,
             } => {
                 config.decoding.push(Decoding::Replace {
-                    pattern:     pad_token,
+                    pattern:     pad_token.into(),
                     replacement: "".to_string(),
                 });
                 if cleanup {
                     config.decoding.push(Decoding::Replace {
-                        pattern:     "[ ](\\.|\\?|\\!|\\,|n't|'m|'s|'ve|'re)".to_string(),
+                        pattern:     "[ ](\\.|\\?|\\!|\\,|n't|'m|'s|'ve|'re)".into(),
                         replacement: "$1".to_string(),
                     });
                     config.decoding.push(Decoding::Replace {
-                        pattern:     " ' ".to_string(),
+                        pattern:     " ' ".into(),
                         replacement: "'".to_string(),
                     });
                     config.decoding.push(Decoding::Replace {
-                        pattern:     " do not".to_string(),
+                        pattern:     " do not".into(),
                         replacement: " don't".to_string(),
                     });
                     config.decoding.push(Decoding::Replace {
-                        pattern:     word_delimiter_token,
+                        pattern:     word_delimiter_token.into(),
                         replacement: " ".to_string(),
                     });
                 }
@@ -975,12 +974,8 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             Decoder::Replace { pattern, content } => {
                 use hf::Pattern;
                 let pattern = match pattern {
-                    Pattern::String(s) => s,
-                    Pattern::Regex(_) => {
-                        return Err(ConversionError::UnsupportedConfiguration(
-                            "Replace regex pattern in decoder".to_string(),
-                        ));
-                    }
+                    Pattern::String(s) => s.into(),
+                    Pattern::Regex(r) => Regex::new(&r)?.into(),
                 };
                 config.decoding.push(Decoding::Replace {
                     pattern,
@@ -1016,7 +1011,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     }
 
     let get_specials = |unk_token: Option<&String>, unk_id: Option<u32>| {
-        let mut specials = HashMap::<Vec<u8>, SpecialToken>::with_capacity(
+        let mut specials = HashMap::<TokenBytes, SpecialToken>::with_capacity(
             tokenizer.added_tokens.as_ref().map_or(0, |added| added.len()),
         );
         for (
@@ -1073,7 +1068,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     // Convert vocab
     let (mut vocab, specials, scores) = match tokenizer.model {
         Model::BPE(model) => {
-            let mut vocab = HashMap::<Vec<u8>, u32>::with_capacity(model.vocab.len());
+            let mut vocab = HashMap::<TokenBytes, TokenId>::with_capacity(model.vocab.len());
             for (token, id) in model.vocab {
                 vocab.insert(token.as_bytes().to_vec(), id);
             }
@@ -1133,7 +1128,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             };
 
             let sort_vocab = |vocab: &mut Vocab| {
-                vocab.sort_by(|(a, ai), (b, bi)| {
+                vocab.sort_by(|Token { bytes: a, id: ai }, Token { bytes: b, id: bi }| {
                     if let (Some(ma), Some(mb)) = (merges.get(a), merges.get(b)) {
                         let comp = ma.cmp(mb);
                         if comp == Ordering::Equal {
@@ -1150,17 +1145,18 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     }
                 });
             };
-            let mut vocab = vocab.into_iter().collect::<Vec<_>>();
+            let mut vocab = vocab.into_iter().map(|token| token.into()).collect::<Vocab>();
             sort_vocab(&mut vocab);
 
-            let mut specials = specials.into_values().collect::<Vec<_>>();
+            let mut specials = specials.into_values().collect::<SpecialVocab>();
             specials.sort();
 
             // Fix special tokens with invalid IDs
-            let vocab_rev = vocab.iter().map(|(token, id)| (id, token)).collect::<HashMap<_, _>>();
-            let mut vocab_max_id = vocab.iter().map(|(_, id)| *id).max().unwrap_or(0);
+            let vocab_rev =
+                vocab.iter().map(|token| token.into()).collect::<HashMap<TokenId, TokenBytes>>();
+            let mut vocab_max_id = vocab.iter().map(|token| token.id).max().unwrap_or(0);
             for special in specials.iter_mut() {
-                if let Some(&v) = vocab_rev.get(&special.id) {
+                if let Some(v) = vocab_rev.get(&special.id) {
                     if &special.bytes != v {
                         log::warn!(
                             "Special token with invalid ID: {:?} -> {} (replacing with {})",
@@ -1175,13 +1171,13 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             }
             drop(vocab_rev);
 
-            let scores = Vec::with_capacity(0);
+            let scores = Scores::with_capacity(0);
             (vocab, specials, scores)
         }
         Model::Unigram(model) => {
             config.mode = Mode::Unigram;
 
-            let mut vocab = HashMap::<Vec<u8>, ParsedPiece>::with_capacity(model.vocab.len());
+            let mut vocab = HashMap::<TokenBytes, ParsedPiece>::with_capacity(model.vocab.len());
 
             for (index, (token, score)) in model.vocab.into_iter().enumerate() {
                 vocab.insert(token.as_bytes().to_vec(), ParsedPiece {
@@ -1218,10 +1214,12 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 other => other,
             });
             let scores = vocab.iter().map(|(_, piece)| piece.score).collect::<Scores>();
-            let vocab =
-                vocab.into_iter().map(|(text, piece)| (text, piece.index)).collect::<Vocab>();
+            let vocab = vocab
+                .into_iter()
+                .map(|(text, piece)| (text, piece.index).into())
+                .collect::<Vocab>();
 
-            let mut specials = specials.into_values().collect::<Vec<_>>();
+            let mut specials = specials.into_values().collect::<SpecialVocab>();
             specials.sort();
 
             (vocab, specials, scores)
@@ -1232,8 +1230,8 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     if decode_byte_chars {
         let (byte_encoder, _) = build_byte_encoder_decoder();
         let replace_byte_chars = |vocab: &mut Vocab| {
-            vocab.iter_mut().for_each(|(token, _)| {
-                let mut replacement = Vec::with_capacity(token.len());
+            vocab.iter_mut().for_each(|token| {
+                let mut replacement = TokenBytes::with_capacity(token.len());
                 for c in token.chars() {
                     if let Some(&replace) = byte_encoder.get(&c) {
                         replacement.push(replace);
@@ -1241,7 +1239,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                         replacement.extend(c.to_string().as_bytes());
                     }
                 }
-                *token = replacement;
+                token.bytes = replacement;
             });
         };
         replace_byte_chars(&mut vocab);
@@ -1250,10 +1248,10 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     if decode_byte_runes {
         let replace_byte_runes = |vocab: &mut Vocab| {
             let vocab_map =
-                vocab.iter().map(|(token, id)| (token.clone(), *id)).collect::<HashMap<_, _>>();
+                vocab.iter().map(|token| token.into()).collect::<HashMap<TokenBytes, TokenId>>();
             *vocab = vocab
                 .iter()
-                .filter_map(|(token, id)| {
+                .filter_map(|token| {
                     if token.len() == 6 && token.starts_with(b"<0x") && token.ends_with(b">") {
                         if let Ok(rune) =
                             u32::from_str_radix(core::str::from_utf8(&token[3..5]).unwrap(), 16)
@@ -1264,14 +1262,14 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                                     "Byte rune already in vocab: {:>4} -> {:6?} (skipping {:?})",
                                     format!("{:?}", rune.as_bstr()),
                                     existing,
-                                    id
+                                    token.id
                                 );
                                 return None;
                             }
-                            return Some((rune, *id));
+                            return Some((rune, token.id).into());
                         }
                     }
-                    Some((token.clone(), *id))
+                    Some(token.clone())
                 })
                 .collect();
         };
@@ -1280,17 +1278,17 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     // Remove duplicate tokens
     let deduplicate = |vocab: &mut Vocab| {
         let mut seen = HashMap::new();
-        vocab.retain(|(token, id)| {
-            if let Some(existing) = seen.get(token) {
+        vocab.retain(|token| {
+            if let Some(existing) = seen.get(token.as_ref()) {
                 log::debug!(
                     "Removing duplicate token in vocab: {:?} -> {} (existing: {})",
                     token.as_bstr(),
-                    id,
+                    token.id,
                     existing
                 );
                 false
             } else {
-                seen.insert(token.clone(), *id);
+                seen.insert(token.bytes.clone(), token.id);
                 true
             }
         });
@@ -1309,6 +1307,12 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
         scores,
         config,
     })
+}
+
+#[derive(Debug)]
+struct ParsedPiece {
+    index: u32,
+    score: f32,
 }
 
 type ByteEncoder = HashMap<char, u8>;

@@ -1,4 +1,6 @@
-//! Definitions for converting and initializing the tokenizer from different tokenizer formats.
+//! Utilities for converting different tokenizer formats into Kitoken definitions.
+//!
+//! Additional methods for initializing from supported formats are also available in [`Definition`](crate::Definition) and [`Kitoken`](crate::Kitoken).
 
 use alloc::string::String;
 
@@ -27,24 +29,15 @@ pub enum ConversionError {
     /// The data is invalid. See the error message for more information.
     #[cfg_attr(feature = "std", error("invalid data: {0}"))]
     InvalidData(String),
-    /// A string contains invalid utf-8.
-    #[cfg_attr(feature = "std", error("invalid utf-8: {0}"))]
-    InvalidUtf8(String),
-    /// A string contains invalid base64.
-    #[cfg_attr(feature = "std", error("invalid base64: {0}"))]
-    InvalidBase64(String),
-    /// A string contains an invalid number.
-    #[cfg_attr(feature = "std", error("invalid token {0}"))]
-    InvalidNumber(String),
-    /// The tokenizer failed to initialize.
-    #[cfg_attr(feature = "std", error("{0}"))]
-    InitializationError(InitializationError),
-    /// The split regex failed to compile.
-    #[cfg_attr(feature = "std", error("invalid regex: {0}"))]
-    InvalidRegex(RegexError),
     /// The configuration is not supported.
     #[cfg_attr(feature = "std", error("unsupported configuration: {0}"))]
     UnsupportedConfiguration(String),
+    /// A regex failed to compile.
+    #[cfg_attr(feature = "std", error("invalid regex: {0}"))]
+    InvalidRegex(String),
+    /// The tokenizer failed to initialize.
+    #[cfg_attr(feature = "std", error("{0}"))]
+    InitializationError(InitializationError),
     /// Reading the data failed.
     #[cfg(feature = "std")]
     #[error("{0}")]
@@ -57,6 +50,6 @@ impl From<InitializationError> for ConversionError {
 }
 impl From<RegexError> for ConversionError {
     fn from(e: RegexError) -> Self {
-        Self::InvalidRegex(e)
+        Self::InvalidRegex(e.0)
     }
 }

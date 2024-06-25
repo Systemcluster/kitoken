@@ -1,7 +1,6 @@
 //! Configuration for the tokenizer.
 
 use alloc::borrow::Cow;
-use alloc::string::String;
 use alloc::vec::Vec;
 
 #[cfg(feature = "serialization")]
@@ -17,8 +16,11 @@ pub use normalization::*;
 pub use processing::*;
 pub use split::*;
 
+use crate::TokenId;
+
 /// Tokenization mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum Mode {
     /// A variation of the original BPE algorithm. Merges inputs starting from individual bytes.
@@ -36,11 +38,12 @@ impl Default for Mode {
 
 /// Tokenization mode fallback.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum ModeFallback {
     /// Skip pieces that cannot be tokenized.
     Skip,
-    /// Replace pieces that cannot be tokenized with an unknown token.
+    /// Replace pieces that cannot be tokenized with the unknown token.
     Unknown,
     /// Merge pieces that cannot be tokenized starting from individual bytes.
     Bytes,
@@ -49,6 +52,7 @@ pub enum ModeFallback {
 
 /// Template insertion position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum InsertionPosition {
     WordStart,
@@ -80,12 +84,10 @@ pub struct Template {
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum ConfigurationError {
-    /// The normalization scheme is not supported. The `unicode-normalization` feature must be enabled to use Unicode normalization.
+    /// The normalization scheme is not supported. The normalization feature must be enabled to use Unicode normalization.
     #[cfg_attr(
         feature = "std",
-        error(
-            "unsupported normalization: {0:?} (the `unicode-normalization` feature must be enabled)"
-        )
+        error("unsupported normalization: {0:?} (the normalization feature must be enabled)")
     )]
     InvalidNormalization(Normalization),
 }
@@ -114,9 +116,9 @@ impl Configuration {
     /// Validates the configuration.
     ///
     /// Returns an error if the configuration is invalid.
-    #[inline(always)]
+    #[inline(never)]
     pub fn validate(&self) -> Result<(), ConfigurationError> {
-        #[cfg(not(feature = "unicode-normalization"))]
+        #[cfg(not(feature = "normalization-unicode"))]
         if let Some(normalization) = self
             .normalization
             .iter()
@@ -124,7 +126,7 @@ impl Configuration {
         {
             return Err(ConfigurationError::InvalidNormalization(normalization.clone()));
         }
-        #[cfg(not(feature = "charsmap-normalization"))]
+        #[cfg(not(feature = "normalization-charsmap"))]
         if let Some(normalization) = self
             .normalization
             .iter()
@@ -136,7 +138,7 @@ impl Configuration {
     }
 
     /// Normalizes the input before tokenization.
-    #[inline(always)]
+    #[inline(never)]
     pub fn normalize(&self, text: &mut Cow<str>) {
         if text.is_empty() {
             return;
@@ -147,7 +149,7 @@ impl Configuration {
     }
 
     /// Splits the input into parts to tokenize.
-    #[inline(always)]
+    #[inline(never)]
     pub fn split(&self, text: &str) -> Vec<(usize, usize)> {
         if text.is_empty() {
             return Vec::new();
@@ -174,8 +176,8 @@ impl Configuration {
     }
 
     /// Processes the tokens after tokenization.
-    #[inline(always)]
-    pub fn process(&self, tokens: &mut Vec<u32>) {
+    #[inline(never)]
+    pub fn process(&self, tokens: &mut Vec<TokenId>) {
         if tokens.is_empty() {
             return;
         }
@@ -185,7 +187,7 @@ impl Configuration {
     }
 
     /// Postprocesses the bytes after detokenization.
-    #[inline(always)]
+    #[inline(never)]
     pub fn decode(&self, tokens: &mut Vec<u8>) {
         if tokens.is_empty() {
             return;

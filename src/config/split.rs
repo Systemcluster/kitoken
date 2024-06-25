@@ -1,4 +1,6 @@
-use alloc::string::ToString;
+//! Pre-tokenization input split.
+
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 #[cfg(feature = "serialization")]
@@ -8,6 +10,7 @@ use crate::Regex;
 
 /// Split behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum SplitBehavior {
     /// Keep the matching parts, discard the non-matching parts.
@@ -24,19 +27,50 @@ pub enum SplitBehavior {
     MergeRight,
 }
 
-/// Pre-tokenization split configuration.
+/// Split pattern.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum SplitPattern {
+    /// Split by character.
+    Character(char),
+    /// Split by string.
+    String(String),
+    /// Split by regular expression.
+    Regex(Regex),
+}
+impl From<char> for SplitPattern {
+    #[inline(always)]
+    fn from(character: char) -> Self {
+        Self::Character(character)
+    }
+}
+impl From<String> for SplitPattern {
+    #[inline(always)]
+    fn from(pattern: String) -> Self {
+        Self::String(pattern)
+    }
+}
+impl From<&str> for SplitPattern {
+    #[inline(always)]
+    fn from(pattern: &str) -> Self {
+        Self::String(pattern.to_string())
+    }
+}
+impl From<Regex> for SplitPattern {
+    #[inline(always)]
+    fn from(pattern: Regex) -> Self {
+        Self::Regex(pattern)
+    }
+}
+
+/// Pre-tokenization input split configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum Split {
-    /// Split by regular expression.
+    /// Split by pattern.
     Pattern {
-        pattern:  Regex,
+        pattern:  SplitPattern,
         behavior: SplitBehavior,
-    },
-    /// Split by character.
-    Character {
-        character: char,
-        behavior:  SplitBehavior,
     },
 }
 
@@ -49,24 +83,7 @@ impl Split {
         use Split::*;
         use SplitBehavior::*;
         let (mut matches, behavior) = match self {
-            Pattern { pattern, behavior } => (pattern.find_iter(text), *behavior),
-            Character {
-                character,
-                behavior,
-            } => {
-                let matches = if character.len_utf8() == 0 {
-                    Vec::new()
-                } else if character.len_utf8() == 1 {
-                    memchr::memchr_iter(*character as u8, text.as_bytes())
-                        .map(|a| (a, a + 1))
-                        .collect()
-                } else {
-                    memchr::memmem::find_iter(text.as_bytes(), character.to_string().as_bytes())
-                        .map(|a| (a, a + 1))
-                        .collect()
-                };
-                (matches, *behavior)
-            }
+            Pattern { pattern, behavior } => (split_pattern(text, pattern), *behavior),
         };
         match behavior {
             Match => {}
@@ -91,8 +108,38 @@ impl Split {
     }
 }
 
+#[inline(never)]
+fn split_pattern(text: &str, pattern: &SplitPattern) -> Vec<(usize, usize)> {
+    if text.is_empty() {
+        return Vec::new();
+    }
+    match pattern {
+        SplitPattern::Character(character) => {
+            let matches = if character.len_utf8() == 0 {
+                Vec::new()
+            } else if character.len_utf8() == 1 {
+                memchr::memchr_iter(*character as u8, text.as_bytes())
+                    .map(|a| (a, a + 1))
+                    .collect()
+            } else {
+                memchr::memmem::find_iter(text.as_bytes(), character.to_string().as_bytes())
+                    .map(|a| (a, a + 1))
+                    .collect()
+            };
+            matches
+        }
+        SplitPattern::String(string) => {
+            let matches = memchr::memmem::find_iter(text.as_bytes(), string.as_bytes())
+                .map(|a| (a, a + string.len()))
+                .collect();
+            matches
+        }
+        SplitPattern::Regex(regex) => regex.find_iter(text),
+    }
+}
+
 /// Inverts the matches leaving the gaps.
-#[inline(always)]
+#[inline(never)]
 fn invert(matches: &mut Vec<(usize, usize)>, len: usize) {
     let mut last = 0;
     *matches = matches.iter().fold(Vec::new(), |mut acc, (start, end)| {
@@ -108,7 +155,7 @@ fn invert(matches: &mut Vec<(usize, usize)>, len: usize) {
 }
 
 /// Expands the matches to include the gaps.
-#[inline(always)]
+#[inline(never)]
 fn expand(matches: &mut Vec<(usize, usize)>, len: usize) {
     let mut last = 0;
     *matches = matches.iter().fold(Vec::new(), |mut acc, (start, end)| {
@@ -125,7 +172,7 @@ fn expand(matches: &mut Vec<(usize, usize)>, len: usize) {
 }
 
 /// Merges consecutive matches.
-#[inline(always)]
+#[inline(never)]
 fn merge(matches: &mut Vec<(usize, usize)>) {
     if matches.is_empty() {
         return;
@@ -143,7 +190,7 @@ fn merge(matches: &mut Vec<(usize, usize)>) {
 }
 
 /// Merge the first match after a gap with the gap and expand.
-#[inline(always)]
+#[inline(never)]
 fn merge_left(matches: &mut Vec<(usize, usize)>, len: usize) {
     let mut last = 0;
     *matches = matches.iter().fold(Vec::new(), |mut acc, (start, end)| {
@@ -161,7 +208,7 @@ fn merge_left(matches: &mut Vec<(usize, usize)>, len: usize) {
 }
 
 /// Merge the last match before a gap with the gap and expand.
-#[inline(always)]
+#[inline(never)]
 fn merge_right(matches: &mut Vec<(usize, usize)>, len: usize) {
     if matches.is_empty() {
         matches.push((0, len));
@@ -193,7 +240,7 @@ mod tests {
     #[test]
     fn test_split_match() {
         let split = Split::Pattern {
-            pattern:  Regex::new(r"[ ]").unwrap(),
+            pattern:  Regex::new(r"[ ]").unwrap().into(),
             behavior: SplitBehavior::Match,
         };
         let text = "aaa bbb  ccc   ddd";
@@ -205,9 +252,9 @@ mod tests {
 
     #[test]
     fn test_split_match_char() {
-        let split = Split::Character {
-            character: ' ',
-            behavior:  SplitBehavior::Match,
+        let split = Split::Pattern {
+            pattern:  ' '.into(),
+            behavior: SplitBehavior::Match,
         };
         let text = "aaa bbb  ccc   ddd";
         let matches = split.split(text);
@@ -219,7 +266,7 @@ mod tests {
     #[test]
     fn test_split_remove() {
         let split = Split::Pattern {
-            pattern:  Regex::new(r"[ ]").unwrap(),
+            pattern:  Regex::new(r"[ ]").unwrap().into(),
             behavior: SplitBehavior::Remove,
         };
         let text = "aaa bbb  ccc   ddd";
@@ -231,9 +278,9 @@ mod tests {
 
     #[test]
     fn test_split_remove_char() {
-        let split = Split::Character {
-            character: ' ',
-            behavior:  SplitBehavior::Remove,
+        let split = Split::Pattern {
+            pattern:  ' '.into(),
+            behavior: SplitBehavior::Remove,
         };
         let text = "aaa bbb  ccc   ddd";
         let matches = split.split(text);
@@ -245,7 +292,7 @@ mod tests {
     #[test]
     fn test_split_isolate() {
         let split = Split::Pattern {
-            pattern:  Regex::new(r"[ ]").unwrap(),
+            pattern:  Regex::new(r"[ ]").unwrap().into(),
             behavior: SplitBehavior::Isolate,
         };
         let text = "aaa bbb  ccc   ddd";
@@ -257,9 +304,9 @@ mod tests {
 
     #[test]
     fn test_split_isolate_char() {
-        let split = Split::Character {
-            character: ' ',
-            behavior:  SplitBehavior::Isolate,
+        let split = Split::Pattern {
+            pattern:  ' '.into(),
+            behavior: SplitBehavior::Isolate,
         };
         let text = "aaa bbb  ccc   ddd";
         let matches = split.split(text);
@@ -271,7 +318,7 @@ mod tests {
     #[test]
     fn test_split_merge() {
         let split = Split::Pattern {
-            pattern:  Regex::new(r"[ ]").unwrap(),
+            pattern:  Regex::new(r"[ ]").unwrap().into(),
             behavior: SplitBehavior::Merge,
         };
         let text = "aaa bbb  ccc   ddd";
@@ -283,9 +330,9 @@ mod tests {
 
     #[test]
     fn test_split_merge_char() {
-        let split = Split::Character {
-            character: ' ',
-            behavior:  SplitBehavior::Merge,
+        let split = Split::Pattern {
+            pattern:  ' '.into(),
+            behavior: SplitBehavior::Merge,
         };
         let text = "aaa bbb  ccc   ddd";
         let matches = split.split(text);
@@ -297,7 +344,7 @@ mod tests {
     #[test]
     fn test_split_merge_left() {
         let split = Split::Pattern {
-            pattern:  Regex::new(r"[ ]").unwrap(),
+            pattern:  Regex::new(r"[ ]").unwrap().into(),
             behavior: SplitBehavior::MergeLeft,
         };
         let text = "aaa bbb  ccc   ddd";
@@ -309,9 +356,9 @@ mod tests {
 
     #[test]
     fn test_split_merge_left_char() {
-        let split = Split::Character {
-            character: ' ',
-            behavior:  SplitBehavior::MergeLeft,
+        let split = Split::Pattern {
+            pattern:  ' '.into(),
+            behavior: SplitBehavior::MergeLeft,
         };
         let text = "aaa bbb  ccc   ddd";
         let matches = split.split(text);
@@ -323,7 +370,7 @@ mod tests {
     #[test]
     fn test_split_merge_right() {
         let split = Split::Pattern {
-            pattern:  Regex::new(r"[ ]").unwrap(),
+            pattern:  Regex::new(r"[ ]").unwrap().into(),
             behavior: SplitBehavior::MergeRight,
         };
         let text = "aaa bbb  ccc   ddd";
@@ -335,9 +382,9 @@ mod tests {
 
     #[test]
     fn test_split_merge_right_char() {
-        let split = Split::Character {
-            character: ' ',
-            behavior:  SplitBehavior::MergeRight,
+        let split = Split::Pattern {
+            pattern:  ' '.into(),
+            behavior: SplitBehavior::MergeRight,
         };
         let text = "aaa bbb  ccc   ddd";
         let matches = split.split(text);

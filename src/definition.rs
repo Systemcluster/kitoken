@@ -1,6 +1,5 @@
 //! Kitoken definition format.
 
-use core::cmp::Ordering;
 use core::fmt::Debug;
 
 use alloc::format;
@@ -10,10 +9,11 @@ use alloc::vec::Vec;
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
 
-use crate::{Configuration, InitializationError, Kitoken, Mode, Scores, SpecialVocab, Vocab};
+use crate::{Configuration, InitializationError, Kitoken, Scores, SpecialVocab, Vocab};
 
 /// The source of the definition.
 #[derive(Debug, Clone, PartialEq)]
+#[repr(u8)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub enum DefinitionSource {
     /// The definition was created by the user.
@@ -41,6 +41,7 @@ pub struct Metadata {
     pub meta:    Vec<(String, String)>,
 }
 impl Default for Metadata {
+    #[inline(never)]
     fn default() -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -73,16 +74,19 @@ pub struct Definition {
 impl TryFrom<Definition> for Kitoken {
     type Error = InitializationError;
 
+    #[inline(always)]
     fn try_from(value: Definition) -> Result<Self, Self::Error> {
         Kitoken::from_definition(value)
     }
 }
 impl From<Kitoken> for Definition {
+    #[inline(always)]
     fn from(value: Kitoken) -> Self {
         value.to_definition()
     }
 }
 impl Debug for Definition {
+    #[inline(never)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Definition")
             .field("meta", &self.meta)
@@ -124,29 +128,8 @@ impl Kitoken {
     /// See [`Definition`] for more details.
     #[inline(never)]
     pub fn to_definition(&self) -> Definition {
-        let mut vocab = self.encoder.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
-        if self.config.mode == Mode::Unigram {
-            vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
-                Ordering::Equal => a.token.cmp(&b.token),
-                other => other,
-            });
-        } else {
-            vocab.sort_by(|(ta, a), (tb, b)| {
-                let sa = self.score_encoder.get(ta).copied().unwrap();
-                let sb = self.score_encoder.get(tb).copied().unwrap();
-                match sa.score.cmp(&sb.score) {
-                    Ordering::Equal => a.token.cmp(&b.token),
-                    other => other,
-                }
-            });
-        };
-        let scores = if self.config.mode == Mode::Unigram {
-            vocab.iter().map(|(_, v)| v.score).collect::<Scores>()
-        } else {
-            Scores::new()
-        };
-        let vocab = vocab.into_iter().map(|(k, v)| (k, v.token)).collect();
-        let mut specials = self.special_encoder.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
+        let (vocab, scores) = self.encoder.vocab();
+        let mut specials = self.specials.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
         specials.sort();
         let config = self.config.clone();
         let meta = self.meta.clone();
