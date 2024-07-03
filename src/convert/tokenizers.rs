@@ -60,12 +60,21 @@ mod hf {
     pub struct BPE {
         pub dropout:                   Option<f64>,
         pub unk_token:                 Option<String>,
+        #[allow(unused)]
         pub continuing_subword_prefix: Option<String>,
         pub end_of_word_suffix:        Option<String>,
         pub fuse_unk:                  Option<bool>,
         pub byte_fallback:             Option<bool>,
         pub vocab:                     HashMap<String, u32>,
         pub merges:                    Vec<String>,
+    }
+
+    #[derive(Deserialize, Debug, Clone, PartialEq)]
+    pub struct WordPiece {
+        pub unk_token:                 String,
+        pub max_input_chars_per_word:  u64,
+        pub continuing_subword_prefix: String,
+        pub vocab:                     HashMap<String, u32>,
     }
 
     #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -80,6 +89,7 @@ mod hf {
     #[allow(clippy::upper_case_acronyms)]
     pub enum Model {
         BPE(BPE),
+        WordPiece(WordPiece),
         Unigram(Unigram),
     }
 
@@ -397,7 +407,7 @@ use hf::{AddedToken, Model, Tokenizer};
 /// See the [tokenizers documentation](https://huggingface.co/docs/tokenizers) for more information.
 ///
 /// Tokenizers definitions can contain different model types, including `BPE`, `Unigram`, `WordPiece` and `WordLevel`.
-/// This function supports conversion of `BPE` and `Unigram` models.
+/// This function supports conversion of `BPE`, `Unigram` and `WordPiece` models.
 pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, ConversionError> {
     let data = data.as_ref();
 
@@ -430,12 +440,24 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             } => {
                 if clean_text {
                     config.normalization.push(Normalization::Replace {
-                        pattern:     Regex::new(r"[\s\t\n\r]")?.into(),
+                        pattern:     '\u{0}'.into(),
+                        replacement: "".to_string(),
+                    });
+                    config.normalization.push(Normalization::Replace {
+                        pattern:     '\u{fffd}'.into(),
+                        replacement: "".to_string(),
+                    });
+                    config.normalization.push(Normalization::Replace {
+                        pattern:     Regex::new(r"[\t\n\r]")?.into(),
                         replacement: " ".to_string(),
                     });
                     config.normalization.push(Normalization::Replace {
                         pattern:     Regex::new(r"\p{C}")?.into(),
                         replacement: "".to_string(),
+                    });
+                    config.normalization.push(Normalization::Replace {
+                        pattern:     Regex::new(r"\s")?.into(),
+                        replacement: " ".to_string(),
                     });
                 }
                 if handle_chinese_chars {
@@ -909,10 +931,29 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     ));
                 }
             }
-            Decoder::WordPiece { .. } => {
-                return Err(ConversionError::UnsupportedConfiguration(
-                    "WordPiece decoder".to_string(),
-                ));
+            Decoder::WordPiece { prefix, cleanup } => {
+                if cleanup {
+                    config.decoding.push(Decoding::Replace {
+                        pattern:     Regex::new("[ ](\\.|\\?|\\!|\\,|n't|'m|'s|'ve|'re)")?.into(),
+                        replacement: "$1".to_string(),
+                    });
+                    config.decoding.push(Decoding::Replace {
+                        pattern:     " do not".into(),
+                        replacement: " don't".to_string(),
+                    });
+                    // It would be correct to push a replacement for ` ' ` to `'` here.
+                    // However, Tokenizers decodes WordPiece output token-by-token, which makes it never apply.
+                    // Leaving it out here is required for compatibility.
+                }
+                config.decoding.push(Decoding::Replace {
+                    pattern:     prefix.into(),
+                    replacement: "".to_string(),
+                });
+                config.decoding.push(Decoding::Strip {
+                    character: ' ',
+                    left:      0,
+                    right:     1,
+                })
             }
             Decoder::Metaspace {
                 prepend_scheme,
@@ -1220,6 +1261,47 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             let mut specials = specials.into_values().collect::<SpecialVocab>();
             specials.sort();
 
+            (vocab, specials, scores)
+        }
+        Model::WordPiece(model) => {
+            config.mode = Mode::WordPiece;
+
+            let mut vocab = HashMap::<TokenBytes, TokenId>::with_capacity(model.vocab.len());
+            for (token, id) in model.vocab {
+                vocab.insert(token.as_bytes().to_vec(), id);
+            }
+            let specials = get_specials(Some(&model.unk_token), None);
+            for special in specials.keys() {
+                vocab.remove(special);
+            }
+
+            if specials.get(model.unk_token.as_bytes()).is_some() {
+                config.fallback.insert(0, ModeFallback::Unknown);
+            } else {
+                return Err(ConversionError::InvalidData(format!(
+                    "Unknown token {:?} not found in specials",
+                    model.unk_token
+                )));
+            }
+            config.templates.push(Template {
+                content:  model.continuing_subword_prefix,
+                position: InsertionPosition::WordContinuation,
+            });
+
+            let mut vocab = vocab.into_iter().map(|token| token.into()).collect::<Vocab>();
+            vocab.sort_by(|Token { bytes: a, id: ai }, Token { bytes: b, id: bi }| {
+                let comp = ai.cmp(bi);
+                if comp == Ordering::Equal {
+                    a.cmp(b)
+                } else {
+                    comp
+                }
+            });
+
+            let mut specials = specials.into_values().collect::<SpecialVocab>();
+            specials.sort();
+
+            let scores = Scores::from([model.max_input_chars_per_word as f32]);
             (vocab, specials, scores)
         }
     };

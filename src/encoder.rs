@@ -10,9 +10,11 @@ use crate::{Scores, TokenId, Vocab};
 
 mod bytepair;
 mod unigram;
+mod wordpiece;
 
 pub(crate) use bytepair::*;
 pub(crate) use unigram::*;
+pub(crate) use wordpiece::*;
 
 /// Errors encountered during encoding.
 #[non_exhaustive]

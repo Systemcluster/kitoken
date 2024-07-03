@@ -1,10 +1,10 @@
 [package]
 
 name = "kitoken"
-description = "Fast and versatile tokenizer for language models, supporting BPE and Unigram tokenization"
+description = "Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization"
 version = "0.0.0"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
-keywords = ["tokenizer", "nlp", "machine-learning", "bpe", "unigram"]
+keywords = ["tokenizer", "nlp", "bpe", "unigram", "wordpiece"]
 categories = ["text-processing", "algorithms", "wasm", "no-std"]
 license = "BSD-2-Clause"
 repository = "https://github.com/Systemcluster/kitoken"

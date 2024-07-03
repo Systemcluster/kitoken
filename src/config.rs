@@ -30,6 +30,8 @@ pub enum Mode {
     CharPair,
     /// The Unigram subword algorithm.
     Unigram,
+    /// The WordPiece subword algorithm.
+    WordPiece,
 }
 impl Default for Mode {
     fn default() -> Self {
@@ -72,7 +74,8 @@ pub enum InsertionPosition {
 /// Specifies additional data to insert into the tokenization input.
 /// The `content` field contains the data to insert, and the `position` field specifies where to insert it.
 ///
-/// Only [`InsertionPosition::WordEnd`] is used during tokenization. The other positions exist for manual lookup and future use.
+/// Only [`InsertionPosition::WordEnd`] and [`InsertionPosition::WordContinuation`] are used during tokenization.
+/// The other positions exist for manual lookup and future use.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct Template {

@@ -25,13 +25,14 @@ assert!(string == "Your future belongs to me.");
 
 ## Overview
 
-Kitoken is a fast and versatile tokenizer for language models with support for BPE and Unigram tokenization.
+Kitoken is a fast and versatile tokenizer for language models with support for BPE, Unigram and WordPiece tokenization.
 
 Multiple tokenization algorithms are supported:
 
 - **BytePair**: A variation of the original BPE algorithm that merges inputs starting from individual bytes.
 - **CharPair**: A variation of the modified BPE algorithm that merges inputs starting from individual unicode characters.
 - **Unigram**: The Unigram subword algorithm.
+- **WordPiece**: The WordPiece subword algorithm.
 
 Kitoken is compatible with many existing tokenizers,
 including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) and [OpenAI Tiktoken](https://github.com/openai/tiktoken),
@@ -68,14 +69,13 @@ If the model does not contain a trainer definition, `Unigram` is assumed as the 
 let encoder = Kitoken::from_tokenizers_file("models/llama2.json")?;
 ```
 
-Kitoken can convert and initialize with HuggingFace Tokenizers definitions for `BPE` and `Unigram` models.
+Kitoken can convert and initialize with HuggingFace Tokenizers definitions for `BPE`, `Unigram` and `WordPiece` models.
 
 - `BPE` models are converted to `CharPair` or `BytePair` definitions. The included merge list is used to sort the vocabulary by merge priority and is then discarded.
 - `Unigram` models are converted to `Unigram` definitions retaining the token scores.
+- `WordPiece` models are converted to `WordPiece` definitions.
 
-Normalization, pre-tokenization, post-processing and decoding options contained in the definition are converted to the respective Kitoken configurations. Kitoken has full compatibility with almost all available Tokenizers options, except for the following subset:
-
-- `WordPiece` decoding is used only for `WordPiece` models and is not implemented.
+Normalization, pre-tokenization, post-processing and decoding options contained in the definition are converted to the respective Kitoken configurations.
 
 Some normalization, post-processing and decoding options used by Tokenizers are used for converting alternative token-byte representations during encoding and decoding. Kitoken always stores and operates on tokens as byte sequences, and will use these options to pre-normalize the vocabulary during conversion.
 

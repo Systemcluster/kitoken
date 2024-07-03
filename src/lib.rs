@@ -15,7 +15,7 @@
 //!
 //! # Overview
 //!
-//! Kitoken is a fast and versatile tokenizer for language models with support for BPE and Unigram tokenization.
+//! Kitoken is a fast and versatile tokenizer for language models with support for BPE, Unigram and WordPiece tokenization.
 //!
 //! Kitoken is compatible with many existing tokenizer formats,
 //! including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) and [OpenAI Tiktoken](https://github.com/openai/tiktoken),
@@ -200,12 +200,13 @@ impl Kitoken {
                 .join("|"),
         )?;
 
-        let decoder = Decoder::new(&vocab, &specials);
+        let decoder = Decoder::new(&vocab, &specials, &config);
         let encoder = match config.mode {
             Mode::BytePair | Mode::CharPair => {
                 Box::new(BytePair::new(vocab, &specials, &config)?) as _
             }
             Mode::Unigram => Box::new(Unigram::new(vocab, scores, &specials, &config)?) as _,
+            Mode::WordPiece => Box::new(WordPiece::new(vocab, scores, &specials, &config)) as _,
         };
 
         let specials_len = specials.len();
