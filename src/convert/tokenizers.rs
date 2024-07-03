@@ -17,9 +17,9 @@ use hashbrown::HashMap;
 use crate::convert::ConversionError;
 use crate::{
     Configuration, Decoding, Definition, DefinitionSource, InsertionPosition, Kitoken, Metadata,
-    Mode, ModeFallback, Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind,
-    SpecialVocab, Split, SplitBehavior, Template, Token, TokenBytes, TokenId, UnicodeNormalization,
-    Vocab,
+    Mode, ModeFallback, Normalization, Processing, ProcessingDirection, Regex, Scores,
+    SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior, Template, Token,
+    TokenBytes, TokenId, UnicodeNormalization, Vocab,
 };
 
 mod hf {
@@ -1305,6 +1305,32 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             (vocab, specials, scores)
         }
     };
+
+    if let Some(padding) = tokenizer.padding {
+        use hf::{PaddingDirection, PaddingStrategy};
+        if let PaddingStrategy::Fixed(length) = padding.strategy {
+            config.processing.push(Processing::Pad {
+                length:    length as u32,
+                id:        padding.pad_id,
+                stride:    padding.pad_to_multiple_of.unwrap_or_default() as u32,
+                direction: match padding.direction {
+                    PaddingDirection::Left => ProcessingDirection::Left,
+                    PaddingDirection::Right => ProcessingDirection::Right,
+                },
+            });
+        }
+    }
+    if let Some(truncation) = tokenizer.truncation {
+        use hf::TruncationDirection;
+        config.processing.push(Processing::Truncate {
+            length:    truncation.max_length as u32,
+            stride:    truncation.stride as u32,
+            direction: match truncation.direction {
+                TruncationDirection::Left => ProcessingDirection::Left,
+                TruncationDirection::Right => ProcessingDirection::Right,
+            },
+        });
+    }
 
     // Replace byte character placeholders
     if decode_byte_chars {

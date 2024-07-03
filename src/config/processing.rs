@@ -7,6 +7,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::TokenId;
 
+/// Processing direction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum ProcessingDirection {
+    Left,
+    Right,
+}
+
 /// Post-tokenization output processing configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
@@ -19,6 +28,19 @@ pub enum Processing {
     },
     /// Collapse repeated tokens.
     Collapse { id: TokenId },
+    /// Pad to a fixed length.
+    Pad {
+        id:        TokenId,
+        length:    u32,
+        stride:    u32,
+        direction: ProcessingDirection,
+    },
+    /// Truncate to a fixed length.
+    Truncate {
+        length:    u32,
+        stride:    u32,
+        direction: ProcessingDirection,
+    },
 }
 
 impl Processing {
@@ -31,6 +53,21 @@ impl Processing {
             }
             Collapse { id } => {
                 process_collapse(tokens, *id);
+            }
+            Pad {
+                id,
+                length,
+                stride,
+                direction,
+            } => {
+                process_pad(tokens, *id, *length as _, *stride as _, *direction);
+            }
+            Truncate {
+                length,
+                stride,
+                direction,
+            } => {
+                process_truncate(tokens, *length as _, *stride as _, *direction);
             }
         }
     }
@@ -77,6 +114,58 @@ fn process_collapse(tokens: &mut Vec<TokenId>, id: TokenId) {
     });
 }
 
+#[inline(never)]
+fn process_pad(
+    tokens: &mut Vec<TokenId>, id: TokenId, length: usize, stride: usize,
+    direction: ProcessingDirection,
+) {
+    let len = tokens.len();
+    if len >= length {
+        return;
+    }
+    let amount = if stride > 0 && (length - len) % stride > 0 {
+        (length - len) + (stride - (length - len) % stride)
+    } else {
+        length - len
+    };
+    if amount > 0 {
+        let padding = core::iter::repeat(id).take(amount).collect::<Vec<_>>();
+        match direction {
+            ProcessingDirection::Left => {
+                tokens.splice(0..0, padding);
+            }
+            ProcessingDirection::Right => {
+                tokens.extend(padding);
+            }
+        }
+    }
+}
+
+#[inline(never)]
+fn process_truncate(
+    tokens: &mut Vec<TokenId>, length: usize, stride: usize, direction: ProcessingDirection,
+) {
+    let len = tokens.len();
+    if len <= length {
+        return;
+    }
+    let amount = if stride > 0 && (len - length) % stride > 0 {
+        (len - length) + (stride - (len - length) % stride)
+    } else {
+        len - length
+    };
+    if len > length {
+        match direction {
+            ProcessingDirection::Left => {
+                tokens.drain(0..amount);
+            }
+            ProcessingDirection::Right => {
+                tokens.truncate(len - amount);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,5 +189,47 @@ mod tests {
         let processing = Processing::Collapse { id: 3 };
         processing.process(&mut tokens);
         assert_eq!(tokens, Vec::from([1, 1, 2, 2, 3, 4, 4, 4, 4]));
+    }
+
+    #[test]
+    fn test_processing_pad() {
+        let mut tokens = Vec::from([1, 2, 3]);
+        let processing = Processing::Pad {
+            id:        0,
+            length:    5,
+            stride:    2,
+            direction: ProcessingDirection::Left,
+        };
+        processing.process(&mut tokens);
+        assert_eq!(tokens, Vec::from([0, 0, 1, 2, 3]));
+        let mut tokens = Vec::from([1, 2, 3]);
+        let processing = Processing::Pad {
+            id:        0,
+            length:    5,
+            stride:    2,
+            direction: ProcessingDirection::Right,
+        };
+        processing.process(&mut tokens);
+        assert_eq!(tokens, Vec::from([1, 2, 3, 0, 0]));
+    }
+
+    #[test]
+    fn test_processing_truncate() {
+        let mut tokens = Vec::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let processing = Processing::Truncate {
+            length:    5,
+            stride:    2,
+            direction: ProcessingDirection::Left,
+        };
+        processing.process(&mut tokens);
+        assert_eq!(tokens, Vec::from([7, 8, 9, 10]));
+        let mut tokens = Vec::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let processing = Processing::Truncate {
+            length:    5,
+            stride:    2,
+            direction: ProcessingDirection::Right,
+        };
+        processing.process(&mut tokens);
+        assert_eq!(tokens, Vec::from([1, 2, 3, 4]));
     }
 }
