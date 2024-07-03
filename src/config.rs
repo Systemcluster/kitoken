@@ -1,6 +1,7 @@
 //! Configuration for the tokenizer.
 
 use alloc::borrow::Cow;
+use alloc::string::String;
 use alloc::vec::Vec;
 
 #[cfg(feature = "serialization")]
@@ -84,12 +85,9 @@ pub struct Template {
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum ConfigurationError {
-    /// The normalization scheme is not supported. The normalization feature must be enabled to use Unicode normalization.
-    #[cfg_attr(
-        feature = "std",
-        error("unsupported normalization: {0:?} (the normalization feature must be enabled)")
-    )]
-    InvalidNormalization(Normalization),
+    /// The feature required for the configuration is not enabled.
+    #[cfg_attr(feature = "std", error("required feature not enabled: {0}"))]
+    FeatureDisabled(String),
 }
 
 /// Configuration for the tokenizer.
@@ -119,20 +117,27 @@ impl Configuration {
     #[inline(never)]
     pub fn validate(&self) -> Result<(), ConfigurationError> {
         #[cfg(not(feature = "normalization-unicode"))]
-        if let Some(normalization) = self
+        if self
             .normalization
             .iter()
-            .find(|&norm| matches!(norm, Normalization::Unicode { .. }))
+            .any(|norm| matches!(norm, Normalization::Unicode { .. }))
         {
-            return Err(ConfigurationError::InvalidNormalization(normalization.clone()));
+            use alloc::string::ToString;
+            return Err(ConfigurationError::FeatureDisabled("normalization-unicode".to_string()));
         }
         #[cfg(not(feature = "normalization-charsmap"))]
-        if let Some(normalization) = self
+        if self
             .normalization
             .iter()
-            .find(|&norm| matches!(norm, Normalization::CharsMap { .. }))
+            .any(|norm| matches!(norm, Normalization::CharsMap { .. }))
         {
-            return Err(ConfigurationError::InvalidNormalization(normalization.clone()));
+            use alloc::string::ToString;
+            return Err(ConfigurationError::FeatureDisabled("normalization-charsmap".to_string()));
+        }
+        #[cfg(not(feature = "split-unicode-script"))]
+        if self.split.iter().any(|split| matches!(split, Split::UnicodeScript)) {
+            use alloc::string::ToString;
+            return Err(ConfigurationError::FeatureDisabled("split-unicode-script".to_string()));
         }
         Ok(())
     }

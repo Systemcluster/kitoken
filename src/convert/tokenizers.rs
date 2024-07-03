@@ -694,9 +694,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 }
             }
             PreTokenizer::UnicodeScripts => {
-                return Err(ConversionError::UnsupportedConfiguration(
-                    "UnicodeScripts pre-tokenizer".to_string(),
-                ));
+                config.split.push(Split::UnicodeScript);
             }
         }
     }

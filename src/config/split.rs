@@ -72,6 +72,8 @@ pub enum Split {
         pattern:  SplitPattern,
         behavior: SplitBehavior,
     },
+    /// Split by Unicode script.
+    UnicodeScript,
 }
 
 impl Split {
@@ -84,6 +86,7 @@ impl Split {
         use SplitBehavior::*;
         let (mut matches, behavior) = match self {
             Pattern { pattern, behavior } => (split_pattern(text, pattern), *behavior),
+            UnicodeScript => (split_unicode_script(text), Match),
         };
         match behavior {
             Match => {}
@@ -136,6 +139,38 @@ fn split_pattern(text: &str, pattern: &SplitPattern) -> Vec<(usize, usize)> {
         }
         SplitPattern::Regex(regex) => regex.find_iter(text),
     }
+}
+
+#[cfg(feature = "split-unicode-script")]
+#[inline(never)]
+fn split_unicode_script(text: &str) -> Vec<(usize, usize)> {
+    use unicode_script::{Script, UnicodeScript};
+    let mut matches = Vec::new();
+    let mut prev = None;
+    let mut last = 0;
+    for (i, c) in text.char_indices() {
+        let script = c.script();
+        if script == Script::Common {
+            continue;
+        }
+        if let Some(prev) = prev {
+            if script != prev {
+                matches.push((last, i));
+                last = i;
+            }
+        }
+        prev = Some(script);
+    }
+    if last < text.len() {
+        matches.push((last, text.len()));
+    }
+    matches
+}
+#[cfg(not(feature = "split-unicode-script"))]
+#[inline(never)]
+fn split_unicode_script(text: &str) -> Vec<(usize, usize)> {
+    log::warn!("Unicode script split must be enabled for unicode script split.");
+    Vec::from([(0, text.len())])
 }
 
 /// Inverts the matches leaving the gaps.
@@ -390,6 +425,26 @@ mod tests {
         let matches = split.split(text);
         #[rustfmt::skip]
         let expected = Vec::from([(0, 3), (3, 7), (7, 8), (8, 12), (12, 13), (13, 14), (14, 18)]);
+        assert_eq!(matches, expected);
+    }
+
+    #[test]
+    fn test_split_unicode_script() {
+        let split = Split::UnicodeScript;
+        let text = "aaa bbb  ccc   ddd";
+        let matches = split.split(text);
+        #[rustfmt::skip]
+        let expected = Vec::from([(0, 18)]);
+        assert_eq!(matches, expected);
+        let text = "aaa bbb  ccc   あああ";
+        let matches = split.split(text);
+        #[rustfmt::skip]
+        let expected = Vec::from([(0, 15), (15, 24)]);
+        assert_eq!(matches, expected);
+        let text = "aaa りんご 林檎";
+        let matches = split.split(text);
+        #[rustfmt::skip]
+        let expected = Vec::from([(0, 4), (4, 14), (14, 20)]);
         assert_eq!(matches, expected);
     }
 }

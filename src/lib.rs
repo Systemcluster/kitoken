@@ -42,6 +42,9 @@
 //!
 //! ### Optional features
 //!
+//! - `split`: Enables additional split features including unicode script splitting.
+//!   - `split-unicode-script`: Enables unicode script splitting. This is required for certain models.
+//!     Disabled by default since it increases binary size and the majority of models don't require it.
 //! - `regex-unicode`: Enables support for additional regex unicode patterns including script and segmentation extensions.
 //!   Disabled by default since it increases binary size and the majority of models don't make use of these patterns.
 //! - `regex-onig`: Enables use of the `oniguruma` regex engine instead of `fancy-regex`.

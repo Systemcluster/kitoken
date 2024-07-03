@@ -76,7 +76,6 @@ Kitoken can convert and initialize with HuggingFace Tokenizers definitions for `
 Normalization, pre-tokenization, post-processing and decoding options contained in the definition are converted to the respective Kitoken configurations. Kitoken has full compatibility with almost all available Tokenizers options, except for the following subset:
 
 - `WordPiece` decoding is used only for `WordPiece` models and is not implemented.
-- `UnicodeScripts` pre-tokenization is not implemented.
 
 Some normalization, post-processing and decoding options used by Tokenizers are used for converting alternative token-byte representations during encoding and decoding. Kitoken always stores and operates on tokens as byte sequences, and will use these options to pre-normalize the vocabulary during conversion.
 
