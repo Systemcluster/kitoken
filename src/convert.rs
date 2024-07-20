@@ -21,6 +21,11 @@ mod tokenizers;
 #[cfg(feature = "convert-tokenizers")]
 pub use tokenizers::*;
 
+#[cfg(feature = "convert-tekken")]
+mod tekken;
+#[cfg(feature = "convert-tekken")]
+pub use tekken::*;
+
 /// Errors encountered when the conversion fails.
 #[non_exhaustive]
 #[derive(Debug)]

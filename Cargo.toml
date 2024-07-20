@@ -63,13 +63,15 @@ split = ["split-unicode-script"]
 split-unicode-script = ["dep:unicode-script"]
 
 # Enables conversion for all supported tokenizer data formats
-convert = ["convert-tiktoken", "convert-sentencepiece", "convert-tokenizers"]
+convert = ["convert-tiktoken", "convert-sentencepiece", "convert-tokenizers", "convert-tekken"]
 # Enables conversion for the HuggingFace Tokenizers format
 convert-tokenizers = ["dep:base64", "dep:serde", "dep:serde_json", "hashbrown/serde"]
 # Enables conversion for the SentencePiece format
 convert-sentencepiece = ["dep:sentencepiece-model"]
 # Enables conversion for the OpenAI Tiktoken format
 convert-tiktoken = ["dep:base64"]
+# Enables conversion for the Mistral Tekken format
+convert-tekken = ["dep:base64", "dep:serde", "dep:serde_json"]
 
 # Enables support for additional regex unicode patterns.
 regex-unicode = ["fancy-regex/unicode"]
@@ -129,7 +131,7 @@ base64 = { version = "0.22", default-features = false, features = ["alloc"], opt
 # optional dependencies for the convert-sentencepiece feature
 sentencepiece-model = { version = "0.1", default-features = false, optional = true }
 
-# optional dependencies for the convert-tokenizers feature
+# optional dependencies for the convert-tokenizers and convert-tekken features
 serde_json = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
 
 

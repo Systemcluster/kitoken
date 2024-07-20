@@ -18,7 +18,7 @@
 //! Kitoken is a fast and versatile tokenizer for language models with support for BPE, Unigram and WordPiece tokenization.
 //!
 //! Kitoken is compatible with many existing tokenizer formats,
-//! including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) and [OpenAI Tiktoken](https://github.com/openai/tiktoken),
+//! including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers), [OpenAI Tiktoken](https://github.com/openai/tiktoken) and [Mistral Tekken](https://docs.mistral.ai/guides/tokenization/),
 //! and provides utilities for converting these formats. See [`convert`] for information about supported the formats and conversion utilities.
 //!
 //! See [`Kitoken`] for the main entry point and additional information.
@@ -37,7 +37,8 @@
 //! - `convert`: Enables conversion utilities for common tokenizer data formats. When disabled, individual converters can be enabled using the following features:
 //!   - `convert-tokenizers`: Enables conversion from HuggingFace Tokenizers tokenizer definitions.
 //!   - `convert-sentencepiece`: Enables conversion from SentencePiece tokenizer definitions.
-//!   - `convert-tiktoken`: Enables conversion from tiktoken tokenizer definitions.
+//!   - `convert-tiktoken`: Enables conversion from OpenAI Tiktoken tokenizer definitions.
+//!   - `convert-tekken`: Enables conversion from Mistral Tekken tokenizer definitions.
 //! - `regex-perf`: Enables additional regex performance optimizations. Can be disabled to reduce binary size.
 //!
 //! ### Optional features
