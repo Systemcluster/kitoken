@@ -24,6 +24,8 @@ pub enum DefinitionSource {
     Tiktoken,
     /// The definition was converted from a Tokenizers definition.
     Tokenizers,
+    /// The definition was converted from a Tekken definition.
+    Tekken,
     /// The definition was converted from an unspecified source.
     #[serde(untagged)]
     Other,

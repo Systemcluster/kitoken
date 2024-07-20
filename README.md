@@ -35,7 +35,7 @@ Multiple tokenization algorithms are supported:
 - **WordPiece**: The WordPiece subword algorithm.
 
 Kitoken is compatible with many existing tokenizers,
-including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers) and [OpenAI Tiktoken](https://github.com/openai/tiktoken),
+including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers), [OpenAI Tiktoken](https://github.com/openai/tiktoken) and [Mistral Tekken](https://docs.mistral.ai/guides/tokenization),
 while outperforming them in most scenarios. See the [benchmarks](#benchmarks) for comparisons with different datasets.
 
 ## Compatibility
@@ -97,6 +97,16 @@ Tiktoken is a `BPE` tokenizer with a custom definition format used by OpenAI for
 
 Tiktoken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids without any additional metadata. Special tokens and the split regex are expected to be provided separately, but will be inferred from the data for common models including GPT-3, GPT-4 and GPT-4o.
 For other models, or depending on the data and requirements, these values can be adjusted manually.
+
+### Tekken
+
+```rust
+let encoder = Kitoken::from_tekken_file("models/nemo.json")?;
+```
+
+Tekken is a `BPE` tokenizer with a custom definition format based on Tiktoken, used by Mistral for NeMo and newer models using `BytePair` tokenization.
+
+Tekken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids, as well as metadata including the split regex and special tokens.
 
 ## Performance
 
