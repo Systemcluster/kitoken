@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 use crate::{Definition, InitializationError, Kitoken};
 
 const MAGIC: &[u8] = b"kitoken";
-const VERSION: &[u8] = &[0, 0];
+const VERSION: &[u8] = &[0, 1];
 
 /// Errors encountered when deserializing the tokenizer.
 #[non_exhaustive]

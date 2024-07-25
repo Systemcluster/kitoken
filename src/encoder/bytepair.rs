@@ -11,9 +11,8 @@ use hashbrown::HashMap;
 use orx_priority_queue::{DaryHeapOfIndices, PriorityQueue, PriorityQueueDecKey};
 
 use crate::{
-    Configuration, EncodeError, Encoder, InitializationError, InsertionPosition, Mode,
-    ModeFallback, Scores, SpecialToken, SpecialTokenKind, SpecialVocab, TextPart, Token,
-    TokenBytes, TokenId, Vocab,
+    Configuration, EncodeError, Encoder, Fallback, InitializationError, InsertionPosition, Model,
+    SpecialToken, SpecialTokenKind, SpecialVocab, TextPart, Token, TokenBytes, TokenId, Vocab,
 };
 
 type TokenRank = u32;
@@ -65,7 +64,7 @@ pub(crate) struct BytePair {
     unknown:     Option<SpecialToken>,
     end_of_word: Option<String>,
     chars:       bool,
-    fallback:    Vec<ModeFallback>,
+    fallback:    Vec<Fallback>,
 
     max_token_bytes: usize,
     min_token_bytes: usize,
@@ -106,7 +105,7 @@ impl Encoder for BytePair {
     }
 
     #[inline(always)]
-    fn vocab(&self) -> (Vocab, Scores) {
+    fn model(&self) -> Model {
         let mut vocab = self.vocab.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
         vocab.sort_by(|(ta, a), (tb, b)| {
             let sa = self.ranks.get(ta).copied().unwrap();
@@ -116,9 +115,9 @@ impl Encoder for BytePair {
                 other => other,
             }
         });
-        let scores = Scores::new();
         let vocab = vocab.into_iter().map(|(k, v)| (v, k).into()).collect();
-        (vocab, scores)
+        let chars = self.chars;
+        Model::BytePair { vocab, chars }
     }
 }
 impl BytePair {
@@ -127,7 +126,7 @@ impl BytePair {
 
     #[inline(never)]
     pub fn new(
-        vocab: Vocab, specials: &SpecialVocab, config: &Configuration,
+        vocab: Vocab, specials: &SpecialVocab, config: &Configuration, chars: bool,
     ) -> Result<Self, InitializationError> {
         let unknown = specials
             .iter()
@@ -152,7 +151,6 @@ impl BytePair {
             return Err(InitializationError::InvalidEncoder);
         }
 
-        let chars = config.mode == Mode::CharPair;
         let max_token_bytes = vocab.keys().map(|k| k.len()).max().unwrap().max(1);
         let min_token_bytes = vocab.keys().map(|k| k.len()).min().unwrap().max(1);
         let fallback = config.fallback.clone();
@@ -173,7 +171,7 @@ impl BytePair {
     /// Encodes the given parts into a sequence of tokens starting at individual bytes.
     #[inline(never)]
     fn encode_bytes(
-        &self, parts: &[TextPart], fallback: &[ModeFallback], result: &mut Vec<TokenId>,
+        &self, parts: &[TextPart], fallback: &[Fallback], result: &mut Vec<TokenId>,
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
         let end_of_word_len = self.end_of_word.as_ref().map(|e| e.len()).unwrap_or(0);
@@ -213,7 +211,7 @@ impl BytePair {
     /// Encodes the given parts into a sequence of tokens starting at individual characters.
     #[inline(never)]
     fn encode_chars(
-        &self, parts: &[TextPart], fallback: &[ModeFallback], result: &mut Vec<TokenId>,
+        &self, parts: &[TextPart], fallback: &[Fallback], result: &mut Vec<TokenId>,
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
         let mut indices = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
@@ -262,7 +260,7 @@ impl BytePair {
     #[inline(never)]
     fn encode_pairs(
         &self, piece: &[u8], buffer: &mut Vec<RankedPart>, result: &mut Vec<TokenId>,
-        indices: impl Iterator<Item = u32>, fallback: &[ModeFallback],
+        indices: impl Iterator<Item = u32>, fallback: &[Fallback],
     ) -> Result<(), EncodeError> {
         let start = buffer.len();
         buffer.extend(indices.map(|i| RankedPart {
@@ -279,7 +277,7 @@ impl BytePair {
             let piece = &piece[buffer[i].start as usize..buffer[i + 1].start as usize];
             if let Some(&token) = self.vocab.get(piece) {
                 result.push(token);
-            } else if fallback.first() == Some(&ModeFallback::Bytes) {
+            } else if fallback.first() == Some(&Fallback::Bytes) {
                 let end = if let Some(end_of_word) = &self.end_of_word {
                     piece.len() - end_of_word.len()
                 } else {
@@ -292,9 +290,9 @@ impl BytePair {
                     0..(end as _),
                     &fallback[fallback.len().min(1)..],
                 )?;
-            } else if fallback.first() == Some(&ModeFallback::Unknown) && self.unknown.is_some() {
+            } else if fallback.first() == Some(&Fallback::Unknown) && self.unknown.is_some() {
                 result.push(self.unknown.as_ref().unwrap().id);
-            } else if fallback.first() == Some(&ModeFallback::Skip) {
+            } else if fallback.first() == Some(&Fallback::Skip) {
             } else {
                 return Err(EncodeError::InvalidPiece(piece.into()));
             }
@@ -362,7 +360,7 @@ impl BytePair {
     #[cold]
     fn encode_pairs_heap(
         &self, piece: &[u8], buffer: &mut Vec<RankedPart>, result: &mut Vec<TokenId>,
-        indices: impl Iterator<Item = (u32, u32)>, fallback: &[ModeFallback],
+        indices: impl Iterator<Item = (u32, u32)>, fallback: &[Fallback],
     ) -> Result<(), EncodeError> {
         let mut heap = PieceHeap::with_index_bound(piece.len());
         let mut prior = u32::MAX;
@@ -404,7 +402,7 @@ impl BytePair {
             let piece = &piece[part.start as _..(part.start + part.width) as _];
             if let Some(&token) = self.vocab.get(piece) {
                 result.push(token);
-            } else if fallback.first() == Some(&ModeFallback::Bytes) {
+            } else if fallback.first() == Some(&Fallback::Bytes) {
                 let end = if let Some(end_of_word) = &self.end_of_word {
                     piece.len() - end_of_word.len()
                 } else {
@@ -417,9 +415,9 @@ impl BytePair {
                     (0..end).map(|i| i as u32),
                     &fallback[fallback.len().min(1)..],
                 )?;
-            } else if fallback.first() == Some(&ModeFallback::Unknown) && self.unknown.is_some() {
+            } else if fallback.first() == Some(&Fallback::Unknown) && self.unknown.is_some() {
                 result.push(self.unknown.as_ref().unwrap().id);
-            } else if fallback.first() == Some(&ModeFallback::Skip) {
+            } else if fallback.first() == Some(&Fallback::Skip) {
             } else {
                 return Err(EncodeError::InvalidPiece(piece.into()));
             }

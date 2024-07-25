@@ -1,6 +1,6 @@
 //! **Tokenizer for language models.**
 //!
-//! ```no_run
+//! ```
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use kitoken::Kitoken;
 //! let encoder = Kitoken::from_file("tests/models/llama2.kit")?;
@@ -77,6 +77,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::str::Utf8Error;
 
+use derive_more::{Deref, DerefMut};
 use hashbrown::HashMap;
 
 pub use crate::charsmap::*;
@@ -143,7 +144,20 @@ impl From<Utf8Error> for InitializationError {
     }
 }
 
-type SpecialsMap = HashMap<TokenBytes, SpecialToken>;
+#[derive(Clone, Deref, DerefMut)]
+struct SpecialsMap(HashMap<TokenBytes, SpecialToken>);
+impl FromIterator<(TokenBytes, SpecialToken)> for SpecialsMap {
+    #[inline(always)]
+    fn from_iter<I: IntoIterator<Item = (TokenBytes, SpecialToken)>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+impl Debug for SpecialsMap {
+    #[inline(never)]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_list().entries(self.0.values()).finish()
+    }
+}
 
 /// Kitoken tokenizer.
 /// A fast and versatile tokenizer for language models.
@@ -167,16 +181,11 @@ impl Kitoken {
     /// or the encoder and scores have different lengths in unigram mode.
     #[inline(never)]
     pub fn new(
-        vocab: impl Into<Vocab>, specials: impl Into<SpecialVocab>, scores: impl Into<Scores>,
-        config: Configuration,
+        model: Model, specials: SpecialVocab, config: Configuration, meta: Metadata,
     ) -> Result<Self, InitializationError> {
         if let Err(error) = config.validate() {
             return Err(InitializationError::InvalidConfig(error));
         }
-
-        let vocab: Vocab = vocab.into();
-        let specials: SpecialVocab = specials.into();
-        let scores: Scores = scores.into();
 
         let special_split = Regex::new(
             &specials
@@ -201,13 +210,26 @@ impl Kitoken {
                 .join("|"),
         )?;
 
-        let decoder = Decoder::new(&vocab, &specials, &config);
-        let encoder = match config.mode {
-            Mode::BytePair | Mode::CharPair => {
-                Box::new(BytePair::new(vocab, &specials, &config)?) as _
+        let (encoder, decoder) = match model {
+            Model::BytePair { vocab, chars } => {
+                let decoder = Decoder::new(&vocab, &specials, &config);
+                let encoder = Box::new(BytePair::new(vocab, &specials, &config, chars)?) as _;
+                (encoder, decoder)
             }
-            Mode::Unigram => Box::new(Unigram::new(vocab, scores, &specials, &config)?) as _,
-            Mode::WordPiece => Box::new(WordPiece::new(vocab, scores, &specials, &config)) as _,
+            Model::Unigram { vocab, scores } => {
+                let decoder = Decoder::new(&vocab, &specials, &config);
+                let encoder = Box::new(Unigram::new(vocab, &specials, &config, scores)?) as _;
+                (encoder, decoder)
+            }
+            Model::WordPiece {
+                vocab,
+                max_word_chars,
+            } => {
+                let decoder = Decoder::new(&vocab, &specials, &config);
+                let encoder =
+                    Box::new(WordPiece::new(vocab, &specials, &config, max_word_chars)) as _;
+                (encoder, decoder)
+            }
         };
 
         let specials_len = specials.len();
@@ -218,8 +240,6 @@ impl Kitoken {
         if specials_len != specials.len() {
             return Err(InitializationError::InvalidSpecialEncoder);
         }
-
-        let meta = Metadata::default();
 
         Ok(Self {
             encoder,

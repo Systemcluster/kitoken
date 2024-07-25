@@ -6,13 +6,13 @@ use std::io::Read;
 use std::path::Path;
 
 use alloc::format;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Definition, DefinitionSource, InsertionPosition, Kitoken, Metadata, Mode,
-    ModeFallback, Regex, SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior,
-    Template, Token, Vocab,
+    Configuration, Definition, Fallback, InsertionPosition, Kitoken, Metadata, Model, Regex,
+    SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior, Template, Token, Vocab,
 };
 
 mod ms {
@@ -154,12 +154,9 @@ pub fn convert_tekken(data: impl AsRef<[u8]>) -> Result<Definition, ConversionEr
         )));
     }
 
-    let mut config = Configuration {
-        mode: Mode::BytePair,
-        ..Configuration::default()
-    };
-    config.fallback.push(ModeFallback::Unknown);
-    config.fallback.push(ModeFallback::Skip);
+    let mut config = Configuration::default();
+    config.fallback.push(Fallback::Unknown);
+    config.fallback.push(Fallback::Skip);
 
     config.split.push(Split::Pattern {
         pattern:  Regex::new(&tokenizer.config.pattern)?.into(),
@@ -204,6 +201,11 @@ pub fn convert_tekken(data: impl AsRef<[u8]>) -> Result<Definition, ConversionEr
     }
     vocab.sort();
 
+    let model = Model::BytePair {
+        vocab,
+        chars: false,
+    };
+
     config.templates.push(Template {
         content:  "<s>".to_string(),
         position: InsertionPosition::SequenceStart,
@@ -213,17 +215,15 @@ pub fn convert_tekken(data: impl AsRef<[u8]>) -> Result<Definition, ConversionEr
         position: InsertionPosition::SequenceEnd,
     });
 
-    let scores = Vec::new();
     let meta = Metadata {
-        source: DefinitionSource::Tekken,
+        source: "tekken".to_string(),
         ..Metadata::default()
     };
 
     Ok(Definition {
         meta,
-        vocab,
+        model,
         specials,
-        scores,
         config,
     })
 }

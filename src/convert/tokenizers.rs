@@ -16,10 +16,10 @@ use hashbrown::HashMap;
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Decoding, Definition, DefinitionSource, InsertionPosition, Kitoken, Metadata,
-    Mode, ModeFallback, Normalization, Processing, ProcessingDirection, Regex, Scores,
-    SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior, Template, Token,
-    TokenBytes, TokenId, UnicodeNormalization, Vocab,
+    Configuration, Decoding, Definition, Fallback, InsertionPosition, Kitoken, Metadata, Model,
+    Normalization, Processing, ProcessingDirection, Regex, Scores, SpecialToken, SpecialTokenKind,
+    SpecialVocab, Split, SplitBehavior, Template, Token, TokenBytes, TokenId, UnicodeNormalization,
+    Vocab,
 };
 
 mod hf {
@@ -366,7 +366,7 @@ mod hf {
     }
 }
 
-use hf::{AddedToken, Model, Tokenizer};
+use hf::{AddedToken, Tokenizer};
 
 /// Converts a `tokenizers` definition into the definition format used by this crate.
 ///
@@ -416,7 +416,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     })?;
 
     let mut config = Configuration::default();
-    config.fallback.push(ModeFallback::Skip);
+    config.fallback.push(Fallback::Skip);
 
     let mut decode_byte_runes = false;
     let mut decode_byte_chars = false;
@@ -1105,21 +1105,21 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     };
 
     // Convert vocab
-    let (mut vocab, specials, scores) = match tokenizer.model {
-        Model::BPE(model) => {
-            let mut vocab = HashMap::<TokenBytes, TokenId>::with_capacity(model.vocab.len());
-            for (token, id) in model.vocab {
+    let (mut model, specials) = match tokenizer.model {
+        hf::Model::BPE(bpe) => {
+            let mut vocab = HashMap::<TokenBytes, TokenId>::with_capacity(bpe.vocab.len());
+            for (token, id) in bpe.vocab {
                 vocab.insert(token.as_bytes().to_vec(), id);
             }
-            let specials = get_specials(model.unk_token.as_ref(), None);
+            let specials = get_specials(bpe.unk_token.as_ref(), None);
             for special in specials.keys() {
                 vocab.remove(special);
             }
 
-            if let Some(unk) = model.unk_token {
+            if let Some(unk) = bpe.unk_token {
                 if let Some(special) = specials.get(unk.as_bytes()) {
-                    config.fallback.insert(0, ModeFallback::Unknown);
-                    if let Some(true) = model.fuse_unk {
+                    config.fallback.insert(0, Fallback::Unknown);
+                    if let Some(true) = bpe.fuse_unk {
                         config.processing.push(Processing::Collapse { id: special.id });
                     }
                 } else {
@@ -1129,25 +1129,20 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     )));
                 }
             }
-            if decode_byte_chars {
-                config.mode = Mode::BytePair;
-            } else {
-                config.mode = Mode::CharPair;
-                if model.byte_fallback.unwrap_or(false) {
-                    config.fallback.insert(0, ModeFallback::Bytes);
-                }
+            if !decode_byte_chars && bpe.byte_fallback.unwrap_or(false) {
+                config.fallback.insert(0, Fallback::Bytes);
             }
-            if let Some(end_of_word_suffix) = model.end_of_word_suffix {
+            if let Some(end_of_word_suffix) = bpe.end_of_word_suffix {
                 config.templates.push(Template {
                     position: InsertionPosition::WordEnd,
                     content:  end_of_word_suffix,
                 });
             }
-            if let Some(true) = model.byte_fallback {
+            if let Some(true) = bpe.byte_fallback {
                 decode_byte_runes = true;
             }
 
-            let merges = model
+            let merges = bpe
                 .merges
                 .into_iter()
                 .enumerate()
@@ -1210,30 +1205,31 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             }
             drop(vocab_rev);
 
-            let scores = Scores::with_capacity(0);
-            (vocab, specials, scores)
+            let model = Model::BytePair {
+                vocab,
+                chars: !decode_byte_chars,
+            };
+            (model, specials)
         }
-        Model::Unigram(model) => {
-            config.mode = Mode::Unigram;
+        hf::Model::Unigram(unigram) => {
+            let mut vocab = HashMap::<TokenBytes, ParsedPiece>::with_capacity(unigram.vocab.len());
 
-            let mut vocab = HashMap::<TokenBytes, ParsedPiece>::with_capacity(model.vocab.len());
-
-            for (index, (token, score)) in model.vocab.into_iter().enumerate() {
+            for (index, (token, score)) in unigram.vocab.into_iter().enumerate() {
                 vocab.insert(token.as_bytes().to_vec(), ParsedPiece {
                     index: index as u32,
                     score: score as f32,
                 });
             }
-            let specials = get_specials(None, model.unk_id.map(|id| id as u32));
+            let specials = get_specials(None, unigram.unk_id.map(|id| id as u32));
             for special in specials.keys() {
                 vocab.remove(special);
             }
 
-            if let Some(unk) = model.unk_id {
+            if let Some(unk) = unigram.unk_id {
                 if let Some((_, special)) =
                     specials.iter().find(|(_, special)| special.id == unk as u32)
                 {
-                    config.fallback.insert(0, ModeFallback::Unknown);
+                    config.fallback.insert(0, Fallback::Unknown);
                     config.processing.push(Processing::Collapse { id: special.id });
                 } else {
                     return Err(ConversionError::InvalidData(format!(
@@ -1242,8 +1238,8 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     )));
                 }
             }
-            if let Some(true) = model.byte_fallback {
-                config.fallback.insert(0, ModeFallback::Bytes);
+            if let Some(true) = unigram.byte_fallback {
+                config.fallback.insert(0, Fallback::Bytes);
                 decode_byte_runes = true;
             }
 
@@ -1261,30 +1257,29 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             let mut specials = specials.into_values().collect::<SpecialVocab>();
             specials.sort();
 
-            (vocab, specials, scores)
+            let model = Model::Unigram { vocab, scores };
+            (model, specials)
         }
-        Model::WordPiece(model) => {
-            config.mode = Mode::WordPiece;
-
-            let mut vocab = HashMap::<TokenBytes, TokenId>::with_capacity(model.vocab.len());
-            for (token, id) in model.vocab {
+        hf::Model::WordPiece(wordpiece) => {
+            let mut vocab = HashMap::<TokenBytes, TokenId>::with_capacity(wordpiece.vocab.len());
+            for (token, id) in wordpiece.vocab {
                 vocab.insert(token.as_bytes().to_vec(), id);
             }
-            let specials = get_specials(Some(&model.unk_token), None);
+            let specials = get_specials(Some(&wordpiece.unk_token), None);
             for special in specials.keys() {
                 vocab.remove(special);
             }
 
-            if specials.get(model.unk_token.as_bytes()).is_some() {
-                config.fallback.insert(0, ModeFallback::Unknown);
+            if specials.get(wordpiece.unk_token.as_bytes()).is_some() {
+                config.fallback.insert(0, Fallback::Unknown);
             } else {
                 return Err(ConversionError::InvalidData(format!(
                     "Unknown token {:?} not found in specials",
-                    model.unk_token
+                    wordpiece.unk_token
                 )));
             }
             config.templates.push(Template {
-                content:  model.continuing_subword_prefix,
+                content:  wordpiece.continuing_subword_prefix,
                 position: InsertionPosition::WordContinuation,
             });
 
@@ -1301,10 +1296,14 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             let mut specials = specials.into_values().collect::<SpecialVocab>();
             specials.sort();
 
-            let scores = Scores::from([model.max_input_chars_per_word as f32]);
-            (vocab, specials, scores)
+            let model = Model::WordPiece {
+                vocab,
+                max_word_chars: wordpiece.max_input_chars_per_word as _,
+            };
+            (model, specials)
         }
     };
+    let vocab = model.vocab_mut();
 
     if let Some(padding) = tokenizer.padding {
         use hf::{PaddingDirection, PaddingStrategy};
@@ -1348,7 +1347,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 token.bytes = replacement;
             });
         };
-        replace_byte_chars(&mut vocab);
+        replace_byte_chars(vocab);
     }
     // Replace byte rune placeholders
     if decode_byte_runes {
@@ -1379,7 +1378,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 })
                 .collect();
         };
-        replace_byte_runes(&mut vocab);
+        replace_byte_runes(vocab);
     }
     // Remove duplicate tokens
     let deduplicate = |vocab: &mut Vocab| {
@@ -1399,18 +1398,17 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             }
         });
     };
-    deduplicate(&mut vocab);
+    deduplicate(vocab);
 
     let meta = Metadata {
-        source: DefinitionSource::Tokenizers,
+        source: "tokenizers".to_string(),
         ..Metadata::default()
     };
 
     Ok(Definition {
         meta,
-        vocab,
+        model,
         specials,
-        scores,
         config,
     })
 }

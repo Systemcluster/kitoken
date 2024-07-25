@@ -19,31 +19,11 @@ pub use split::*;
 
 use crate::TokenId;
 
-/// Tokenization mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub enum Mode {
-    /// A variation of the original BPE algorithm. Merges inputs starting from individual bytes.
-    BytePair,
-    /// A variation of the modified BPE algorithm. Merges inputs starting from individual characters.
-    CharPair,
-    /// The Unigram subword algorithm.
-    Unigram,
-    /// The WordPiece subword algorithm.
-    WordPiece,
-}
-impl Default for Mode {
-    fn default() -> Self {
-        Self::CharPair
-    }
-}
-
 /// Tokenization mode fallback.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub enum ModeFallback {
+pub enum Fallback {
     /// Skip pieces that cannot be tokenized.
     Skip,
     /// Replace pieces that cannot be tokenized with the unknown token.
@@ -51,7 +31,6 @@ pub enum ModeFallback {
     /// Merge pieces that cannot be tokenized starting from individual bytes.
     Bytes,
 }
-
 
 /// Template insertion position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,10 +76,8 @@ pub enum ConfigurationError {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct Configuration {
-    /// The tokenization mode.
-    pub mode:          Mode,
     /// The tokenization mode fallback.
-    pub fallback:      Vec<ModeFallback>,
+    pub fallback:      Vec<Fallback>,
     /// The input normalization scheme.
     pub normalization: Vec<Normalization>,
     /// The pre-tokenization split behavior.

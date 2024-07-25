@@ -9,8 +9,9 @@ use bstr::ByteSlice;
 use hashbrown::HashMap;
 
 use crate::{
-    Configuration, EncodeError, Encoder, InitializationError, ModeFallback, Scores, SpecialToken,
-    SpecialTokenKind, SpecialVocab, TextPart, Token, TokenBytes, TokenId, TokenScore, Vocab,
+    Configuration, EncodeError, Encoder, Fallback, InitializationError, Model, Scores,
+    SpecialToken, SpecialTokenKind, SpecialVocab, TextPart, Token, TokenBytes, TokenId, TokenScore,
+    Vocab,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -35,7 +36,7 @@ pub(crate) struct Unigram {
     vocab: ScoredVocabMap,
 
     unknown:  Option<SpecialToken>,
-    fallback: Vec<ModeFallback>,
+    fallback: Vec<Fallback>,
 
     max_token_bytes: usize,
     min_token_bytes: usize,
@@ -62,7 +63,7 @@ impl Encoder for Unigram {
     }
 
     #[inline(always)]
-    fn vocab(&self) -> (Vocab, Scores) {
+    fn model(&self) -> Model {
         let mut vocab = self.vocab.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
         vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
             Ordering::Equal => a.id.cmp(&b.id),
@@ -70,7 +71,7 @@ impl Encoder for Unigram {
         });
         let scores = vocab.iter().map(|(_, v)| v.score).collect();
         let vocab = vocab.into_iter().map(|(k, v)| (v.id, k).into()).collect();
-        (vocab, scores)
+        Model::Unigram { vocab, scores }
     }
 }
 impl Unigram {
@@ -78,7 +79,7 @@ impl Unigram {
 
     #[inline(never)]
     pub fn new(
-        vocab: Vocab, scores: Scores, specials: &SpecialVocab, config: &Configuration,
+        vocab: Vocab, specials: &SpecialVocab, config: &Configuration, scores: Scores,
     ) -> Result<Self, InitializationError> {
         let unknown = specials
             .iter()
@@ -121,7 +122,7 @@ impl Unigram {
     /// Encodes the given parts into a sequence of tokens starting at individual characters.
     #[inline(never)]
     fn encode_chars(
-        &self, parts: &[TextPart], fallback: &[ModeFallback], result: &mut Vec<TokenId>,
+        &self, parts: &[TextPart], fallback: &[Fallback], result: &mut Vec<TokenId>,
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
         for part in parts {
@@ -148,7 +149,7 @@ impl Unigram {
     #[inline(never)]
     fn encode_unigram(
         &self, piece: &[u8], buffer: &mut Vec<SizedPart>, result: &mut Vec<TokenId>,
-        indices: impl Iterator<Item = usize>, fallback: &[ModeFallback],
+        indices: impl Iterator<Item = usize>, fallback: &[Fallback],
     ) -> Result<(), EncodeError> {
         let start = buffer.len();
         buffer.extend(indices.map(|c| SizedPart {
@@ -186,7 +187,7 @@ impl Unigram {
         let mut sub_end = end - 1;
         while sub_end > start {
             if buffer[sub_end].token == Token::INVALID {
-                if fallback.first() == Some(&ModeFallback::Bytes) {
+                if fallback.first() == Some(&Fallback::Bytes) {
                     let part = &piece[buffer[sub_end - 1].start..buffer[sub_end].start];
                     self.encode_unigram(
                         part,
@@ -195,10 +196,9 @@ impl Unigram {
                         0..part.len(),
                         &fallback[fallback.len().min(1)..],
                     )?;
-                } else if fallback.first() == Some(&ModeFallback::Unknown) && self.unknown.is_some()
-                {
+                } else if fallback.first() == Some(&Fallback::Unknown) && self.unknown.is_some() {
                     result.push(self.unknown.as_ref().unwrap().id);
-                } else if fallback.first() == Some(&ModeFallback::Skip) {
+                } else if fallback.first() == Some(&Fallback::Skip) {
                 } else {
                     let part = &piece[buffer[sub_end - 1].start..buffer[sub_end].start];
                     return Err(EncodeError::InvalidPiece(part.into()));
