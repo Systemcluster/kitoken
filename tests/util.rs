@@ -6,7 +6,7 @@ use std::sync::Once;
 use bstr::ByteSlice;
 use console::style;
 
-use kitoken::{Definition, Kitoken};
+use kitoken::{Definition, Kitoken, Model};
 
 static INIT_ENV: Once = Once::new();
 
@@ -374,25 +374,30 @@ pub fn test_definitions_same(left: Definition, right: Definition) {
             sep,
             style("left").bold().magenta(),
             sep,
-            &left.vocab[diff_from..diff_to],
+            &left.model.vocab()[diff_from..diff_to],
             style("right").bold().magenta(),
             sep,
-            &right.vocab[diff_from..diff_to]
+            &right.model.vocab()[diff_from..diff_to]
         );
         let line =
             style(format!("specials mismatch from index {} to {}", diff_from, diff_to)).red();
         eprintln!("{}", line);
     }
-    assert_eq!(left.vocab.len(), right.vocab.len(), "vocab lengths are equal");
-    if left.vocab != right.vocab {
+    assert_eq!(left.model.vocab().len(), right.model.vocab().len(), "vocab lengths are equal");
+    if left.model.vocab() != right.model.vocab() {
         let line = style("vocab mismatch").on_red();
-        let diff_from =
-            left.vocab.iter().zip(right.vocab.iter()).position(|(a, b)| a != b).unwrap();
-        let diff_to = left.vocab[diff_from..]
+        let diff_from = left
+            .model
+            .vocab()
             .iter()
-            .zip(right.vocab[diff_from..].iter())
+            .zip(right.model.vocab().iter())
+            .position(|(a, b)| a != b)
+            .unwrap();
+        let diff_to = left.model.vocab()[diff_from..]
+            .iter()
+            .zip(right.model.vocab()[diff_from..].iter())
             .position(|(a, b)| a == b)
-            .unwrap_or(left.vocab.len() - diff_from)
+            .unwrap_or(left.model.vocab().len() - diff_from)
             + diff_from;
         eprintln!(
             "{}{}\n\t{}{} {:?}\n\t{}{} {:?}",
@@ -400,38 +405,51 @@ pub fn test_definitions_same(left: Definition, right: Definition) {
             sep,
             style("left").bold().magenta(),
             sep,
-            &left.vocab[diff_from..diff_to],
+            &left.model.vocab()[diff_from..diff_to],
             style("right").bold().magenta(),
             sep,
-            &right.vocab[diff_from..diff_to]
+            &right.model.vocab()[diff_from..diff_to]
         );
         let line = style(format!("vocab mismatch from index {} to {}", diff_from, diff_to)).red();
         eprintln!("{}", line);
     }
-    assert_eq!(left.scores.len(), right.scores.len(), "scores lengths are equal");
-    if left.scores != right.scores {
-        let line = style("scores mismatch").on_red();
-        let diff_from =
-            left.scores.iter().zip(right.scores.iter()).position(|(a, b)| a != b).unwrap();
-        let diff_to = left.scores[diff_from..]
-            .iter()
-            .zip(right.scores[diff_from..].iter())
-            .position(|(a, b)| a == b)
-            .unwrap_or(left.scores.len() - diff_from)
-            + diff_from;
-        eprintln!(
-            "{}{}\n\t{}{} {:?}\n\t{}{} {:?}",
-            line,
-            sep,
-            style("left").bold().magenta(),
-            sep,
-            &left.vocab[diff_from..diff_to],
-            style("right").bold().magenta(),
-            sep,
-            &right.vocab[diff_from..diff_to]
-        );
-        let line = style(format!("scores mismatch from index {} to {}", diff_from, diff_to)).red();
-        eprintln!("{}", line);
+    if let (
+        Model::Unigram {
+            scores: scores_left,
+            ..
+        },
+        Model::Unigram {
+            scores: scores_right,
+            ..
+        },
+    ) = (&left.model, &right.model)
+    {
+        assert_eq!(scores_left.len(), scores_right.len(), "scores lengths are equal");
+        if scores_left != scores_right {
+            let line = style("scores mismatch").on_red();
+            let diff_from =
+                scores_left.iter().zip(scores_right.iter()).position(|(a, b)| a != b).unwrap();
+            let diff_to = scores_left[diff_from..]
+                .iter()
+                .zip(scores_right[diff_from..].iter())
+                .position(|(a, b)| a == b)
+                .unwrap_or(scores_left.len() - diff_from)
+                + diff_from;
+            eprintln!(
+                "{}{}\n\t{}{} {:?}\n\t{}{} {:?}",
+                line,
+                sep,
+                style("left").bold().magenta(),
+                sep,
+                &left.model.vocab()[diff_from..diff_to],
+                style("right").bold().magenta(),
+                sep,
+                &right.model.vocab()[diff_from..diff_to]
+            );
+            let line =
+                style(format!("scores mismatch from index {} to {}", diff_from, diff_to)).red();
+            eprintln!("{}", line);
+        }
     }
     assert_eq!(left, right, "definitions are equal");
 }

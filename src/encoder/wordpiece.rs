@@ -11,7 +11,7 @@ use bstr::ByteSlice;
 use hashbrown::HashMap;
 
 use crate::{
-    Configuration, EncodeError, Encoder, InsertionPosition, ModeFallback, Scores, SpecialToken,
+    Configuration, EncodeError, Encoder, Fallback, InsertionPosition, Model, SpecialToken,
     SpecialTokenKind, SpecialVocab, TextPart, Token, TokenBytes, TokenId, Vocab,
 };
 
@@ -25,7 +25,7 @@ pub(crate) struct WordPiece {
 
     unknown:        Option<SpecialToken>,
     subword_prefix: Option<String>,
-    fallback:       Vec<ModeFallback>,
+    fallback:       Vec<Fallback>,
 
     max_word_chars:  usize,
     max_token_bytes: usize,
@@ -56,7 +56,7 @@ impl Encoder for WordPiece {
     }
 
     #[inline(always)]
-    fn vocab(&self) -> (Vocab, Scores) {
+    fn model(&self) -> Model {
         let mut vocab = self
             .start
             .iter()
@@ -78,14 +78,17 @@ impl Encoder for WordPiece {
                 comp
             }
         });
-        let scores = Scores::from([self.max_word_chars as _]);
-        (vocab, scores)
+        let max_word_chars = self.max_word_chars as u32;
+        Model::WordPiece {
+            vocab,
+            max_word_chars,
+        }
     }
 }
 impl WordPiece {
     #[inline(never)]
     pub fn new(
-        vocab: Vocab, scores: Scores, specials: &SpecialVocab, config: &Configuration,
+        vocab: Vocab, specials: &SpecialVocab, config: &Configuration, max_word_chars: u32,
     ) -> Self {
         let unknown = specials
             .iter()
@@ -118,7 +121,7 @@ impl WordPiece {
             VocabMap::with_capacity(0)
         };
 
-        let max_word_chars = scores.first().map(|&s| s as _).unwrap_or(0);
+        let max_word_chars = max_word_chars as usize;
         let max_token_bytes = start.keys().map(|k| k.len()).max().unwrap().max(1);
         let min_token_bytes = start.keys().map(|k| k.len()).min().unwrap().max(1);
 
@@ -139,7 +142,7 @@ impl WordPiece {
     /// Encodes the given parts into a sequence of tokens starting at individual characters.
     #[inline(never)]
     fn encode_chars(
-        &self, parts: &[TextPart], fallback: &[ModeFallback], result: &mut Vec<TokenId>,
+        &self, parts: &[TextPart], fallback: &[Fallback], result: &mut Vec<TokenId>,
     ) -> Result<(), EncodeError> {
         for part in parts {
             if part.special != Token::INVALID {
@@ -161,14 +164,14 @@ impl WordPiece {
     fn encode_wordpiece(
         &self, bytes: &[u8], result: &mut Vec<TokenId>,
         mut indices: impl DoubleEndedIterator<Item = (usize, usize)> + Clone,
-        mut fallback: Peekable<impl Iterator<Item = ModeFallback>>,
+        mut fallback: Peekable<impl Iterator<Item = Fallback>>,
     ) -> Result<(), EncodeError> {
         if bytes.len() < self.min_token_bytes
             || self.max_word_chars > 0 && indices.clone().count() > self.max_word_chars
         {
-            if fallback.peek() == Some(&ModeFallback::Unknown) && self.unknown.is_some() {
+            if fallback.peek() == Some(&Fallback::Unknown) && self.unknown.is_some() {
                 result.push(self.unknown.as_ref().unwrap().id);
-            } else if fallback.peek() == Some(&ModeFallback::Skip) {
+            } else if fallback.peek() == Some(&Fallback::Skip) {
             } else {
                 return Err(EncodeError::InvalidPiece(bytes[..].to_vec()));
             }
@@ -199,9 +202,9 @@ impl WordPiece {
             }
             if until <= start {
                 result.truncate(init);
-                if fallback.peek() == Some(&ModeFallback::Unknown) && self.unknown.is_some() {
+                if fallback.peek() == Some(&Fallback::Unknown) && self.unknown.is_some() {
                     result.push(self.unknown.as_ref().unwrap().id);
-                } else if fallback.peek() == Some(&ModeFallback::Skip) {
+                } else if fallback.peek() == Some(&Fallback::Skip) {
                 } else {
                     return Err(EncodeError::InvalidPiece(bytes[start..].to_vec()));
                 }

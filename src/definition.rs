@@ -1,4 +1,6 @@
 //! Kitoken definition format.
+//!
+//! Defines the metadata, model, specials, and configuration of a Kitoken tokenizer.
 
 use core::fmt::Debug;
 
@@ -11,34 +13,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Configuration, InitializationError, Kitoken, Scores, SpecialVocab, Vocab};
 
-/// The source of the definition.
-#[derive(Debug, Clone, PartialEq)]
-#[repr(u8)]
-#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
-pub enum DefinitionSource {
-    /// The definition was created by the user.
-    None,
-    /// The definition was converted from a Sentencepiece model.
-    Sentencepiece,
-    /// The definition was converted from a Tiktoken definition.
-    Tiktoken,
-    /// The definition was converted from a Tokenizers definition.
-    Tokenizers,
-    /// The definition was converted from a Tekken definition.
-    Tekken,
-    /// The definition was converted from an unspecified source.
-    #[serde(untagged)]
-    Other,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 /// Kitoken tokenizer definition metadata.
 pub struct Metadata {
     /// The version of Kitoken that created the definition.
     pub version: String,
-    /// The source of the definition.
-    pub source:  DefinitionSource,
+    /// The source of the definition. Defaults to "kitoken".
+    pub source:  String,
     /// Additional metadata.
     pub meta:    Vec<(String, String)>,
 }
@@ -47,29 +29,99 @@ impl Default for Metadata {
     fn default() -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
-            source:  DefinitionSource::None,
+            source:  "kitoken".to_string(),
             meta:    Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+#[non_exhaustive]
+/// Kitoken tokenizer model.
+pub enum Model {
+    BytePair {
+        /// The encoder vocabulary without special tokens.
+        /// Sorted by merge priority.
+        vocab: Vocab,
+        /// Whether to encode the input as characters.
+        chars: bool,
+    },
+    Unigram {
+        /// The encoder vocabulary without special tokens.
+        /// Sorted by merge priority.
+        vocab:  Vocab,
+        /// The scores for each token.
+        scores: Scores,
+    },
+    WordPiece {
+        /// The encoder vocabulary without special tokens.
+        /// Sorted by merge priority.
+        vocab:          Vocab,
+        /// The maximum number of characters in a piece.
+        max_word_chars: u32,
+    },
+}
+impl Model {
+    /// Returns the encoder vocabulary.
+    #[inline(always)]
+    pub fn vocab(&self) -> &Vocab {
+        match self {
+            Model::BytePair { vocab, .. } => vocab,
+            Model::Unigram { vocab, .. } => vocab,
+            Model::WordPiece { vocab, .. } => vocab,
+        }
+    }
+
+    /// Returns the encoder vocabulary as mutable.
+    #[inline(always)]
+    pub fn vocab_mut(&mut self) -> &mut Vocab {
+        match self {
+            Model::BytePair { vocab, .. } => vocab,
+            Model::Unigram { vocab, .. } => vocab,
+            Model::WordPiece { vocab, .. } => vocab,
+        }
+    }
+}
+impl Debug for Model {
+    #[inline(never)]
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Model::BytePair { vocab, chars } => f
+                .debug_struct("Model::BytePair")
+                .field("vocab", &format!("Vocab({})", vocab.len()))
+                .field("chars", chars)
+                .finish(),
+            Model::Unigram { vocab, scores } => f
+                .debug_struct("Model::Unigram")
+                .field("vocab", &format!("Vocab({})", vocab.len()))
+                .field("scores", &format!("Scores({})", scores.len()))
+                .finish(),
+            Model::WordPiece {
+                vocab,
+                max_word_chars,
+            } => f
+                .debug_struct("Model::WordPiece")
+                .field("vocab", &format!("Vocab({})", vocab.len()))
+                .field("max_word_chars", max_word_chars)
+                .finish(),
         }
     }
 }
 
 /// Kitoken tokenizer definition.
 ///
-/// Used for initializing the tokenizer and for serialization and deserialization.
+/// Defines the metadata, model, specials, and configuration of a Kitoken tokenizer.
 #[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct Definition {
     /// The definition metadata.
     pub meta:     Metadata,
-    /// The encoder vocabulary without special tokens.
-    /// Sorted by merge priority.
-    pub vocab:    Vocab,
+    /// The tokenizer model.
+    pub model:    Model,
     /// The special encoder vocabulary. Prioritized over the vocabulary during encoding and decoding.
     /// Sorted by split priority.
     pub specials: SpecialVocab,
-    /// The scores for each token.
-    /// Only used in unigram mode.
-    pub scores:   Scores,
     /// The tokenizer configuration.
     pub config:   Configuration,
 }
@@ -92,9 +144,8 @@ impl Debug for Definition {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Definition")
             .field("meta", &self.meta)
-            .field("vocab", &format!("Vocab({})", self.vocab.len()))
-            .field("specials", &format!("Vocab({})", self.specials.len()))
-            .field("scores", &format!("Scores({})", self.vocab.len()))
+            .field("model", &self.model)
+            .field("specials", &format!("SpecialVocab({})", self.specials.len()))
             .field("config", &self.config)
             .finish()
     }
@@ -111,16 +162,11 @@ impl Kitoken {
     pub fn from_definition(definition: Definition) -> Result<Self, InitializationError> {
         let Definition {
             meta,
-            vocab,
+            model,
             specials,
-            scores,
             config,
-            ..
         } = definition;
-        Self::new(vocab, specials, scores, config).map(|mut s| {
-            s.meta = meta;
-            s
-        })
+        Self::new(model, specials, config, meta)
     }
 
     /// Creates a definition from this tokenizer.
@@ -130,16 +176,15 @@ impl Kitoken {
     /// See [`Definition`] for more details.
     #[inline(never)]
     pub fn to_definition(&self) -> Definition {
-        let (vocab, scores) = self.encoder.vocab();
+        let model = self.encoder.model();
         let mut specials = self.specials.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
         specials.sort();
         let config = self.config.clone();
         let meta = self.meta.clone();
         Definition {
             meta,
-            vocab,
+            model,
             specials,
-            scores,
             config,
         }
     }

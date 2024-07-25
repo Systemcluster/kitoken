@@ -6,6 +6,7 @@ use std::io::Read;
 use std::path::Path;
 
 use alloc::format;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use base64::{alphabet, engine, Engine};
@@ -13,8 +14,8 @@ use bstr::ByteSlice;
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Definition, DefinitionSource, Kitoken, Metadata, Mode, ModeFallback, Regex,
-    SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior, Vocab,
+    Configuration, Definition, Fallback, Kitoken, Metadata, Model, Regex, SpecialToken,
+    SpecialTokenKind, SpecialVocab, Split, SplitBehavior, Vocab,
 };
 
 static BASE64: engine::GeneralPurpose =
@@ -79,11 +80,8 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
         vocab.push((bytes, token).into());
     }
 
-    let mut config = Configuration {
-        mode: Mode::BytePair,
-        ..Configuration::default()
-    };
-    config.fallback.push(ModeFallback::Skip);
+    let mut config = Configuration::default();
+    config.fallback.push(Fallback::Skip);
 
     let specials: &[(&str, u32)] = if vocab.len() >= 199990 {
         config.split.push(Split::Pattern { pattern:
@@ -139,17 +137,20 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
         .collect::<SpecialVocab>();
     specials.sort();
 
-    let scores = Vec::new();
+    let model = Model::BytePair {
+        vocab,
+        chars: false,
+    };
+
     let meta = Metadata {
-        source: DefinitionSource::Tiktoken,
+        source: "tiktoken".to_string(),
         ..Metadata::default()
     };
 
     Ok(Definition {
         meta,
-        vocab,
+        model,
         specials,
-        scores,
         config,
     })
 }

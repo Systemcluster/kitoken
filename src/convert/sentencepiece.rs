@@ -16,9 +16,9 @@ use sentencepiece_model::{ModelType, SentencePieceModel, Type};
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Decoding, Definition, DefinitionSource, InsertionPosition, Kitoken, Metadata,
-    Mode, ModeFallback, Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind,
-    SpecialVocab, Split, SplitBehavior, Template, Token, UnicodeNormalization, Vocab,
+    Configuration, Decoding, Definition, Fallback, InsertionPosition, Kitoken, Metadata, Model,
+    Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind, SpecialVocab, Split,
+    SplitBehavior, Template, Token, UnicodeNormalization, Vocab,
 };
 
 /// Converts a `sentencepiece` model into the definition format used by this crate.
@@ -59,8 +59,8 @@ pub fn convert_sentencepiece(data: impl AsRef<[u8]>) -> Result<Definition, Conve
 }
 fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, ConversionError> {
     let mut config = Configuration::default();
-    config.fallback.push(ModeFallback::Unknown);
-    config.fallback.push(ModeFallback::Skip);
+    config.fallback.push(Fallback::Unknown);
+    config.fallback.push(Fallback::Skip);
 
     let mut model_type = ModelType::Unigram;
     let mut treat_whitespace_as_suffix = false;
@@ -114,18 +114,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         });
         model_type = trainer.model_type();
         if trainer.byte_fallback() {
-            config.fallback.insert(0, ModeFallback::Bytes);
-        }
-    }
-
-    match model_type {
-        ModelType::Bpe => config.mode = Mode::CharPair,
-        ModelType::Unigram => config.mode = Mode::Unigram,
-        ModelType::Word => {
-            return Err(ConversionError::UnsupportedConfiguration("Word model type".to_string()));
-        }
-        ModelType::Char => {
-            return Err(ConversionError::UnsupportedConfiguration("Char model type".to_string()));
+            config.fallback.insert(0, Fallback::Bytes);
         }
     }
 
@@ -315,7 +304,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         replacement: " ".to_string(),
     });
 
-    let (vocab, specials, scores) = match model_type {
+    let (model, specials) = match model_type {
         ModelType::Bpe => {
             let create_merges = |vocab: &HashMap<Vec<u8>, ParsedPiece>| {
                 let mut merges = HashMap::<u32, f32>::with_capacity(vocab.len() * 3);
@@ -362,8 +351,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                 specials.into_iter().map(|(_, special)| special).collect::<SpecialVocab>();
             specials.sort();
 
-            let scores = Scores::with_capacity(0);
-            (vocab, specials, scores)
+            (Model::BytePair { vocab, chars: true }, specials)
         }
         ModelType::Unigram => {
             let mut vocab = vocab.into_iter().collect::<Vec<_>>();
@@ -380,21 +368,25 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                 specials.into_iter().map(|(_, special)| special).collect::<SpecialVocab>();
             specials.sort();
 
-            (vocab, specials, scores)
+            (Model::Unigram { vocab, scores }, specials)
         }
-        _ => unreachable!(),
+        _ => {
+            return Err(ConversionError::UnsupportedConfiguration(format!(
+                "{:?} model type",
+                model_type
+            )));
+        }
     };
 
     let meta = Metadata {
-        source: DefinitionSource::Sentencepiece,
+        source: "sentencepiece".to_string(),
         ..Metadata::default()
     };
 
     Ok(Definition {
         meta,
-        vocab,
+        model,
         specials,
-        scores,
         config,
     })
 }

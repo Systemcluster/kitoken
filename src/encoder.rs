@@ -6,7 +6,7 @@ use core::borrow::Borrow;
 use core::fmt::Debug;
 use core::ops::Deref;
 
-use crate::{Scores, TokenId, Vocab};
+use crate::{Model, TokenId};
 
 mod bytepair;
 mod unigram;
@@ -57,5 +57,5 @@ pub(crate) trait Encoder: Debug + Send + Sync + 'static {
     fn encode(&self, text: &str, parts: &mut [TextPart]) -> Result<Vec<TokenId>, EncodeError>;
 
     /// Returns the vocabulary and scores.
-    fn vocab(&self) -> (Vocab, Scores);
+    fn model(&self) -> Model;
 }

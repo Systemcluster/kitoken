@@ -25,12 +25,9 @@ assert!(string == "Your future belongs to me.");
 
 ## Overview
 
-Kitoken is a fast and versatile tokenizer for language models with support for BPE, Unigram and WordPiece tokenization.
+Kitoken is a fast and versatile tokenizer for language models. Multiple tokenization algorithms are supported:
 
-Multiple tokenization algorithms are supported:
-
-- **BytePair**: A variation of the original BPE algorithm that merges inputs starting from individual bytes.
-- **CharPair**: A variation of the modified BPE algorithm that merges inputs starting from individual unicode characters.
+- **BytePair**: A variation of the BPE algorithm, merging byte or character pairs.
 - **Unigram**: The Unigram subword algorithm.
 - **WordPiece**: The WordPiece subword algorithm.
 
@@ -50,7 +47,7 @@ let encoder = Kitoken::from_sentencepiece_file("models/mistral.model")?;
 
 Kitoken can convert and initialize with SentencePiece models in `BPE` and `Unigram` format.
 
-- `BPE` models are converted to `CharPair` definitions. A merge list is generated and sorted using the token scores, which is then used to sort the vocabulary by merge priority. The scores and the merge list are then discarded.
+- `BPE` models are converted to `BytePair` definitions in character mode. A merge list is generated and sorted using the token scores, which is then used to sort the vocabulary by merge priority. The scores and the merge list are then discarded.
 - `Unigram` models are converted to `Unigram` definitions retaining the token scores.
 
 If the model does not contain a trainer definition, `Unigram` is assumed as the default encoding mode. Normalization options and the unicode normalization scheme are taken from the contained normalizer definition and converted to the respective Kitoken configurations.
@@ -71,7 +68,7 @@ let encoder = Kitoken::from_tokenizers_file("models/llama2.json")?;
 
 Kitoken can convert and initialize with HuggingFace Tokenizers definitions for `BPE`, `Unigram` and `WordPiece` models.
 
-- `BPE` models are converted to `CharPair` or `BytePair` definitions. The included merge list is used to sort the vocabulary by merge priority and is then discarded.
+- `BPE` models are converted to `BytePair` definitions. The included merge list is used to sort the vocabulary by merge priority and is then discarded.
 - `Unigram` models are converted to `Unigram` definitions retaining the token scores.
 - `WordPiece` models are converted to `WordPiece` definitions.
 
@@ -93,7 +90,7 @@ Some normalization, post-processing and decoding options used by Tokenizers are 
 let encoder = Kitoken::from_tiktoken_file("models/cl100k_base.tiktoken")?;
 ```
 
-Tiktoken is a `BPE` tokenizer with a custom definition format used by OpenAI for GPT-3 and newer models using `BytePair` tokenization.
+Tiktoken is a `BPE` tokenizer with a custom definition format used by OpenAI for GPT-3 and newer models using `BytePair` tokenization in byte mode.
 
 Tiktoken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids without any additional metadata. Special tokens and the split regex are expected to be provided separately, but will be inferred from the data for common models including GPT-3, GPT-4 and GPT-4o.
 For other models, or depending on the data and requirements, these values can be adjusted manually.
@@ -104,7 +101,7 @@ For other models, or depending on the data and requirements, these values can be
 let encoder = Kitoken::from_tekken_file("models/nemo.json")?;
 ```
 
-Tekken is a `BPE` tokenizer with a custom definition format based on Tiktoken, used by Mistral for NeMo and newer models using `BytePair` tokenization.
+Tekken is a `BPE` tokenizer with a custom definition format based on Tiktoken, used by Mistral for NeMo and newer models using `BytePair` tokenization in byte mode.
 
 Tekken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids, as well as metadata including the split regex and special tokens.
 
@@ -116,11 +113,11 @@ Kitoken also avoids memory allocations and copying of data to great extent. Most
 
 ### Benchmarks
 
-Benchmarks were performed on a MacBook Pro M1 Max using each libraries Python bindings.
+Benchmarks were performed on a MacBook Pro M1 Max using each libraries Python bindings with [tokenizer-bench](https://github.com/Systemcluster/tokenizer-bench).
 
 #### Llama 2
 
-Llama 2 uses a SentencePiece-based tokenizer model and `CharPair` tokenization with `BytePair` fallback.
+Llama 2 uses a SentencePiece-based tokenizer model and `BytePair` tokenization in character mode with byte mode fallback.
 
 <img src="./benches/encode_llama2_time.svg" width="100%" alt="Encoding Benchmark, Llama 2, time in seconds, 1000 iterations"/>
 
@@ -131,7 +128,7 @@ Llama 2 uses a SentencePiece-based tokenizer model and `CharPair` tokenization w
 
 #### GPT-2
 
-GPT-2 uses a Tokenizers-based tokenizer model and `BytePair` tokenization.
+GPT-2 uses a Tokenizers-based tokenizer model and `BytePair` tokenization in byte mode.
 
 <img src="./benches/encode_gpt2_time.svg" width="100%" alt="Encoding Benchmark, GPT-2, time in seconds, 1000 iterations"/>
 
