@@ -40,6 +40,7 @@
 //!   - `convert-tiktoken`: Enables conversion from OpenAI Tiktoken tokenizer definitions.
 //!   - `convert-tekken`: Enables conversion from Mistral Tekken tokenizer definitions.
 //! - `regex-perf`: Enables additional regex performance optimizations. Can be disabled to reduce binary size.
+//! - `multiversion`: Enables the use of multiversion for generating multiple code paths with different CPU feature utilization.
 //!
 //! ### Optional features
 //!

@@ -32,8 +32,10 @@ default = [
     "normalization",
     "convert",
     "regex-perf",
+    "multiversion",
 ]
 
+# Enables all stable features
 all = [
     "std",
     "serialization",
@@ -42,10 +44,11 @@ all = [
     "split",
     "regex-unicode",
     "regex-perf",
+    "multiversion",
 ]
 
 # Enables standard library features
-std = ["dep:thiserror", "orx-priority-queue/std", "memchr/std"]
+std = ["dep:thiserror", "orx-priority-queue/std", "memchr/std", "multiversion?/std"]
 
 # Enables serialization and deserialization
 serialization = ["dep:serde", "dep:postcard"]
@@ -73,17 +76,20 @@ convert-tiktoken = ["dep:base64"]
 # Enables conversion for the Mistral Tekken format
 convert-tekken = ["dep:base64", "dep:serde", "dep:serde_json"]
 
-# Enables support for additional regex unicode patterns.
+# Enables support for additional regex unicode patterns
 regex-unicode = ["fancy-regex/unicode"]
-# Enables additional regex performance optimizations.
+# Enables additional regex performance optimizations
 regex-perf = ["fancy-regex/perf"]
-# Use the oniguruma regex engine instead of fancy-regex.
+# Use the oniguruma regex engine instead of fancy-regex
 regex-onig = ["dep:onig"]
+
+# Enables the use of multiversion for generating multiple code paths with different CPU feature utilization
+multiversion = ["dep:multiversion"]
 
 
 [dependencies]
 
-bstr = { version = "1.9", default-features = false, features = ["alloc"] }
+bstr = { version = "1.10", default-features = false, features = ["alloc"] }
 log = { version = "0.4" }
 fancy-regex = { version = "0.13", default-features = false }
 regex-automata = { version = "0.4", default-features = false, features = [
@@ -134,6 +140,8 @@ sentencepiece-model = { version = "0.1", default-features = false, optional = tr
 # optional dependencies for the convert-tokenizers and convert-tekken features
 serde_json = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
 
+# optional dependencies for the multiversion feature
+multiversion = { version = "0.7", default-features = false, optional = true }
 
 [dev-dependencies]
 
@@ -144,6 +152,7 @@ kitoken = { path = ".", default-features = false, features = [
     "normalization",
     "split",
     "regex-perf",
+    "multiversion",
 ] }
 
 console = { version = "0.15", features = ["windows-console-colors"] }

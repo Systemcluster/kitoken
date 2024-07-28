@@ -163,7 +163,7 @@ impl WordPiece {
     #[inline(never)]
     fn encode_wordpiece(
         &self, bytes: &[u8], result: &mut Vec<TokenId>,
-        mut indices: impl DoubleEndedIterator<Item = (usize, usize)> + Clone,
+        indices: impl DoubleEndedIterator<Item = (usize, usize)> + Clone,
         mut fallback: Peekable<impl Iterator<Item = Fallback>>,
     ) -> Result<(), EncodeError> {
         if bytes.len() < self.min_token_bytes
@@ -177,6 +177,35 @@ impl WordPiece {
             }
             return Ok(());
         }
+        WordPiece::merge_parts(
+            bytes,
+            result,
+            indices,
+            &self.start,
+            &self.continuation,
+            self.unknown.as_ref().map(|t| t.id),
+            &mut fallback,
+        )
+    }
+
+    /// Merges the given parts according to the WordPiece algorithm.
+    #[inline(never)]
+    #[cfg_attr(
+        feature = "multiversion",
+        multiversion::multiversion(targets(
+            "x86_64/x86-64-v4",
+            "x86_64/x86-64-v3",
+            "x86_64/x86-64-v2",
+            "aarch64+neon",
+            "wasm32+simd128",
+        ))
+    )]
+    fn merge_parts(
+        bytes: &[u8], result: &mut Vec<TokenId>,
+        mut indices: impl DoubleEndedIterator<Item = (usize, usize)> + Clone, starts: &VocabMap,
+        continuations: &VocabMap, unknown: Option<TokenId>,
+        fallback: &mut Peekable<impl Iterator<Item = Fallback>>,
+    ) -> Result<(), EncodeError> {
         let init = result.len();
         let mut first = true;
         let mut until = 0;
@@ -189,9 +218,9 @@ impl WordPiece {
             for (_, end) in inner {
                 let piece = bytes[start..end].to_vec();
                 let token = if first {
-                    self.start.get(&piece).copied()
+                    starts.get(&piece).copied()
                 } else {
-                    self.continuation.get(&piece).copied()
+                    continuations.get(&piece).copied()
                 };
                 if let Some(token) = token {
                     result.push(token);
@@ -202,8 +231,8 @@ impl WordPiece {
             }
             if until <= start {
                 result.truncate(init);
-                if fallback.peek() == Some(&Fallback::Unknown) && self.unknown.is_some() {
-                    result.push(self.unknown.as_ref().unwrap().id);
+                if fallback.peek() == Some(&Fallback::Unknown) && unknown.is_some() {
+                    result.extend(unknown);
                 } else if fallback.peek() == Some(&Fallback::Skip) {
                 } else {
                     return Err(EncodeError::InvalidPiece(bytes[start..].to_vec()));
