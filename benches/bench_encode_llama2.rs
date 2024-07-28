@@ -1,3 +1,13 @@
+#![cfg_attr(
+    feature = "multiversion",
+    feature(
+        allocator_api,
+        lahfsahf_target_feature,
+        avx512_target_feature,
+        aarch64_ver_target_feature
+    )
+)]
+
 use std::hint::black_box;
 use std::time::Duration;
 

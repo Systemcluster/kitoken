@@ -1,5 +1,15 @@
 //! Test for the conversion of tekken models.
 
+#![cfg_attr(
+    feature = "multiversion",
+    feature(
+        allocator_api,
+        lahfsahf_target_feature,
+        avx512_target_feature,
+        aarch64_ver_target_feature
+    )
+)]
+
 use kitoken::convert::*;
 use kitoken::Kitoken;
 

@@ -51,10 +51,21 @@
 //! - `regex-onig`: Enables use of the `oniguruma` regex engine instead of `fancy-regex`.
 //!   Generally not recommended since it has worse runtime performance and adds a dependency on the native `oniguruma` library.
 //!   However, it may be useful for certain models that require specific regex behavior that is not supported by or differs with `fancy-regex`.
+//! - `multiversion`: Enables the use of multiversion for generating multiple code paths with different CPU feature utilization.
+//!   Requires nightly Rust.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg, doc_cfg_hide))]
 #![cfg_attr(docsrs, doc(cfg_hide(doc)))]
+#![cfg_attr(
+    feature = "multiversion",
+    feature(
+        allocator_api,
+        lahfsahf_target_feature,
+        avx512_target_feature,
+        aarch64_ver_target_feature
+    )
+)]
 
 extern crate alloc;
 
