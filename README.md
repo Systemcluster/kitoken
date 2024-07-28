@@ -109,7 +109,7 @@ Tekken definitions contain a sorted vocabulary of base64 encoded bytes and corre
 
 Kitoken uses merge-list-free variations of the BPE algorithm and a reversed variation of the Unigram algorithm. The basis for the merge-list-free BPE algorithm was inspired by [Tiktoken](https://github.com/openai/tiktoken), which has similarly good performance characteristics with common tokenization inputs. However, Kitoken can be much faster with inputs that fail to split during pre-tokenization by falling back to a priority-queue-based implementation when optimal.
 
-Kitoken also avoids memory allocations and copying of data to great extent. Most operations are performed in-place and buffers are reused where possible.
+The core tokenization functions are optimized for multiple CPU architectures and make use of SIMD instructions where available. Kitoken also avoids memory allocations and copying of data to great extent, and most operations are performed in-place and buffers are reused where possible.
 
 ### Benchmarks
 

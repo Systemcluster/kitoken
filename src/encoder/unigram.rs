@@ -164,27 +164,9 @@ impl Unigram {
             score: 0.0,
             token: Token::INVALID,
         });
-        let end = buffer.len();
-        for sub_end in start + 1..end {
-            buffer[sub_end].score = 1000000.0;
-            for sub_start in (start..sub_end).rev() {
-                if (buffer[sub_end].start - buffer[sub_start].start) > self.max_token_bytes {
-                    break;
-                }
-                if let Some(token) =
-                    self.vocab.get(&piece[buffer[sub_start].start..buffer[sub_end].start])
-                {
-                    let score = buffer[sub_start].score - token.score as f64;
-                    if buffer[sub_end].token == Token::INVALID || score <= buffer[sub_end].score {
-                        buffer[sub_end].score = score;
-                        buffer[sub_end].width = sub_end - sub_start;
-                        buffer[sub_end].token = token.id;
-                    }
-                }
-            }
-        }
+        Unigram::merge_parts(piece, buffer, &self.vocab, start, self.max_token_bytes);
         let result_start = result.len();
-        let mut sub_end = end - 1;
+        let mut sub_end = buffer.len() - 1;
         while sub_end > start {
             if buffer[sub_end].token == Token::INVALID {
                 if fallback.first() == Some(&Fallback::Bytes) {
@@ -211,5 +193,42 @@ impl Unigram {
         }
         result[result_start..].reverse();
         Ok(())
+    }
+
+    /// Merges the given parts according to the Unigram algorithm
+    #[inline(never)]
+    #[cfg_attr(
+        feature = "multiversion",
+        multiversion::multiversion(targets(
+            "x86_64/x86-64-v4",
+            "x86_64/x86-64-v3",
+            "x86_64/x86-64-v2",
+            "aarch64+neon",
+            "wasm32+simd128",
+        ))
+    )]
+    fn merge_parts(
+        piece: &[u8], buffer: &mut [SizedPart], vocab: &ScoredVocabMap, start: usize,
+        max_token_bytes: usize,
+    ) {
+        let end = buffer.len();
+        for sub_end in start + 1..end {
+            buffer[sub_end].score = 1000000.0;
+            for sub_start in (start..sub_end).rev() {
+                if (buffer[sub_end].start - buffer[sub_start].start) > max_token_bytes {
+                    break;
+                }
+                if let Some(token) =
+                    vocab.get(&piece[buffer[sub_start].start..buffer[sub_end].start])
+                {
+                    let score = buffer[sub_start].score - token.score as f64;
+                    if buffer[sub_end].token == Token::INVALID || score <= buffer[sub_end].score {
+                        buffer[sub_end].score = score;
+                        buffer[sub_end].width = sub_end - sub_start;
+                        buffer[sub_end].token = token.id;
+                    }
+                }
+            }
+        }
     }
 }

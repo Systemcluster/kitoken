@@ -271,7 +271,7 @@ impl BytePair {
             start: piece.len() as _,
             rank:  TokenRank::MAX,
         });
-        self.merge_bpe_parts(piece, buffer, start);
+        BytePair::merge_bpe_parts(piece, buffer, start, &self.ranks);
         let end = buffer.len() - 1;
         for i in start..end {
             let piece = &piece[buffer[i].start as usize..buffer[i + 1].start as usize];
@@ -302,9 +302,11 @@ impl BytePair {
 
     /// Returns the score for the given token in piece between start and end of parts.
     #[inline(always)]
-    fn get_rank(&self, piece: &[u8], parts: &[RankedPart], start: usize, end: usize) -> TokenRank {
+    fn get_rank(
+        piece: &[u8], parts: &[RankedPart], start: usize, end: usize, ranks: &RankMap,
+    ) -> TokenRank {
         if end < parts.len() {
-            self.ranks
+            ranks
                 .get(
                     &piece[unsafe {
                         parts.get_unchecked(start).start as usize
@@ -320,31 +322,39 @@ impl BytePair {
 
     /// Merges the given parts according to the BPE algorithm, prioritizing merges with the lowest score.
     #[inline(never)]
-    fn merge_bpe_parts(&self, piece: &[u8], parts: &mut Vec<RankedPart>, start: usize) {
+    #[cfg_attr(
+        feature = "multiversion",
+        multiversion::multiversion(targets(
+            "x86_64/x86-64-v4",
+            "x86_64/x86-64-v3",
+            "x86_64/x86-64-v2",
+            "aarch64+neon",
+            "wasm32+simd128",
+        ))
+    )]
+    fn merge_bpe_parts(piece: &[u8], parts: &mut Vec<RankedPart>, start: usize, ranks: &RankMap) {
         if parts.len() <= start + 1 {
             return;
         }
         let mut min_score = TokenRank::MAX;
         let mut i = start;
         for j in start..parts.len() - 1 {
-            parts[j].rank = self.get_rank(piece, &parts[..], j, j + 2);
+            parts[j].rank = BytePair::get_rank(piece, &parts[..], j, j + 2, ranks);
             if parts[j].rank < min_score {
-                min_score = parts[j].rank;
-                i = j;
+                (min_score, i) = (parts[j].rank, j);
             }
         }
         while min_score != TokenRank::MAX {
             if i > start {
-                parts[i - 1].rank = self.get_rank(piece, parts, i - 1, i + 2);
+                parts[i - 1].rank = BytePair::get_rank(piece, parts, i - 1, i + 2, ranks);
             }
-            parts[i].rank = self.get_rank(piece, parts, i, i + 3);
+            parts[i].rank = BytePair::get_rank(piece, parts, i, i + 3, ranks);
             parts.remove(i + 1);
             min_score = TokenRank::MAX;
             #[allow(clippy::needless_range_loop)]
             for j in start..parts.len() - 1 {
                 if parts[j].rank < min_score {
-                    min_score = parts[j].rank;
-                    i = j;
+                    (min_score, i) = (parts[j].rank, j);
                 }
             }
         }
@@ -395,7 +405,7 @@ impl BytePair {
             });
             prior = e as _;
         }
-        self.merge_bpe_parts_heap(piece, &mut heap);
+        BytePair::merge_bpe_parts_heap(piece, &mut heap, &self.ranks);
         let mut e = 0;
         while e <= prior {
             let part = heap.key_of(&e).unwrap();
@@ -432,7 +442,17 @@ impl BytePair {
     /// The additional allocation overhead compared to the linear search version is amortized for longer pieces.
     #[inline(never)]
     #[cold]
-    fn merge_bpe_parts_heap(&self, piece: &[u8], heap: &mut PieceHeap) {
+    #[cfg_attr(
+        feature = "multiversion",
+        multiversion::multiversion(targets(
+            "x86_64/x86-64-v4",
+            "x86_64/x86-64-v3",
+            "x86_64/x86-64-v2",
+            "aarch64+neon",
+            "wasm32+simd128",
+        ))
+    )]
+    fn merge_bpe_parts_heap(piece: &[u8], heap: &mut PieceHeap, ranks: &RankMap) {
         while heap.len() > 1 {
             let &(i, mut part) = heap.peek().unwrap();
             if part.rank == TokenRank::MAX {
@@ -444,7 +464,7 @@ impl BytePair {
             if part.after != u32::MAX {
                 let mut next = heap.key_of(&part.after).unwrap();
                 if let Some(&token) =
-                    self.ranks.get(&piece[part.start as _..(next.start + next.width) as _])
+                    ranks.get(&piece[part.start as _..(next.start + next.width) as _])
                 {
                     part.rank = token;
                 } else {
@@ -458,7 +478,7 @@ impl BytePair {
             if part.prior != u32::MAX {
                 let mut prior = heap.key_of(&(part.prior)).unwrap();
                 if let Some(&token) =
-                    self.ranks.get(&piece[prior.start as _..(part.start + part.width) as _])
+                    ranks.get(&piece[prior.start as _..(part.start + part.width) as _])
                 {
                     prior.rank = token;
                 } else {
