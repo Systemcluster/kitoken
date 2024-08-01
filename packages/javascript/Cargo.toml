@@ -1,0 +1,74 @@
+[package]
+
+name = "kitoken-javascript"
+description = "JavaScript bindings for Kitoken"
+version = "0.0.0"
+edition = "2021"
+resolver = "2"
+publish = false
+workspace = "../.."
+
+
+[lib]
+
+name = "kitoken"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+
+[features]
+
+default = [
+    "std",
+    "serialization",
+    "normalization",
+]
+
+std = ["kitoken/std", "wasm-bindgen/std"]
+serialization = ["kitoken/serialization"]
+normalization = ["kitoken/normalization"]
+regex-unicode = ["kitoken/regex-unicode"]
+convert = ["kitoken/convert"]
+split = ["kitoken/split"]
+regex-perf = ["kitoken/regex-perf"]
+
+
+[dependencies]
+
+kitoken = { path = "../..", default-features = false, features = [] }
+
+log = { version = "0.4" }
+rlsf = { version = "0.2", features = ["std"] }
+wasm-bindgen = { version = "0.2", default-features = false, features = ["spans", "strict-macro"], path = "../../../wasm-bindgen" }
+
+
+[package.metadata.wasm-pack.profile.release]
+
+wasm-opt = [
+    '--enable-sign-ext',
+    '--enable-bulk-memory',
+    '--enable-mutable-globals',
+    '--enable-nontrapping-float-to-int',
+    '--enable-multivalue',
+    '-O4',
+    '--intrinsic-lowering',
+    '--strip-producers',
+    '--strip-target-features',
+    '-Os',
+]
+
+[package.metadata.wasm-pack.profile.profiling]
+
+wasm-opt = [
+    '--enable-sign-ext',
+    '--enable-bulk-memory',
+    '--enable-mutable-globals',
+    '--enable-nontrapping-float-to-int',
+    '--enable-multivalue',
+    '-g',
+    '-O4',
+    '--intrinsic-lowering',
+    '--strip-producers',
+    '--strip-target-features',
+    '-Os',
+]

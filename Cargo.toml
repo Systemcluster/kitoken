@@ -11,6 +11,7 @@ repository = "https://github.com/Systemcluster/kitoken"
 readme = "README.md"
 edition = "2021"
 resolver = "2"
+rust-version = "1.80.1"
 include = [
     "Cargo.toml",
     "src/**/*",
@@ -18,10 +19,23 @@ include = [
 ]
 
 
+[workspace]
+
+members = [
+    ".",
+    "packages/python",
+    "packages/javascript",
+]
+
+
 [lib]
 
 name = "kitoken"
 path = "src/lib.rs"
+
+[[bin]]
+name = "kitoken"
+path = "src/main.rs"
 
 
 [features]

@@ -1,0 +1,35 @@
+[package]
+
+name = "kitoken-python"
+description = "Python bindings for Kitoken"
+version = "0.0.0"
+edition = "2021"
+resolver = "2"
+publish = false
+workspace = "../.."
+
+
+[lib]
+
+name = "kitoken"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+
+[dependencies]
+
+kitoken = { path = "../..", default-features = false, features = [
+    "std",
+    "serialization",
+    "convert",
+    "normalization",
+    "split",
+    "regex-unicode",
+    "regex-perf",
+    "multiversion",
+] }
+
+log = { version = "0.4" }
+pyo3 = { version = "0.22", features = ["abi3", "abi3-py310"] }
+pyo3-log = { version = "0.11" }
+mimalloc = { version = "0.1", features = ["local_dynamic_tls"] }
