@@ -1,0 +1,6 @@
+@font-face {
+    font-family: 'Geist Var';
+    src: url('/fonts/geist.var.woff2?v=1.3.0') format('woff2');
+    font-weight: 100 900;
+    font-display: swap;
+}

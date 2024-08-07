@@ -1,0 +1,330 @@
+---
+import TokenOutput from "../components/TokenOutput.astro";
+import Layout from "../layouts/Base.astro";
+
+import { css } from "../../styles/system/css";
+import { Editor } from "../components/editor";
+import { defaultContent } from "../stores/index";
+---
+
+<Layout title="Kitoken - Tokenize Everything">
+    <main
+        class={css({
+            layout: "column",
+            gap: "lg",
+            minHeight: "100%",
+            justifyContent: "flex-start",
+            alignItems: "stretch",
+        })}
+    >
+        <section
+            class={css({
+                layout: "column",
+                fontSize: "x3",
+                fontWeight: "medium",
+                alignItems: "stretch",
+                justifyContent: "stretch",
+                flex: 0,
+                minHeight: "calc(min(50dvh, 300px))",
+                maxHeight: "50dvh",
+                height: "min-content",
+                position: "relative",
+                "--hover": 0,
+                "&:hover, &:has(:focus)": {
+                    "--hover": 0.5,
+                },
+                "&:hover::after": {
+                    backgroundColor: "{colors.border.active}",
+                },
+                "&:has(:focus)::after, &:hover:has(:focus)::after": {
+                    backgroundColor: "{colors.brand.secondary.blue}",
+                },
+                "&::after": {
+                    content: "''",
+                    fillSpace: "absolute",
+                    maskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='0%25' y='0%25' width='100%25' height='100%25' fill='transparent' stroke='black' stroke-width='4px' stroke-dasharray='10px 10px' /%3E%3C/svg%3E")`,
+                    maskPosition: "left top",
+                    maskSize: "100% 100%",
+                    maskRepeat: "no-repeat",
+                    background: "{colors.border.primary}",
+                    transitionTimingFunction: "{easings.easeSmooth}",
+                    transitionDuration: "normal",
+                    transitionProperty: "background-color",
+                    pointerEvents: "none",
+                },
+            })}
+        >
+            <Editor client:only="react" />
+            <h1
+                id="cover"
+                class={css({
+                    fillSpace: "absolute",
+                    pointerEvents: "none",
+                    padding: "x2",
+                    userSelect: "text",
+                    fontWeight: "750",
+                    overflowWrap: "break-word",
+                    wordWrap: "break-word",
+                    wordBreak: "break-word",
+                    overflow: "auto",
+                    minHeight: "100%",
+                    outline: "transparent",
+                    border: "inset 3px transparent",
+                    opacity: "calc(1 - var(--hover))",
+                    transitionTimingFunction: "{easings.easeSmooth}",
+                    transitionDuration: "normal",
+                    transitionProperty: "opacity",
+                })}
+            >
+                Kitoken.
+                <span
+                    class={css({
+                        opacity: 0.5,
+                        fontWeight: "500",
+                        letterSpacing: "-0.15rem",
+                    })}
+                    >{
+                        defaultContent.startsWith("Kitoken. ")
+                            ? defaultContent.slice(8)
+                            : defaultContent
+                    }</span
+                >
+            </h1>
+        </section>
+        <section
+            class={css({
+                layout: "column",
+                alignItems: "stretch",
+                flex: 0,
+                flexBasis: "min-content",
+                maxHeight: "25dvh",
+                height: "auto",
+                overflow: "auto",
+            })}
+        >
+            <TokenOutput />
+        </section>
+        <section
+            class={css({
+                layout: "column",
+                alignItems: "stretch",
+                flex: 0,
+                paddingX: "x2",
+                paddingTop: "sm",
+                fontWeight: "bold",
+            })}
+        >
+            <h2>
+                Fast and versatile tokenizer for language models with BPE,
+                Unigram and WordPiece tokenization.<br />
+                Compatible with SentencePiece, Tokenizers, Tiktoken and more.
+            </h2>
+        </section>
+
+        <section
+            class={css({
+                layout: "column",
+                alignItems: "stretch",
+                flex: 0,
+                paddingX: "x2",
+                paddingTop: "sm",
+                fontWeight: "normal",
+                fontFamily: "main",
+                "& .list": {
+                    display: "flex",
+                    flexWrap: "nowrap",
+                    gap: "lg",
+                },
+                "& .model": {
+                    fontSize: "md",
+                    position: "relative",
+                    whiteSpace: "nowrap",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    paddingX: "xs",
+                    "&::before": {
+                        content: "''",
+                        width: "100%",
+                        bottom: "0",
+                        left: "0",
+                        position: "absolute",
+                        height: "25%",
+                        background: "{colors.brand.secondary.gold}",
+                        mixBlendMode: "multiply",
+                        transitionProperty: "height, background, opacity",
+                        transitionTimingFunction: "{easings.easeSmooth}",
+                        transitionDuration: "normal",
+                        opacity: 0.35,
+                    },
+                    "&:hover::before": {
+                        height: "50%",
+                        opacity: 0.75,
+                        background: "{colors.brand.primary.gold}",
+                    },
+                },
+                "& .overl": {
+                    whiteSpace: "nowrap",
+                    position: "sticky",
+                    right: "0",
+                    height: "100%",
+                    color: "text.primary",
+                    paddingRight: "x2",
+                    paddingLeft: "lg",
+                    // marginLeft: "75px",
+                    display: "flex",
+                    background: "{colors.background.primary}",
+                    "& > .model": {
+                        fontWeight: "normal",
+                    },
+                    "&::before": {
+                        content: "''",
+                        position: "absolute",
+                        height: "100%",
+                        right: "0",
+                        top: "0",
+                        width: "calc(100% + 70px)",
+                        background: `linear-gradient(
+                            90deg, transparent 0,
+                            {colors.background.primary} 75px)`,
+                        pointerEvents: "none",
+                    },
+                },
+            })}
+        >
+            <p>
+                <span class="list">
+                    <span>Tokenize</span>
+                    <span class="model">Llama 3</span>
+                    <span class="model">Llama 2</span>
+                    <span class="model">GPT-4</span>
+                    <span class="model">GPT-4o</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">Mistral</span>
+                    <span class="model">NeMo</span>
+                    <span class="model">NeMo</span>
+                    <span class="model">NeMo</span>
+                    <span class="model">NeMo</span>
+                    <span class="model">NeMo</span>
+                    <span class="model">NeMo</span>
+                    <span class="model">NeMo</span>
+                    <span class="model">NeMo</span>
+                    <span class="overl">
+                        <!-- and more -->
+                        <span class="model">and everything else</span>
+                    </span>
+                </span>
+            </p>
+        </section>
+        <section
+            class={css({
+                layout: "column",
+                alignItems: "stretch",
+                flex: 0,
+                paddingX: "x2",
+                paddingTop: "sm",
+                fontWeight: "normal",
+                fontFamily: "main",
+                "& .list": {
+                    display: "inline-flex",
+                    flexWrap: "wrap",
+                    gap: "lg",
+                },
+                "& a": {
+                    position: "relative",
+                    color: "text.primary",
+                    textDecoration: "none",
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    "&::before": {
+                        content: "''",
+                        width: "100%",
+                        bottom: "0",
+                        left: "0",
+                        position: "absolute",
+                        height: "25%",
+                        background: "{colors.brand.secondary.blue}",
+                        mixBlendMode: "multiply",
+                        transitionProperty: "height, background, opacity",
+                        transitionTimingFunction: "{easings.easeSmooth}",
+                        transitionDuration: "normal",
+                        opacity: 0.25,
+                    },
+                    "&:hover::before": {
+                        height: "50%",
+                        opacity: 0.55,
+                        background: "{colors.brand.primary.blue}",
+                    },
+                },
+            })}
+        >
+            <p>
+                <span class="list">
+                    See the <a href="https://github.com/Systemcluster/kitoken"
+                        >GitHub Repository</a
+                    ><a>Rust Crate</a><a>Python Package</a><a
+                        >JavaScript Package</a
+                    > or type above</span
+                >
+            </p>
+        </section>
+        <section
+            class={css({
+                layout: "column",
+                alignItems: "stretch",
+                flex: 1,
+            })}
+        >
+        </section>
+        <section
+            class={css({
+                layout: "column",
+                alignItems: "stretch",
+                flex: 0,
+                paddingX: "x2",
+                paddingY: "x3",
+                opacity: 0.45,
+                "& h3": {
+                    fontWeight: "bold",
+                    paddingY: 0,
+                    fontFamily: "head",
+                },
+                "& *+p": {
+                    marginTop: "md",
+                },
+            })}
+        >
+            <p>
+                <h3>What is a Tokenizer?</h3>
+                <p>
+                    A tokenizer turns language model inputs from text into a
+                    series of numbers, called tokens, which a language model is
+                    trained to understand.<br />
+                    There are many algorithms for this process - <strong
+                        >BPE</strong
+                    >, <strong>Unigram</strong> and <strong>WordPiece</strong>
+                    are the most popular and widespread.<br />
+                    All language models use a tokenizer for their text inputs, each
+                    with a different set of available tokens.
+                    <br />
+                </p>
+                <p>
+                    <strong>Kitoken</strong> is a tokenizer for any model.
+                </p>
+            </p>
+        </section>
+    </main>
+</Layout>

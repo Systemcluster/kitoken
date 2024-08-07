@@ -1,0 +1,8 @@
+>0.5%
+not dead
+not op_mini all
+not ie >= 0
+not and_uc >=0
+not safari < 15.6
+not ios < 15.6
+not opera < 95

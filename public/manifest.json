@@ -1,0 +1,20 @@
+{
+    "name": "Kitoken Tokenizer",
+    "short_name": "Kitoken",
+    "description": "Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization. Compatible with SentencePiece, Tokenizers, Tiktoken and more.",
+    "lang": "en-US",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "theme_color": "#0b0c0d",
+    "background_color": "#0b0c0d",
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ]
+}
