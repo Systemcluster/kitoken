@@ -1,0 +1,60 @@
+{
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+    "files": {
+        "include": [
+            "**/*.js",
+            "**/*.cjs",
+            "**/*.mjs",
+            "**/*.jsx",
+            "**/*.ts",
+            "**/*.tsx",
+            "**/*.json"
+        ],
+        "ignore": [
+            "**/node_modules/**/*",
+            "**/build/**/*",
+            "**/coverage/**/*",
+            "**/dist/*",
+            "**/.astro/**/*",
+            "**/styled-system/**/*",
+            "**/styles/system/**/*",
+            "**/target/**/*",
+            "**/*.d.ts"
+        ]
+    },
+    "formatter": {
+        "enabled": true,
+        "formatWithErrors": false,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineEnding": "lf",
+        "lineWidth": 135,
+        "attributePosition": "auto"
+    },
+    "organizeImports": {
+        "enabled": false
+    },
+    "linter": {
+        "enabled": false
+    },
+    "javascript": {
+        "formatter": {
+            "enabled": true,
+            "jsxQuoteStyle": "double",
+            "quoteProperties": "preserve",
+            "trailingCommas": "es5",
+            "semicolons": "asNeeded",
+            "arrowParentheses": "always",
+            "bracketSpacing": true,
+            "bracketSameLine": false,
+            "quoteStyle": "single",
+            "attributePosition": "auto"
+        }
+    },
+    "json": {
+        "formatter": {
+            "enabled": true,
+            "lineWidth": 1
+        }
+    }
+}

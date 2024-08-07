@@ -1,0 +1,110 @@
+@layer reset, base, tokens, theme, recipes, utilities;
+
+@layer base {
+    :root {
+        --font-system:
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            "Segoe UI",
+            "Roboto",
+            "Helvetica Neue",
+            "Noto Sans",
+            "Liberation Sans",
+            "Arial",
+            sans-serif,
+            "Apple Color Emoji",
+            "Segoe UI Emoji",
+            "Segoe UI Symbol",
+            "Noto Color Emoji";
+        --font-mono:
+            ui-monospace,
+            "Menlo",
+            "Monaco",
+            "Segoe UI Mono",
+            "Roboto Mono",
+            "Oxygen Mono",
+            "Ubuntu Monospace",
+            "Source Code Pro",
+            "Fira Mono",
+            "Droid Sans Mono",
+            "Courier New",
+            monospace;
+        color-scheme: dark;
+    }
+
+    html,
+    body {
+        position: absolute;
+        min-height: 100%;
+        min-width: 100%;
+        max-height: 100%;
+        max-width: 100%;
+    }
+
+    @supports (-webkit-touch-callout: none) {
+
+        html,
+        body {
+            min-height: -webkit-fill-available;
+            max-height: -webkit-fill-available;
+            min-width: -webkit-fill-available;
+            max-width: -webkit-fill-available;
+        }
+    }
+
+    html,
+    body {
+        min-height: 100dvh;
+        min-width: 100dvw;
+        max-height: 100dvh;
+        max-width: 100dvw;
+    }
+
+    html {
+        background: #0b0c0d;
+        color: #ffffff;
+    }
+
+    body {
+        font-family: var(--font-system);
+        overflow-x: hidden;
+        overflow-y: auto;
+        min-width: 360px;
+        font-weight: 400;
+        font-style: normal;
+        font-feature-settings: "liga", "rlig", "dlig", "clig";
+        letter-spacing: 0;
+        image-rendering: optimizeQuality;
+        image-rendering: smooth;
+        image-rendering: high-quality;
+        scroll-behavior: smooth;
+        -webkit-text-fill-color: initial;
+        text-fill-color: initial;
+        scrollbar-width: thin;
+    }
+
+    [data-nextjs-scroll-focus-boundary] {
+        display: contents;
+    }
+
+    img {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-user-drag: none;
+        user-drag: none;
+    }
+
+    code,
+    kbd,
+    samp,
+    pre {
+        font-family: var(--font-mono);
+    }
+
+    :focus-visible {
+        outline: 2px solid #ffffff80;
+        outline-offset: -2px;
+        outline-style: dashed;
+    }
+}

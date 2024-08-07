@@ -1,0 +1,72 @@
+---
+import { css } from "../../styles/system/css";
+
+interface Props {
+    title: string;
+}
+
+const { title } = Astro.props;
+
+const globalStyles = css({
+    "&:root": {
+        "& ::selection": {
+            background: "text.primary",
+            color: "background.primary",
+            WebkitTextFillColor: "{colors.background.primary}",
+        },
+        "& :focus-visible": {
+            outlineColor: "brand.secondary.blue",
+        },
+    },
+    "&": {
+        background: "background.primary",
+        color: "text.primary",
+        transitionProperty: "background-color, color",
+        transitionDuration: "normal",
+        transitionTimingFunction: "easeSmooth",
+    },
+    "& body": {
+        fontFamily: "head",
+    },
+});
+---
+
+<!doctype html>
+<html lang="en" class={globalStyles}>
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="description"
+            content="Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization. Compatible with SentencePiece, Tokenizers, Tiktoken and more."
+        />
+        <meta
+            name="viewport"
+            content="width=device-width initial-scale=1 user-scalable=0 shrink-to-fit=no maximum-scale=1 minimum-scale=1 viewport-fit=cover color-scheme=light dark"
+        />
+        <meta name="theme-color" content="#13151a" />
+        <meta name="robots" content="index, follow" />
+        <meta name="darkreader" content="disable" />
+        <meta name="darkreader-lock" content="true" />
+        <meta name="creator" content="Systemcluster" />
+        <meta name="manifest" content="/manifest.json" />
+        <link rel="stylesheet" href="/styles/global.css" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="apple-touch-icon" type="image/svg" href="/favicon.svg" />
+        <link rel="mask-icon" href="/favicon.svg" />
+        <title>{title}</title>
+    </head>
+    <body>
+        <slot />
+    </body>
+</html>
+<style is:global>
+    @import "../../styles/reset.css";
+    @import "../../styles/global.css";
+
+    @import "../../styles/fonts/geist-mono.css";
+    @import "../../styles/fonts/geist.css";
+    @import "../../styles/fonts/iawriterq.css";
+    @import "../../styles/fonts/inter.css";
+    @import "../../styles/fonts/satoshi.css";
+</style>

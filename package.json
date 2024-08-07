@@ -1,0 +1,52 @@
+{
+    "name": "kitoken-web",
+    "type": "module",
+    "version": "0.0.1",
+    "scripts": {
+        "dev": "astro dev",
+        "start": "astro dev",
+        "build": "astro check && astro build",
+        "preview": "astro preview",
+        "astro": "astro",
+        "prepare": "panda codegen"
+    },
+    "dependencies": {
+        "@astrojs/check": "^0.9.2",
+        "@astrojs/mdx": "^3.1.3",
+        "@astrojs/react": "^3.6.1",
+        "@astrojs/ts-plugin": "^1.9.1",
+        "@biomejs/biome": "^1.8.3",
+        "@lexical/clipboard": "^0.17.0",
+        "@lexical/mark": "^0.17.0",
+        "@lexical/offset": "^0.17.0",
+        "@lexical/react": "^0.17.0",
+        "@lexical/selection": "^0.17.0",
+        "@lexical/text": "^0.17.0",
+        "@lexical/utils": "^0.17.0",
+        "@nanostores/react": "^0.7.3",
+        "@pandacss/dev": "^0.45.0",
+        "@pandacss/preset-base": "^0.45.0",
+        "@remixicon/react": "^4.2.0",
+        "@systemcluster/eslint-config": "github:Systemcluster/eslint-config",
+        "astro": "^4.13.2",
+        "astro-seo": "^0.8.4",
+        "eslint": "^8.57.0",
+        "lexical": "^0.17.0",
+        "nanostores": "^0.11.2",
+        "postcss": "^8.4.41",
+        "postcss-load-config": "^6.0.1",
+        "postcss-preset-env": "^10.0.0",
+        "postcss-remove-declaration": "^1.1.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "typescript": "^5.5.4",
+        "valtio": "^1.13.2",
+        "vite-plugin-wasm": "^3.3.0",
+        "yjs": "^13.6.18"
+    },
+    "devDependencies": {
+        "@types/react": "^18.3.3",
+        "@types/react-dom": "^18.3.0",
+        "user-agent-data-types": "^0.4.2"
+    }
+}

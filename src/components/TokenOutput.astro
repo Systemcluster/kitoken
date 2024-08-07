@@ -1,0 +1,163 @@
+---
+import { css } from "../../styles/system/css";
+---
+
+<div
+    id="output"
+    class={css({
+        layout: "row",
+        gap: "sm",
+        paddingX: "x2",
+        paddingY: "sm",
+        lineHeight: "md",
+        fontSize: "md",
+        fontWeight: "regular",
+        "& > span": {
+            layout: "row",
+            position: "relative",
+            borderRadius: "sm",
+            background: "background.secondary",
+            color: "text.secondary",
+            userSelect: "text",
+            pointerEvents: "all",
+            gap: "sm",
+            paddingY: "sm",
+            "& *::selection": {
+                background: "{colors.background.primary} !important",
+                color: "var(--bg, transparent) !important",
+                WebkitTextFillColor: "var(--bg, transparent) !important",
+            },
+            "& > span": {
+                position: "relative",
+                color: "background.primary",
+                pointerEvents: "all",
+                paddingY: "xs",
+                whiteSpace: "pre",
+            },
+            "& > span:nth-child(1)": {
+                opacity: 0.95,
+                userSelect: "none",
+                paddingLeft: "sm",
+                fontWeight: "light",
+            },
+            "& > span:nth-child(2)": {
+                fontWeight: "bold",
+                visibility: "hidden",
+                userSelect: "none",
+                paddingRight: "sm",
+            },
+            "& > span:nth-child(3)": {
+                fontWeight: "bold",
+                width: "100%",
+                position: "absolute",
+                textAlign: "right",
+                paddingRight: "sm",
+                userSelect: "all",
+            },
+            "&::before": {
+                content: "' '",
+                fillSpace: "absolute",
+                opacity: 0.75,
+                background: "var(--bg, transparent)",
+            },
+            "&:nth-child(8n+1)": {
+                "--bg": "{colors.brand.secondary.blue}",
+            },
+            "&:nth-child(8n+2)": {
+                "--bg": "{colors.brand.primary.green}",
+            },
+            "&:nth-child(8n+3)": {
+                "--bg": "{colors.brand.secondary.yellow}",
+            },
+            "&:nth-child(8n+4)": {
+                "--bg": "{colors.brand.secondary.red}",
+            },
+            "&:nth-child(8n+5)": {
+                "--bg": "{colors.brand.primary.teal}",
+            },
+            "&:nth-child(8n+6)": {
+                "--bg": "{colors.brand.secondary.green}",
+            },
+            "&:nth-child(8n+7)": {
+                "--bg": "{colors.brand.secondary.orange}",
+            },
+            "&:nth-child(8n+8)": {
+                "--bg": "{colors.brand.secondary.pink}",
+            },
+        },
+        "& > span.model": {
+            opacity: 0.25,
+            background: "transparent",
+            "--bg": "transparent !important",
+            "& > span": {
+                color: "text.primary",
+                // fontWeight: "medium",
+                userSelect: "none",
+            },
+        },
+        "& > span.placeholder": {
+            flex: 1,
+            background: "transparent",
+            "&::before": {
+                display: "none",
+            },
+        },
+    })}
+>
+</div>
+
+<script>
+    import { escapeHTML } from "astro/runtime/server/escape.js";
+    import { Kitoken } from "../../../kitoken/packages/javascript";
+    import { defaultContent, editorContent } from "../stores/index";
+
+    const data = await (await fetch("/llama2.kit")).arrayBuffer();
+    const tokenizer = new Kitoken(new Uint8Array(data));
+    let edited = false;
+    const tokenize = (input: string) => {
+        const output = tokenizer.encode(input, true);
+        const outputElem = document.getElementById("output");
+        if (!outputElem) return;
+        const decoder = new TextDecoder();
+        const outputList = [...output].map((token) => [
+            decoder.decode(tokenizer.decode(new Uint32Array([token]), true)),
+            token,
+        ]) as [string, number][];
+        let parent = [];
+        for (let output of outputList) {
+            let elem = document.createElement("span");
+            elem.innerHTML = `<span>${escapeHTML(output[0])}</span><span>${output[1]}</span><span>${output[1]}</span>`;
+            parent.push(elem);
+        }
+        const placeholder = document.createElement("span");
+        placeholder.classList.add("placeholder");
+        parent.push(placeholder);
+        const model = document.createElement("span");
+        model.classList.add("model");
+        model.innerHTML = `<span>Model</span><span>Llama 2</span><span>Llama 2</span>`;
+        parent.push(model);
+        const display = document.createElement("span");
+        display.classList.add("model");
+        display.innerHTML = `<span>Switch Display</span>`;
+        parent.push(display);
+        outputElem.innerHTML = "";
+        outputElem.append(...parent);
+    };
+    const check = (content: string) => {
+        if (typeof content !== "string") return;
+        if (!content && !edited) return;
+        if (!content && edited) {
+            edited = false;
+            document.getElementById("cover")?.style.removeProperty("--hover");
+            tokenize(defaultContent);
+            return;
+        }
+        if (content !== defaultContent) {
+            edited = true;
+            document.getElementById("cover")?.style.setProperty("--hover", "1");
+        }
+        tokenize(content);
+    };
+    check(editorContent.get());
+    editorContent.subscribe((content) => check(content));
+</script>
