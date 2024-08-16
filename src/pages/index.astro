@@ -30,7 +30,10 @@ import { defaultContent } from "../stores/index";
                 height: "min-content",
                 position: "relative",
                 "--hover": 0,
-                "&:hover, &:has(:focus)": {
+                "&:hover": {
+                    "--hover": 0.35,
+                },
+                "&:has(:focus), &:hover:has(:focus)": {
                     "--hover": 0.5,
                 },
                 "&:hover::after": {
@@ -170,9 +173,10 @@ import { defaultContent } from "../stores/index";
                     color: "text.primary",
                     paddingRight: "x2",
                     paddingLeft: "lg",
-                    // marginLeft: "75px",
                     display: "flex",
                     background: "{colors.background.primary}",
+                    transition: "none",
+                    animation: "none",
                     "& > .model": {
                         fontWeight: "normal",
                     },
