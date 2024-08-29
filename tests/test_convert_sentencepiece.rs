@@ -1,7 +1,6 @@
 //! Test for the conversion of SentencePiece models.
 
-use kitoken::convert::*;
-use kitoken::Kitoken;
+use kitoken::{Definition, Kitoken};
 
 mod util;
 use util::*;
@@ -13,7 +12,7 @@ fn test_serialize_deserialize() {
     for model in test_models("sentencepiece", "model") {
         log::info!("converting: {}", model.to_string_lossy());
         let data = std::fs::read(model).unwrap();
-        let definition1 = convert_sentencepiece(data).unwrap();
+        let definition1 = Definition::from_slice(&data).unwrap();
         let tokenizer = Kitoken::from_definition(definition1.clone()).unwrap();
         let definition2 = tokenizer.to_definition();
         test_definitions_same(definition1, definition2);
