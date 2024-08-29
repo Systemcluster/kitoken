@@ -65,8 +65,8 @@ split = ["split-unicode-script"]
 # Enables input split by unicode scripts
 split-unicode-script = ["dep:unicode-script"]
 
-# Enables conversion for all supported tokenizer data formats
-convert = ["convert-tiktoken", "convert-sentencepiece", "convert-tokenizers", "convert-tekken"]
+# Enables detection and conversion for all supported tokenizer data formats
+convert = ["convert-tiktoken", "convert-sentencepiece", "convert-tokenizers", "convert-tekken", "convert-detect"]
 # Enables conversion for the HuggingFace Tokenizers format
 convert-tokenizers = ["dep:base64", "dep:serde", "dep:serde_json", "hashbrown/serde"]
 # Enables conversion for the SentencePiece format
@@ -75,6 +75,8 @@ convert-sentencepiece = ["dep:sentencepiece-model"]
 convert-tiktoken = ["dep:base64"]
 # Enables conversion for the Mistral Tekken format
 convert-tekken = ["dep:base64", "dep:serde", "dep:serde_json"]
+# Enables detection of supported formats during deserialization (enables serialization feature)
+convert-detect = ["serialization"]
 
 # Enables support for additional regex unicode patterns
 regex-unicode = ["fancy-regex/unicode"]

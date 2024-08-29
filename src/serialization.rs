@@ -8,6 +8,8 @@ use std::io::{Read, Result as IOResult, Write};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+#[cfg(feature = "convert-detect")]
+use crate::convert::ConversionError;
 use crate::{Definition, InitializationError, Kitoken};
 
 const MAGIC: &[u8] = b"kitoken";
@@ -37,42 +39,28 @@ impl From<InitializationError> for DeserializationError {
 
 impl Definition {
     /// Deserializes the tokenizer definition from a reader.
+    /// The format is detected automatically when the `convert-detect` feature is enabled.
     #[cfg(feature = "std")]
     pub fn from_reader<R: Read>(reader: &mut R) -> Result<Self, DeserializationError> {
-        let magic = {
-            let mut magic = [0; MAGIC.len()];
-            reader.read_exact(&mut magic)?;
-            magic
-        };
-        if magic != MAGIC {
-            return Err(DeserializationError::InvalidData("invalid magic".to_string()));
-        }
-        let version = {
-            let mut version = [0; VERSION.len()];
-            reader.read_exact(&mut version)?;
-            version
-        };
-        if version != VERSION {
-            return Err(DeserializationError::InvalidData("invalid version".to_string()));
-        }
         let data = {
             let mut data = Vec::new();
             reader.read_to_end(&mut data)?;
             data
         };
-        let definition = postcard::from_bytes(&data)
-            .map_err(|e| DeserializationError::InvalidData(e.to_string()))?;
-        Ok(definition)
+        Self::from_slice(&data)
     }
 
     /// Deserializes the tokenizer definition from a file.
+    /// The format is detected automatically when the `convert-detect` feature is enabled.
     #[cfg(feature = "std")]
     pub fn from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Self, DeserializationError> {
         let mut file = File::open(path)?;
         Self::from_reader(&mut file)
     }
 
+    #[cfg(not(feature = "convert-detect"))]
     /// Deserializes the tokenizer definition from bytes.
+    /// The format is detected automatically when the `convert-detect` feature is enabled.
     pub fn from_slice(slice: &[u8]) -> Result<Self, DeserializationError> {
         if slice.len() < MAGIC.len() + VERSION.len() {
             return Err(DeserializationError::InvalidData("invalid size".to_string()));
@@ -86,6 +74,39 @@ impl Definition {
         let definition = postcard::from_bytes(&slice[MAGIC.len() + VERSION.len()..])
             .map_err(|e| DeserializationError::InvalidData(e.to_string()))?;
         Ok(definition)
+    }
+
+    #[cfg(feature = "convert-detect")]
+    /// Deserializes the tokenizer definition from bytes.
+    /// The format is detected automatically when the `convert-detect` feature is enabled.
+    pub fn from_slice(slice: &[u8]) -> Result<Self, DeserializationError> {
+        let formats = &[
+            |slice: &[u8]| {
+                if slice.len() < MAGIC.len() + VERSION.len() {
+                    return Err(ConversionError::InvalidData("invalid size".to_string()));
+                }
+                if &slice[..MAGIC.len()] != MAGIC {
+                    return Err(ConversionError::InvalidData("invalid magic".to_string()));
+                }
+                if &slice[MAGIC.len()..MAGIC.len() + VERSION.len()] != VERSION {
+                    return Err(ConversionError::InvalidData("invalid version".to_string()));
+                }
+                postcard::from_bytes(&slice[MAGIC.len() + VERSION.len()..])
+                    .map_err(|e| ConversionError::InvalidData(e.to_string()))
+            },
+            #[cfg(feature = "convert-tiktoken")]
+            Definition::from_tiktoken_slice,
+            #[cfg(feature = "convert-sentencepiece")]
+            Definition::from_sentencepiece_slice,
+            #[cfg(feature = "convert-tokenizers")]
+            Definition::from_tokenizers_slice,
+            #[cfg(feature = "convert-sentencepiece")]
+            Definition::from_tekken_slice,
+        ];
+        formats
+            .iter()
+            .find_map(|f| f(slice).ok())
+            .ok_or_else(|| DeserializationError::InvalidData("unknown format".to_string()))
     }
 
     /// Serializes the tokenizer definition to a writer.
@@ -118,6 +139,7 @@ impl Definition {
 
 impl Kitoken {
     /// Deserializes the tokenizer definition from a reader and initializes the tokenizer.
+    /// The format is detected automatically when the `convert-detect` feature is enabled.
     /// See [`Kitoken::from_definition`] for more details.
     #[cfg(feature = "std")]
     pub fn from_reader<R: Read>(reader: &mut R) -> Result<Self, DeserializationError> {
@@ -126,6 +148,7 @@ impl Kitoken {
     }
 
     /// Deserializes the tokenizer definition from a file and initializes the tokenizer.
+    /// The format is detected automatically when the `convert-detect` feature is enabled.
     /// See [`Kitoken::from_definition`] for more details.
     #[cfg(feature = "std")]
     pub fn from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Self, DeserializationError> {
@@ -134,6 +157,7 @@ impl Kitoken {
     }
 
     /// Deserializes the tokenizer definition from bytes and initializes the tokenizer.
+    /// The format is detected automatically when the `convert-detect` feature is enabled.
     /// See [`Kitoken::from_definition`] for more details.
     pub fn from_slice(slice: &[u8]) -> Result<Self, DeserializationError> {
         let definition = Definition::from_slice(slice)?;
