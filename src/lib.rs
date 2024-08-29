@@ -34,11 +34,12 @@
 //!     Can be disabled to reduce binary size if unicode normalization is not required.
 //!   - `normalization-charsmap`: Enables precompiled charsmap input normalization support. This is required for certain models.
 //!     Can be disabled to reduce binary size if charsmap normalization is not required.
-//! - `convert`: Enables conversion utilities for common tokenizer data formats. When disabled, individual converters can be enabled using the following features:
+//! - `convert`: Enables detection and conversion utilities for common tokenizer data formats. When disabled, individual converters can be enabled using the following features:
 //!   - `convert-tokenizers`: Enables conversion from HuggingFace Tokenizers tokenizer definitions.
 //!   - `convert-sentencepiece`: Enables conversion from SentencePiece tokenizer definitions.
 //!   - `convert-tiktoken`: Enables conversion from OpenAI Tiktoken tokenizer definitions.
 //!   - `convert-tekken`: Enables conversion from Mistral Tekken tokenizer definitions.
+//!   - `convert-detect`: Enables detection of supported formats during deserialization. Enables the serialization feature.
 //! - `regex-perf`: Enables additional regex performance optimizations. Can be disabled to reduce binary size.
 //! - `multiversion`: Enables the use of multiversion for generating multiple code paths with different CPU feature utilization.
 //!
