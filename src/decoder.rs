@@ -59,18 +59,77 @@ impl Decoder {
     pub(crate) fn decode(
         &self, tokens: &[TokenId], decode_specials: bool,
     ) -> Result<Vec<u8>, DecodeError> {
-        let mut result = Vec::<u8>::with_capacity(tokens.len() * self.max_token_bytes);
         let extend = self.subword_prefix.as_deref().unwrap_or_default();
+        let mut result = Vec::<u8>::with_capacity(
+            tokens.len() * self.max_token_bytes + tokens.len() * extend.len(),
+        );
+        if !extend.is_empty() {
+            Self::decode_with_prefix(
+                &mut result,
+                tokens,
+                extend,
+                &self.vocab,
+                &self.specials,
+                decode_specials,
+            )?;
+        } else {
+            Self::decode_direct(&mut result, tokens, &self.vocab, &self.specials, decode_specials)?;
+        }
+        Ok(result)
+    }
+
+    #[inline(never)]
+    #[cfg_attr(
+        feature = "multiversion",
+        multiversion::multiversion(targets(
+            "x86_64+sse3+ssse3+sse4.1+sse4.2+avx+avx2+bmi2+f16c+lzcnt+popcnt",
+            "x86_64+sse3+ssse3+sse4.1+sse4.2",
+            "aarch64+neon",
+            "wasm32+simd128",
+        ))
+    )]
+    fn decode_direct(
+        result: &mut Vec<u8>, tokens: &[TokenId], vocab: &DecoderMap, specials: &SpecialDecoderMap,
+        decode_specials: bool,
+    ) -> Result<(), DecodeError> {
         for token in tokens {
-            let bytes = self.vocab.get(token);
+            let bytes = vocab.get(token);
             if let Some(bytes) = bytes {
-                if !extend.is_empty() && !result.is_empty() && !bytes.starts_with(extend.as_bytes())
-                {
+                result.extend(bytes);
+            } else if let Some(special) = specials.get(token) {
+                if special.kind != SpecialTokenKind::Control || decode_specials {
+                    result.extend(special);
+                }
+            } else {
+                return Err(DecodeError::InvalidToken(*token));
+            }
+        }
+        Ok(())
+    }
+
+    #[inline(never)]
+    #[cfg_attr(
+        feature = "multiversion",
+        multiversion::multiversion(targets(
+            "x86_64+sse3+ssse3+sse4.1+sse4.2+avx+avx2+bmi2+f16c+lzcnt+popcnt",
+            "x86_64+sse3+ssse3+sse4.1+sse4.2",
+            "aarch64+neon",
+            "wasm32+simd128",
+        ))
+    )]
+    fn decode_with_prefix(
+        result: &mut Vec<u8>, tokens: &[TokenId], prefix: &str, vocab: &DecoderMap,
+        specials: &SpecialDecoderMap, decode_specials: bool,
+    ) -> Result<(), DecodeError> {
+        for token in tokens {
+            let bytes = vocab.get(token);
+            if let Some(bytes) = bytes {
+                if !result.is_empty() && !bytes.starts_with(prefix.as_bytes()) {
                     result.push(b' ');
                 }
                 result.extend(bytes);
-            } else if let Some(special) = self.specials.get(token) {
-                if !extend.is_empty() && !result.is_empty() {
+            } else if let Some(special) = specials.get(token) {
+                if !result.is_empty() {
                     result.push(b' ');
                 }
                 if special.kind != SpecialTokenKind::Control || decode_specials {
@@ -80,7 +139,7 @@ impl Decoder {
                 return Err(DecodeError::InvalidToken(*token));
             }
         }
-        Ok(result)
+        Ok(())
     }
 }
 impl Debug for Decoder {
