@@ -1,4 +1,6 @@
 //! Kitoken definition format.
+//!
+//! Defines the metadata, model, specials, and configuration of a Kitoken tokenizer.
 
 use core::fmt::Debug;
 
@@ -109,7 +111,7 @@ impl Debug for Model {
 
 /// Kitoken tokenizer definition.
 ///
-/// Used for initializing the tokenizer and for serialization and deserialization.
+/// Defines the metadata, model, specials, and configuration of a Kitoken tokenizer.
 #[derive(Clone, PartialEq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct Definition {

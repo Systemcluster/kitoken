@@ -1,4 +1,6 @@
 //! Configuration for the tokenizer.
+//!
+//! Defines the tokenization mode fallback, input normalization, pre-tokenization split behavior, post-tokenization processing, post-decode processing, and input templates.
 
 use alloc::borrow::Cow;
 use alloc::string::String;
@@ -73,6 +75,8 @@ pub enum ConfigurationError {
 }
 
 /// Configuration for the tokenizer.
+///
+/// Defines the tokenization mode fallback, input normalization, pre-tokenization split behavior, post-tokenization processing, post-decode processing, and input templates.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
 pub struct Configuration {

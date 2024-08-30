@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::TokenId;
 
+/// Processing direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
