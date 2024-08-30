@@ -200,9 +200,8 @@ impl Unigram {
     #[cfg_attr(
         feature = "multiversion",
         multiversion::multiversion(targets(
-            "x86_64/x86-64-v4",
-            "x86_64/x86-64-v3",
-            "x86_64/x86-64-v2",
+            "x86_64+sse3+ssse3+sse4.1+sse4.2+avx+avx2+bmi2+f16c+lzcnt+popcnt",
+            "x86_64+sse3+ssse3+sse4.1+sse4.2",
             "aarch64+neon",
             "wasm32+simd128",
         ))
