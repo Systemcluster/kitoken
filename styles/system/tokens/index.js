@@ -1,4 +1,8 @@
 const tokens = {
+  "colors.transparent": {
+    "value": "#ffffff00",
+    "variable": "var(--colors-transparent)"
+  },
   "colors.background.primary": {
     "value": "#fbfcfd",
     "variable": "var(--colors-background-primary)"
@@ -742,6 +746,10 @@ const tokens = {
   "spacing.-x8": {
     "value": "calc(var(--spacing-x8) * -1)",
     "variable": "var(--spacing-x8)"
+  },
+  "colors.colorPalette": {
+    "value": "var(--colors-color-palette)",
+    "variable": "var(--colors-color-palette)"
   },
   "colors.colorPalette.primary": {
     "value": "var(--colors-color-palette-primary)",

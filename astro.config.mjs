@@ -6,11 +6,13 @@ import { defineConfig } from 'astro/config'
 import wasm from 'vite-plugin-wasm'
 
 export default defineConfig({
-    build: {},
+    build: {
+        format: 'directory',
+    },
     experimental: {
         clientPrerender: true,
-        directRenderScript: false,
-        serverIslands: false,
+        directRenderScript: true,
+        serverIslands: true,
     },
     site: 'https://kitoken.dev',
     markdown: {
@@ -24,6 +26,11 @@ export default defineConfig({
     vite: {
         optimizeDeps: {
             exclude: ['@pandacss/dev/postcss'],
+            esbuildOptions: {
+                format: 'esm',
+                minify: true,
+                treeShaking: true,
+            },
         },
         plugins: [wasm()],
     },

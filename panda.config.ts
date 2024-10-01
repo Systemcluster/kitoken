@@ -12,6 +12,7 @@ const config: Config = {
         extend: {},
         tokens: {
             colors: {
+                transparent: { value: '#ffffff00' },
                 background: {
                     primary: { value: '#fbfcfd' },
                     secondary: { value: '#f2f3f4' },
@@ -370,7 +371,7 @@ const config: Config = {
     preflight: false,
     hash: {
         'cssVar': false,
-        'className': production,
+        'className': true,
     },
     syntax: 'object-literal',
     lightningcss: false,

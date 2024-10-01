@@ -102,6 +102,12 @@
         font-family: var(--font-mono);
     }
 
+    i,
+    em {
+        display: inline-block;
+        color: inherit;
+    }
+
     :focus-visible {
         outline: 2px solid #ffffff80;
         outline-offset: -2px;

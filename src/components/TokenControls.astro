@@ -1,0 +1,59 @@
+---
+
+---
+
+<style>
+    button i {
+        color: var(--colors-text-primary);
+        will-change: color, opacity;
+    }
+</style>
+
+<>
+    <button id="token-copy" type="button"
+        ><i class="ri-clipboard-fill"></i></button
+    >
+    <button id="token-swap" type="button"
+        ><i class="ri-arrow-left-right-fill"></i></button
+    >
+</>
+
+<script>
+    import { tokenContent } from "@/stores";
+
+    const buttonCopy = document.getElementById("token-copy");
+    const timeout = { current: 0 };
+    buttonCopy?.addEventListener("click", (event) => {
+        console.log({ event });
+        clearTimeout(timeout.current);
+        try {
+            const tokens = tokenContent.get().map(([, token]) => token);
+            navigator.clipboard.writeText(tokens.join(" "));
+            buttonCopy.firstElementChild?.classList.replace(
+                "ri-clipboard-fill",
+                "ri-check-line",
+            );
+            timeout.current = setTimeout(() => {
+                buttonCopy.firstElementChild?.classList.replace(
+                    "ri-check-line",
+                    "ri-clipboard-fill",
+                );
+                if (event.detail) {
+                    buttonCopy?.blur();
+                }
+            }, 1000) as unknown as number;
+        } catch (error) {
+            console.error("Failed to copy tokens to clipboard", error);
+            buttonCopy.firstElementChild?.classList.replace(
+                "ri-clipboard-fill",
+                "ri-close-line",
+            );
+            timeout.current = setTimeout(() => {
+                buttonCopy.firstElementChild?.classList.replace(
+                    "ri-close-line",
+                    "ri-clipboard-fill",
+                );
+            }, 1000) as unknown as number;
+        }
+    });
+</script>

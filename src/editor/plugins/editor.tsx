@@ -38,7 +38,7 @@ import {
     REMOVE_TEXT_COMMAND,
     SELECT_ALL_COMMAND,
 } from 'lexical'
-import { Fragment, forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, type RefObject, forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 
 import { HAS_BEFORE_INPUT, IS_APPLE_WEBKIT, IS_IOS, IS_SAFARI } from '../../utils/environment'
 import { $insertDataTransfer, $isSelectionAtEndOfRoot, $isTargetWithinDecorator } from '../utils'
@@ -434,6 +434,7 @@ export type EditorPluginProps = Omit<Props, 'placeholder'> & {
 }
 export interface EditorPluginHandle {
     context: LexicalEditor
+    root: RefObject<HTMLDivElement>
 }
 export const EditorPlugin = forwardRef<EditorPluginHandle, EditorPluginProps>(({ placeholder, ...props }, ref) => {
     const [editor] = useLexicalComposerContext()
@@ -443,13 +444,17 @@ export const EditorPlugin = forwardRef<EditorPluginHandle, EditorPluginProps>(({
     }, [editor])
     useLayoutEffect(() => {
         if (props.autoFocus) {
+            // eslint-disable-next-line @eslint-react/web-api/no-leaked-timeout
             setTimeout(() => {
                 editor.focus()
             }, 0)
         }
     }, [editor])
+
+    const editableRef = useRef<HTMLDivElement | null>(null)
     useImperativeHandle(ref, () => ({
         context: editor,
+        root: editableRef,
     }))
 
     const [showPlaceholder, setShowPlaceholder] = useState(() => canShowPlaceholderFromCurrentEditorState(editor))
@@ -482,6 +487,7 @@ export const EditorPlugin = forwardRef<EditorPluginHandle, EditorPluginProps>(({
                 {...props}
                 placeholder={undefined}
                 aria-placeholder={undefined}
+                ref={editableRef}
             />
         </Fragment>
     )

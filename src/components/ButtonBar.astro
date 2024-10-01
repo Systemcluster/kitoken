@@ -1,0 +1,129 @@
+---
+import { css, cx } from "@styles/system/css";
+
+interface ButtonBarProps {
+    direction?: "row" | "column";
+    justify?:
+        | "flex-start"
+        | "flex-end"
+        | "center"
+        | "space-between"
+        | "space-around";
+    position?: "top" | "bottom" | "left" | "right";
+    padding?: string;
+}
+
+const {
+    direction = "column",
+    justify = "flex-end",
+    position = "right",
+    padding = "1rem",
+} = Astro.props as ButtonBarProps;
+
+const bottom = position === "bottom" ? 0 : "auto";
+const top =
+    position === "top" || position === "left" || position === "right"
+        ? 0
+        : "auto";
+const left = position === "left" || position === "top" ? 0 : "auto";
+const right = position === "right" || position === "bottom" ? 0 : "auto";
+const height = position === "top" || position === "bottom" ? "auto" : "100%";
+const width = position === "top" || position === "bottom" ? "100%" : "auto";
+---
+
+<style
+    define:vars={{
+        direction,
+        justify,
+        position,
+        bottom,
+        top,
+        left,
+        right,
+        height,
+        width,
+        padding,
+    }}
+>
+    .buttonbar {
+        display: flex;
+        flex-direction: var(--direction);
+        justify-content: var(--justify);
+        align-items: center;
+        gap: 0.2rem;
+        padding: var(--padding);
+        color: var(--colors-text-primary);
+        position: absolute;
+        top: var(--top);
+        left: var(--left);
+        right: var(--right);
+        bottom: var(--bottom);
+        height: var(--height);
+        width: var(--width);
+        z-index: 100;
+        padding: 0.25rem;
+        user-select: none;
+        pointer-events: none;
+        min-height: min-content;
+        overflow: visible;
+    }
+    .buttonbar :global(button) {
+        padding: 0;
+        margin: 0;
+        border: none;
+        background: none;
+        color: var(--colors-text-primary);
+        cursor: pointer;
+        pointer-events: all;
+        height: 1.6rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .buttonbar :global(i) {
+        font-size: 1.25rem;
+        padding: 0.25rem;
+        cursor: pointer;
+        pointer-events: none;
+        opacity: 0.15;
+        transition-property: opacity;
+        transition-timing-function: var(--easings-ease-smooth);
+        transition-duration: var(--durations-normal);
+        will-change: opacity, transform;
+        color: var(--colors-text-primary);
+    }
+    .buttonbar :global(button:hover > i),
+    .buttonbar :global(button:focus > i) {
+        opacity: 0.55;
+        transform: scale(1.025);
+    }
+    .buttonbar :global(button:active > i) {
+        opacity: 0.85;
+        transform: scale(0.925);
+    }
+    .buttonbar :global(button i[class*="ri-close"]) {
+        color: var(--colors-brand-secondary-red);
+        opacity: 1;
+    }
+    .buttonbar :global(button i[class*="ri-check"]) {
+        color: var(--colors-brand-primary-green);
+        opacity: 1;
+    }
+    .buttonbar :global(button:disabled > i) {
+        opacity: 0.15;
+        transform: scale(1);
+    }
+    .buttonbar :global(button:disabled:hover > i),
+    .buttonbar :global(button:disabled:focus > i),
+    .buttonbar :global(button:disabled:active > i) {
+        opacity: 0.15;
+        transform: scale(1);
+    }
+    .buttonbar :global(button:disabled) {
+        cursor: not-allowed;
+    }
+</style>
+
+<div class={cx("buttonbar", css({}))}>
+    <slot />
+</div>

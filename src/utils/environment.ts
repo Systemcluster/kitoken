@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
-/* eslint-disable n/no-unsupported-features/node-builtins */
-
 declare global {
     interface Document {
         documentMode?: unknown
@@ -11,8 +8,8 @@ declare global {
 }
 
 export const HAS_DOM = (() => {
-    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
-    return typeof window !== 'undefined' && window.document !== undefined && window.document.createElement !== undefined
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
+    return typeof window !== 'undefined' && typeof window.document.createElement !== 'undefined'
 })()
 
 export const HAS_BEFORE_INPUT = (() => {
@@ -60,7 +57,7 @@ export const IS_IOS = (() => {
     if (!HAS_DOM) return false
     if (window.MSStream) return false
     if (typeof navigator !== 'undefined' && 'userAgent' in navigator) {
-        return /iuphone|ipad|ipod/iu.test(navigator.userAgent)
+        return /iphone|ipad|ipod/iu.test(navigator.userAgent)
     }
     return false
 })()
@@ -80,6 +77,7 @@ export const IS_APPLE = (() => {
         return /mac|ipod|iphone|ipad/iu.test(navigator.userAgentData.platform)
     }
     if (typeof navigator !== 'undefined' && 'platform' in navigator) {
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         return /mac|ipod|iphone|ipad/iu.test(navigator.platform)
     }
     return false
@@ -88,7 +86,6 @@ export const IS_APPLE = (() => {
 export const IS_MOBILE = (() => {
     if (!HAS_DOM) return false
     // test if user agent data advertises itself as mobile
-    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
     if (typeof navigator !== 'undefined' && navigator.userAgentData?.mobile !== undefined) {
         return navigator.userAgentData.mobile
     }
@@ -112,5 +109,11 @@ export const IS_TOUCH_DEVICE = (() => {
 })()
 
 export const IS_DEV_MODE = (() => {
-    return import.meta.env.MODE === 'development'
+    if (typeof import.meta !== 'undefined' && import.meta.env.MODE === 'development') {
+        return true
+    }
+    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+        return true
+    }
+    return false
 })()

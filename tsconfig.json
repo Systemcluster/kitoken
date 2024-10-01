@@ -7,14 +7,29 @@
             "DOM"
         ],
         "types": [
-            "user-agent-data-types",
-            "react/experimental"
+            "./src/env.d.ts"
         ],
         "paths": {
             "@/*": [
-                "./*"
+                "./src/*"
             ],
+            "@public/*": [
+                "./public/*"
+            ],
+            "@styles/*": [
+                "./styles/*"
+            ],
+            "*": [
+                "./node_modules/@types/*",
+                "./node_modules/*",
+            ]
         },
+        "baseUrl": ".",
+        "plugins": [
+            {
+                "name": "@astrojs/ts-plugin"
+            },
+        ],
         "target": "ES2021",
         "module": "ESNext",
         "allowJs": true,
@@ -29,6 +44,7 @@
         "forceConsistentCasingInFileNames": true,
         "incremental": true,
         "inlineSources": false,
+        "importHelpers": false,
         "isolatedModules": true,
         "moduleResolution": "Bundler",
         "resolvePackageJsonExports": true,
@@ -44,11 +60,7 @@
         "exactOptionalPropertyTypes": false,
         "noEmit": true,
         "jsx": "preserve",
-        "plugins": [
-            {
-                "name": "@astrojs/ts-plugin"
-            },
-        ]
+        "experimentalDecorators": true,
     },
     "include": [
         "**/*.ts",
@@ -57,10 +69,10 @@
         "**/*.jsx",
         "**/*.mjs",
         "**/*.cjs",
-        "**/*.astro"
+        "**/*.astro",
+        "**/*.mdx",
     ],
     "exclude": [
-        "node_modules",
-        ".astro"
+        "node_modules/**/*",
     ]
 }

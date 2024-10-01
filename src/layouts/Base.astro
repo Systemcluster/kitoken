@@ -1,4 +1,6 @@
 ---
+import "remixicon/fonts/remixicon.css";
+
 import { css } from "../../styles/system/css";
 
 interface Props {
@@ -10,9 +12,10 @@ const { title } = Astro.props;
 const globalStyles = css({
     "&:root": {
         "& ::selection": {
-            background: "text.primary",
+            background: "brand.secondary.blue",
             color: "background.primary",
             WebkitTextFillColor: "{colors.background.primary}",
+            textShadow: "none",
         },
         "& :focus-visible": {
             outlineColor: "brand.secondary.blue",
@@ -34,14 +37,16 @@ const globalStyles = css({
 <!doctype html>
 <html lang="en" class={globalStyles}>
     <head>
-        <meta charset="UTF-8" />
+        <meta charset="utf8" />
         <meta
             name="description"
-            content="Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization. Compatible with SentencePiece, Tokenizers, Tiktoken and more."
+            content="Fast and versatile tokenizer for language models, \
+            supporting BPE, Unigram and WordPiece tokenization. Compatible with SentencePiece, Tokenizers, Tiktoken and more."
         />
         <meta
             name="viewport"
-            content="width=device-width initial-scale=1 user-scalable=0 shrink-to-fit=no maximum-scale=1 minimum-scale=1 viewport-fit=cover color-scheme=light dark"
+            content="width=device-width initial-scale=1 user-scalable=0 shrink-to-fit=no \
+            maximum-scale=1 minimum-scale=1 viewport-fit=cover color-scheme=light dark"
         />
         <meta name="theme-color" content="#13151a" />
         <meta name="robots" content="index, follow" />

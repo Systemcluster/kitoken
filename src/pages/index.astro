@@ -1,24 +1,32 @@
 ---
-import TokenOutput from "../components/TokenOutput.astro";
-import Layout from "../layouts/Base.astro";
+import { css } from "@styles/system/css";
 
-import { css } from "../../styles/system/css";
-import { Editor } from "../components/editor";
-import { defaultContent } from "../stores/index";
+import ButtonBar from "@/components/ButtonBar.astro";
+import { Editor } from "@/components/Editor";
+import InputControls from "@/components/InputControls.astro";
+import TokenControls from "@/components/TokenControls.astro";
+import TokenOutput from "@/components/TokenOutput.astro";
+import Layout from "@/layouts/Base.astro";
+import { defaultContent } from "@/stores/index";
 ---
 
 <Layout title="Kitoken - Tokenize Everything">
     <main
         class={css({
             layout: "column",
-            gap: "lg",
+            gap: "unset",
             minHeight: "100%",
             justifyContent: "flex-start",
             alignItems: "stretch",
+            clipPath: "inset(0 0 0 0)",
+            "& h2, & [data-lexical-editor=true]": {
+                textShadow: "0 0 5px {colors.background.primary}",
+            },
         })}
     >
         <section
             class={css({
+                zIndex: 10,
                 layout: "column",
                 fontSize: "x3",
                 fontWeight: "medium",
@@ -29,13 +37,7 @@ import { defaultContent } from "../stores/index";
                 maxHeight: "50dvh",
                 height: "min-content",
                 position: "relative",
-                "--hover": 0,
-                "&:hover": {
-                    "--hover": 0.35,
-                },
-                "&:has(:focus), &:hover:has(:focus)": {
-                    "--hover": 0.5,
-                },
+                clipPath: "inset(0 0 0 0)",
                 "&:hover::after": {
                     backgroundColor: "{colors.border.active}",
                 },
@@ -45,7 +47,9 @@ import { defaultContent } from "../stores/index";
                 "&::after": {
                     content: "''",
                     fillSpace: "absolute",
-                    maskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='0%25' y='0%25' width='100%25' height='100%25' fill='transparent' stroke='black' stroke-width='4px' stroke-dasharray='10px 10px' /%3E%3C/svg%3E")`,
+                    maskImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect \
+                        x='0%25' y='0%25' width='100%25' height='100%25' \
+                        fill='transparent' stroke='black' stroke-width='4px' stroke-dasharray='10px 10px' /%3E%3C/svg%3E")`,
                     maskPosition: "left top",
                     maskSize: "100% 100%",
                     maskRepeat: "no-repeat",
@@ -54,6 +58,15 @@ import { defaultContent } from "../stores/index";
                     transitionDuration: "normal",
                     transitionProperty: "background-color",
                     pointerEvents: "none",
+                },
+                "&:hover #cover": {
+                    opacity: 0.75,
+                },
+                "&:has(:focus) #cover, &:hover:has(:focus) #cover": {
+                    opacity: 0.5,
+                },
+                "&:has([data-has-content=true]) #cover": {
+                    opacity: "0 !important",
                 },
             })}
         >
@@ -64,7 +77,7 @@ import { defaultContent } from "../stores/index";
                     fillSpace: "absolute",
                     pointerEvents: "none",
                     padding: "x2",
-                    userSelect: "text",
+                    userSelect: "none",
                     fontWeight: "750",
                     overflowWrap: "break-word",
                     wordWrap: "break-word",
@@ -73,18 +86,18 @@ import { defaultContent } from "../stores/index";
                     minHeight: "100%",
                     outline: "transparent",
                     border: "inset 3px transparent",
-                    opacity: "calc(1 - var(--hover))",
                     transitionTimingFunction: "{easings.easeSmooth}",
                     transitionDuration: "normal",
                     transitionProperty: "opacity",
                 })}
             >
-                Kitoken.
+                Kitoken.<wbr />
                 <span
                     class={css({
                         opacity: 0.5,
                         fontWeight: "500",
                         letterSpacing: "-0.15rem",
+                        display: "inline-block",
                     })}
                     >{
                         defaultContent.startsWith("Kitoken. ")
@@ -93,28 +106,39 @@ import { defaultContent } from "../stores/index";
                     }</span
                 >
             </h1>
+            <ButtonBar>
+                <InputControls />
+            </ButtonBar>
         </section>
         <section
             class={css({
+                zIndex: 0,
                 layout: "column",
                 alignItems: "stretch",
                 flex: 0,
                 flexBasis: "min-content",
                 maxHeight: "25dvh",
                 height: "auto",
-                overflow: "auto",
+                overflow: "visible",
+                position: "relative",
             })}
         >
             <TokenOutput />
+            <ButtonBar justify="flex-start">
+                <TokenControls />
+            </ButtonBar>
         </section>
         <section
             class={css({
+                zIndex: 1,
                 layout: "column",
                 alignItems: "stretch",
                 flex: 0,
                 paddingX: "x2",
                 paddingTop: "sm",
                 fontWeight: "bold",
+                cursor: "default",
+                clipPath: "inset(0 0 0 0)",
             })}
         >
             <h2>
@@ -123,9 +147,19 @@ import { defaultContent } from "../stores/index";
                 Compatible with SentencePiece, Tokenizers, Tiktoken and more.
             </h2>
         </section>
-
         <section
             class={css({
+                zIndex: 1,
+                layout: "column",
+                alignItems: "stretch",
+                flex: "0 0 {spacing.md}",
+                userSelect: "none",
+            })}
+        >
+        </section>
+        <section
+            class={css({
+                zIndex: 1,
                 layout: "column",
                 alignItems: "stretch",
                 flex: 0,
@@ -133,6 +167,8 @@ import { defaultContent } from "../stores/index";
                 paddingTop: "sm",
                 fontWeight: "normal",
                 fontFamily: "main",
+                userSelect: "none",
+                cursor: "default",
                 "& .list": {
                     display: "flex",
                     flexWrap: "nowrap",
@@ -235,6 +271,17 @@ import { defaultContent } from "../stores/index";
         </section>
         <section
             class={css({
+                zIndex: 1,
+                layout: "column",
+                alignItems: "stretch",
+                flex: "0 0 {spacing.md}",
+                userSelect: "none",
+            })}
+        >
+        </section>
+        <section
+            class={css({
+                zIndex: 1,
                 layout: "column",
                 alignItems: "stretch",
                 flex: 0,
@@ -242,10 +289,18 @@ import { defaultContent } from "../stores/index";
                 paddingTop: "sm",
                 fontWeight: "normal",
                 fontFamily: "main",
+                userSelect: "none",
+                cursor: "default",
                 "& .list": {
                     display: "inline-flex",
                     flexWrap: "wrap",
                     gap: "lg",
+                    textAlign: "center",
+                    "& i": {
+                        paddingX: "xs",
+                        opacity: 0.65,
+                        fontSize: "md",
+                    },
                 },
                 "& a": {
                     position: "relative",
@@ -277,31 +332,44 @@ import { defaultContent } from "../stores/index";
         >
             <p>
                 <span class="list">
-                    See the <a href="https://github.com/Systemcluster/kitoken"
-                        >GitHub Repository</a
-                    ><a>Rust Crate</a><a>Python Package</a><a
-                        >JavaScript Package</a
-                    > or type above</span
-                >
+                    See the
+                    <a href="https://github.com/Systemcluster/kitoken"
+                        ><i class="ri-github-line"></i>GitHub Repository</a
+                    >
+                    <a href="/"><i class="ri-box-3-line"></i>Rust Crate</a>
+                    <a href="/"><i class="ri-box-3-line"></i>Python Package</a>
+                    <a href="/"
+                        ><i class="ri-box-3-line">JavaScript Package</i></a
+                    >
+                    or type above
+                </span>
             </p>
         </section>
         <section
             class={css({
+                zIndex: 1,
                 layout: "column",
                 alignItems: "stretch",
-                flex: 1,
+                flex: "1 10 auto",
+                userSelect: "none",
             })}
         >
         </section>
         <section
             class={css({
+                zIndex: 1,
                 layout: "column",
-                alignItems: "stretch",
+                alignItems: "flex-start",
                 flex: 0,
                 paddingX: "x2",
                 paddingY: "x3",
-                opacity: 0.45,
+                opacity: 0.35,
+                "& p": {
+                    cursor: "help",
+                    fontFamily: "main",
+                },
                 "& h3": {
+                    cursor: "help",
                     fontWeight: "bold",
                     paddingY: 0,
                     fontFamily: "head",

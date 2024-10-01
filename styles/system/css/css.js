@@ -19,7 +19,7 @@ utilities.split(',').forEach((utility) => {
 const resolveShorthand = (prop) => shorthands.get(prop) || prop
 
 const context = {
-  
+  hash: true,
   conditions: {
     shift: sortConditions,
     finalize: finalizeConditions,

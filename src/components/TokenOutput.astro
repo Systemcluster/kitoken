@@ -2,163 +2,225 @@
 import { css } from "../../styles/system/css";
 ---
 
+<style>
+    #output-container {
+        position: relative;
+        display: flex;
+        clip-path: inset(0 0 0 0);
+        height: fit-content;
+        max-height: 358px;
+        min-height: 136px;
+        overflow: visible;
+        margin-top: -100px;
+        margin-bottom: -90px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+    }
+    #output-container::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 10000;
+        mask: linear-gradient(
+            to bottom,
+            #fff 5%,
+            #ffffffaa 90px,
+            #ffffff88 100px,
+            #ffffff00 100px,
+            #ffffff00 calc(100% - 100px),
+            #ffffffaa calc(100% - 82px),
+            #fff calc(95% - 20px)
+        );
+        mask-mode: alpha;
+    }
+    #output {
+        height: auto;
+        overflow: auto;
+        overscroll-behavior: none;
+        flex: 1;
+        margin-top: -12px;
+        margin-bottom: -12px;
+        padding-top: 112px;
+        padding-bottom: 102px;
+    }
+    #output > :global(span) {
+        position: relative;
+        user-select: text;
+        pointer-events: all;
+        cursor: cell;
+    }
+    #output > :global(span::before) {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        opacity: 0.75;
+        background: var(--bg, transparent);
+    }
+    #output :global(> span > span) {
+        position: relative;
+        color: var(--color, inherit);
+        user-select: none;
+        pointer-events: all;
+        white-space: pre;
+    }
+    #output > :global(span > span:nth-child(1)) {
+        opacity: 0.95;
+    }
+    #output > :global(span > span:nth-child(2)) {
+        visibility: hidden;
+    }
+    #output > :global(span > span:nth-child(3)) {
+        width: 100%;
+        position: absolute;
+        text-align: right;
+        user-select: all;
+    }
+</style>
+
 <div
-    id="output"
+    id="output-container"
     class={css({
-        layout: "row",
-        gap: "sm",
-        paddingX: "x2",
-        paddingY: "sm",
-        lineHeight: "md",
-        fontSize: "md",
-        fontWeight: "regular",
-        minHeight: "36px",
-        "& > span": {
-            layout: "row",
-            position: "relative",
-            borderRadius: "sm",
-            background: "background.secondary",
-            color: "text.secondary",
-            userSelect: "text",
-            pointerEvents: "all",
-            gap: "sm",
-            paddingY: "sm",
-            "& *::selection": {
-                background: "{colors.background.primary} !important",
-                color: "var(--bg, transparent) !important",
-                WebkitTextFillColor: "var(--bg, transparent) !important",
-            },
-            "& > span": {
-                position: "relative",
-                color: "background.primary",
-                pointerEvents: "all",
-                paddingY: "xs",
-                whiteSpace: "pre",
-            },
-            "& > span:nth-child(1)": {
-                opacity: 0.95,
-                userSelect: "none",
-                paddingLeft: "sm",
-                fontWeight: "light",
-            },
-            "& > span:nth-child(2)": {
-                fontWeight: "bold",
-                visibility: "hidden",
-                userSelect: "none",
-                paddingRight: "sm",
-            },
-            "& > span:nth-child(3)": {
-                fontWeight: "bold",
-                width: "100%",
-                position: "absolute",
-                textAlign: "right",
-                paddingRight: "sm",
-                userSelect: "all",
-            },
-            "&::before": {
-                content: "' '",
-                fillSpace: "absolute",
-                opacity: 0.75,
-                background: "var(--bg, transparent)",
-            },
-            "&:nth-child(8n+1)": {
-                "--bg": "{colors.brand.secondary.blue}",
-            },
-            "&:nth-child(8n+2)": {
-                "--bg": "{colors.brand.primary.green}",
-            },
-            "&:nth-child(8n+3)": {
-                "--bg": "{colors.brand.secondary.yellow}",
-            },
-            "&:nth-child(8n+4)": {
-                "--bg": "{colors.brand.secondary.red}",
-            },
-            "&:nth-child(8n+5)": {
-                "--bg": "{colors.brand.primary.teal}",
-            },
-            "&:nth-child(8n+6)": {
-                "--bg": "{colors.brand.secondary.green}",
-            },
-            "&:nth-child(8n+7)": {
-                "--bg": "{colors.brand.secondary.orange}",
-            },
-            "&:nth-child(8n+8)": {
-                "--bg": "{colors.brand.secondary.pink}",
-            },
-        },
-        "& > span.model": {
-            opacity: 0.25,
-            background: "transparent",
-            "--bg": "transparent !important",
-            "& > span": {
-                color: "text.primary",
-                // fontWeight: "medium",
-                userSelect: "none",
-            },
-        },
-        "& > span.placeholder": {
-            flex: 1,
-            background: "transparent",
-            "&::before": {
-                display: "none",
-            },
+        "&::before": {
+            background: "background.primary",
         },
     })}
 >
+    <div
+        id="output"
+        class={css({
+            layout: "row",
+            alignItems: "flex-start",
+            alignContent: "flex-start",
+            paddingLeft: "x2",
+            paddingRight: "x3",
+            paddingY: "6px",
+            gap: "sm",
+            fontSize: "md",
+            fontWeight: "regular",
+            lineHeight: "md",
+            "& > span": {
+                layout: "row",
+                borderRadius: "sm",
+                gap: "sm",
+                paddingY: "sm",
+                "--color": "{colors.background.primary}",
+                "--bg": "{colors.background.primary}",
+                "& *::selection": {
+                    background: "{colors.background.primary} !important",
+                    color: "var(--bg, transparent) !important",
+                    WebkitTextFillColor: "var(--bg, transparent) !important",
+                },
+                "& > span": {
+                    paddingY: "xs",
+                },
+                "& > span:nth-child(1)": {
+                    paddingLeft: "sm",
+                    fontWeight: "light",
+                },
+                "& > span:nth-child(2)": {
+                    paddingRight: "sm",
+                    fontWeight: "bold",
+                },
+                "& > span:nth-child(3)": {
+                    paddingRight: "sm",
+                    fontWeight: "bold",
+                },
+                "&:nth-child(8n+1)": {
+                    "--bg": "{colors.brand.secondary.blue}",
+                },
+                "&:nth-child(8n+2)": {
+                    "--bg": "{colors.brand.primary.green}",
+                },
+                "&:nth-child(8n+3)": {
+                    "--bg": "{colors.brand.secondary.yellow}",
+                },
+                "&:nth-child(8n+4)": {
+                    "--bg": "{colors.brand.secondary.red}",
+                },
+                "&:nth-child(8n+5)": {
+                    "--bg": "{colors.brand.primary.teal}",
+                },
+                "&:nth-child(8n+6)": {
+                    "--bg": "{colors.brand.secondary.green}",
+                },
+                "&:nth-child(8n+7)": {
+                    "--bg": "{colors.brand.secondary.orange}",
+                },
+                "&:nth-child(8n+8)": {
+                    "--bg": "{colors.brand.secondary.pink}",
+                },
+            },
+            "& > span.model": {
+                opacity: 0.25,
+                background: "transparent",
+                cursor: "pointer",
+                "--bg": "transparent !important",
+                "& > span": {
+                    color: "text.primary",
+                    userSelect: "none",
+                },
+            },
+            "& > span.placeholder": {
+                flex: "1 0 0.25rem",
+                background: "transparent",
+                pointerEvents: "none",
+                "&::before": {
+                    display: "none",
+                },
+            },
+        })}
+    >
+    </div>
 </div>
 
 <script>
     import { escapeHTML } from "astro/runtime/server/escape.js";
-    import { Kitoken } from "../../../kitoken/packages/javascript";
-    import { defaultContent, editorContent } from "../stores/index";
+    import { defaultTokens, tokenContent } from "../stores/index";
 
-    const data = await (await fetch("/llama2.kit")).arrayBuffer();
-    const tokenizer = new Kitoken(new Uint8Array(data));
-    let edited = false;
-    const tokenize = (input: string) => {
-        const output = tokenizer.encode(input, true);
+    // change token display when content changes
+    const modify = (input: readonly [string, number][]) => {
         const outputElem = document.getElementById("output");
         if (!outputElem) return;
-        const decoder = new TextDecoder();
-        const outputList = [...output].map((token) => [
-            decoder.decode(tokenizer.decode(new Uint32Array([token]), true)),
-            token,
-        ]) as [string, number][];
         let parent = [];
-        for (let output of outputList) {
+        for (let output of input) {
             let elem = document.createElement("span");
             elem.innerHTML = `<span>${escapeHTML(output[0])}</span><span>${output[1]}</span><span>${output[1]}</span>`;
             parent.push(elem);
         }
-        const placeholder = document.createElement("span");
-        placeholder.classList.add("placeholder");
-        parent.push(placeholder);
-        const model = document.createElement("span");
-        model.classList.add("model");
-        model.innerHTML = `<span>Model</span><span>Llama 2</span><span>Llama 2</span>`;
-        parent.push(model);
-        const display = document.createElement("span");
-        display.classList.add("model");
-        display.innerHTML = `<span>Switch Display</span>`;
-        parent.push(display);
         outputElem.innerHTML = "";
         outputElem.append(...parent);
     };
-    const check = (content: string) => {
-        if (typeof content !== "string") return;
-        if (!content && !edited) return;
-        if (!content && edited) {
-            edited = false;
-            document.getElementById("cover")?.style.removeProperty("--hover");
-            tokenize(defaultContent);
-            return;
-        }
-        if (content !== defaultContent) {
-            edited = true;
-            document.getElementById("cover")?.style.setProperty("--hover", "1");
-        }
-        tokenize(content);
+    const check = (content: readonly [string, number][]) => {
+        modify(content.length > 0 ? content : defaultTokens);
     };
-    check(editorContent.get());
-    editorContent.subscribe((content) => check(content));
+    check(tokenContent.get());
+    tokenContent.subscribe((content) => check(content));
+
+    // set min-height to new height if larger than current height
+    const lastHeight = { current: 0 };
+    const resize = (entries: ResizeObserverEntry[]) => {
+        const outputElem = entries[0]?.target as HTMLElement;
+        if (!outputElem) return;
+        const height = outputElem.clientHeight;
+        if (height > lastHeight.current) {
+            outputElem.style.minHeight = `${height}px`;
+        }
+        lastHeight.current = height;
+    };
+    const outputElem = document.getElementById(
+        "output-container",
+    ) as HTMLElement;
+
+    if (outputElem) {
+        lastHeight.current = outputElem.clientHeight;
+        const resizeObserver = new ResizeObserver(resize);
+        resizeObserver.observe(outputElem);
+    }
 </script>
