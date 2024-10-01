@@ -18,7 +18,9 @@ assert!(string == "Your future belongs to me.");
   Faster than most other tokenizers in both common and uncommon scenarios.
 - **Support for a wide variety of tokenizer formats and tokenization strategies**\
   Including support for Tokenizers, SentencePiece, Tiktoken and more.
-- **Compact definition format**\
+- **Compatible with many systems and platforms**\
+  Runs on Windows, Linux, macOS and embedded, and comes with bindings for Web, Node and Python.
+- **Compact data format**\
   Definitions are stored in an efficient binary format and without merge list.
 - **Support for normalization and pre-tokenization**\
   Including unicode normalization, whitespace normalization, and many others.
@@ -144,3 +146,43 @@ GPT-2 uses a Tokenizers-based tokenizer model and `BytePair` tokenization in byt
 - **UTF-8 Sequence**: A text document containing a single-line UTF-8 sequence. This data is a good representation of inputs that might fail to split during pre-tokenization.
 
 - **Wagahai**: A text document containing *Wagahai wa Neko de Aru* by Natsume Sōseki. This data is a good representation for Japanese-language inputs containing many long paragraphs.
+
+## Details
+
+### Encoding
+
+Kitoken provides a unified interface for BPE, Unigram and WordPiece encoders. The tokenization process starts with pre-tokenization of the input, consisting of the following steps:
+
+1. **Prioritized Token Extraction**: The input is split into parts using the prioritized tokens defined in the definition, and filtered for control tokens when specified.
+
+2. **Normalization**: The parts are normalized using the normalization options defined in the configuration. When no prioritized tokens are defined, the input is normalized as one.
+
+3. **Special Token Extraction**: The parts are split using the unprioritized special tokens defined in the definition, and filtered for control tokens when specified.
+
+4. **Splitting**: The parts are split into sequences of bytes using the split regex defined in the configuration.
+
+Each part is then encoded into a sequence of numeric tokens using the model defined in the definition.  which can be one of the following:
+
+- **BytePair**: Special tokens and parts directly mapping to tokens are encoded directly, while the remaining parts are split either into bytes or into characters by their unicode scalar values depending on the model configuration. The pieces are then merged and encoded using one of two BPE implementations, a linear-search-based implementation for small inputs and a priority-queue-based implementation for large inputs.
+
+### Decoding
+
+### Definition
+
+### Configuration
+
+### Format
+
+## TODO
+
+- templated wrapper (maybe)
+- return with indices
+
+## IDEAS
+
+- `Pipeline` trait with configurable
+
+or
+
+- `Pipeline` list of operations (unique by type)
+- `Kitoken` implements `Pipeline`? into pipeline? is an alias for a pipeline? pipeline definition stacking?

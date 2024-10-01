@@ -5,12 +5,13 @@ description = "Fast and versatile tokenizer for language models, supporting BPE,
 version = "0.0.0"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
 keywords = ["tokenizer", "nlp", "bpe", "unigram", "wordpiece"]
-categories = ["text-processing", "algorithms", "wasm", "no-std"]
+categories = ["text-processing", "algorithms", "wasm", "no-std", "parser-implementations"]
 license = "BSD-2-Clause"
 repository = "https://github.com/Systemcluster/kitoken"
 readme = "README.md"
 edition = "2021"
 resolver = "2"
+rust-version = "1.81.0"
 include = [
     "Cargo.toml",
     "src/**/*",
@@ -18,10 +19,23 @@ include = [
 ]
 
 
+[workspace]
+
+members = [
+    ".",
+    "packages/python",
+    "packages/javascript",
+]
+
+
 [lib]
 
 name = "kitoken"
 path = "src/lib.rs"
+
+[[bin]]
+name = "kitoken"
+path = "src/main.rs"
 
 
 [features]
@@ -113,7 +127,7 @@ regex-syntax = { version = "0.8", default-features = false, features = [
 hashbrown = { version = "0.14", default-features = false, features = ["ahash", "inline-more", "allocator-api2"] }
 ahash = { version = "0.8", default-features = false, features = ["const-random"] }
 once_cell = { version = "1.19", default-features = false, features = ["alloc", "race"] }
-orx-priority-queue = { version = "1.2", default-features = false }
+orx-priority-queue = { version = "1.4", default-features = false }
 memchr = { version = "2.7", default-features = false, features = ["alloc"] }
 derive_more = { version = "1.0", default-features = false, features = ["deref", "deref_mut", "as_ref", "index", "index_mut"] }
 
@@ -137,7 +151,7 @@ unicode-script = { version = "0.5", optional = true }
 base64 = { version = "0.22", default-features = false, features = ["alloc"], optional = true }
 
 # optional dependencies for the convert-sentencepiece feature
-sentencepiece-model = { version = "0.1", default-features = false, optional = true }
+sentencepiece-model = { version = "0.1", default-features = false, optional = true, path = "../sentencepiece-model" }
 
 # optional dependencies for the convert-tokenizers and convert-tekken features
 serde_json = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
@@ -202,6 +216,11 @@ strip = "none"
 [profile.bench.build-override]
 
 opt-level = 3
+
+[profile.test]
+
+inherits = "dev"
+opt-level = 1
 
 
 [[bench]]

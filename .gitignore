@@ -9,3 +9,5 @@ dist/
 desktop.ini
 
 Cargo.lock
+
+_temp
