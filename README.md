@@ -18,7 +18,9 @@ assert!(string == "Your future belongs to me.");
   Faster than most other tokenizers in both common and uncommon scenarios.
 - **Support for a wide variety of tokenizer formats and tokenization strategies**\
   Including support for Tokenizers, SentencePiece, Tiktoken and more.
-- **Compact definition format**\
+- **Compatible with many systems and platforms**\
+  Runs on Windows, Linux, macOS and embedded, and comes with bindings for Web, Node and Python.
+- **Compact data format**\
   Definitions are stored in an efficient binary format and without merge list.
 - **Support for normalization and pre-tokenization**\
   Including unicode normalization, whitespace normalization, and many others.
