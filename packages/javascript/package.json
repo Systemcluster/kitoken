@@ -1,0 +1,62 @@
+{
+    "name": "kitoken",
+    "displayName": "Kitoken",
+    "description": "Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization",
+    "version": "0.0.0",
+    "author": {
+        "name": "Christian Sdunek",
+        "email": "me@systemcluster.me"
+    },
+    "license": "BSD-2-Clause",
+    "repository": {
+        "type": "git",
+        "url": "github:Systemcluster/kitoken"
+    },
+    "readme": "README.md",
+    "engines": {
+        "node": ">=18"
+    },
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./node": {
+            "types": "./dist/node.d.ts",
+            "default": "./dist/node.cjs"
+        },
+        "./web": {
+            "types": "./dist/web.d.ts",
+            "default": "./dist/web.js"
+        },
+        "./minimal": {
+            "types": "./dist/minimal.d.ts",
+            "default": "./dist/minimal.js"
+        },
+        "./full": {
+            "types": "./dist/full.d.ts",
+            "default": "./dist/full.js"
+        }
+    },
+    "files": [
+        "./dist/*"
+    ],
+    "scripts": {
+        "build:node": "wasm-pack build --release --no-pack --target nodejs --out-dir dist --out-name node --features convert,split,regex-perf,inspect -Zbuild-std=panic_abort,core,alloc,std && move-file dist/node.js dist/node.cjs",
+        "build:web": "wasm-pack build --release --no-pack --target web --out-dir dist --out-name web --features convert,inspect -Zbuild-std=panic_abort,core,alloc,std",
+        "build:bundler": "wasm-pack build --release --no-pack --target bundler --out-dir dist --out-name index --features convert,inspect -Zbuild-std=panic_abort,core,alloc,std",
+        "build:minimal": "wasm-pack build --release --no-pack --target bundler --out-dir dist --out-name minimal --features default -Zbuild-std=panic_abort,core,alloc,std",
+        "build:full": "wasm-pack build --release --no-pack --target bundler --out-dir dist --out-name full --features convert,split,regex-perf,inspect -Zbuild-std=panic_abort,core,alloc,std",
+        "build": "cross-env RUSTC_BOOTSTRAP=1 RUSTFLAGS=\"-Ctarget-feature=+crt-static,+sign-ext,+bulk-memory,+mutable-globals,+nontrapping-fptoint,+multivalue,+reference-types -Zwasm-c-abi=spec\" concurrently -m 1 'npm:build:node' 'npm:build:web' 'npm:build:bundler' 'npm:build:minimal' 'npm:build:full'",
+        "prepare": "cross-env RUSTC_BOOTSTRAP=1 RUSTFLAGS=\"-Ctarget-feature=+crt-static,+sign-ext,+bulk-memory,+mutable-globals,+nontrapping-fptoint,+multivalue,+reference-types -Zwasm-c-abi=spec\" concurrently -m 1 'npm:build:node' 'npm:build:web' 'npm:build:bundler' 'npm:build:minimal' 'npm:build:full'"
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.0",
+        "cross-env": "^7.0.3",
+        "move-file-cli": "^3.0.0",
+        "wasm-pack": "^0.13.1"
+    }
+}

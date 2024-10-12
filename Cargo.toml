@@ -5,7 +5,7 @@ description = "Fast and versatile tokenizer for language models, supporting BPE,
 version = "0.0.0"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
 keywords = ["tokenizer", "nlp", "bpe", "unigram", "wordpiece"]
-categories = ["text-processing", "algorithms", "wasm", "no-std"]
+categories = ["text-processing", "algorithms", "wasm", "no-std", "parser-implementations"]
 license = "BSD-2-Clause"
 repository = "https://github.com/Systemcluster/kitoken"
 readme = "README.md"
@@ -15,6 +15,15 @@ include = [
     "Cargo.toml",
     "src/**/*",
     "LICENCE",
+]
+
+
+[workspace]
+
+members = [
+    ".",
+    "packages/python",
+    "packages/javascript",
 ]
 
 
@@ -93,7 +102,7 @@ multiversion = ["dep:multiversion"]
 
 bstr = { version = "1.10", default-features = false, features = ["alloc"] }
 log = { version = "0.4" }
-fancy-regex = { version = "0.13", default-features = false }
+fancy-regex = { version = "0.14", default-features = false }
 regex-automata = { version = "0.4", default-features = false, features = [
     "alloc",
     "syntax",
@@ -110,10 +119,9 @@ regex-syntax = { version = "0.8", default-features = false, features = [
     "unicode-gencat",
     "unicode-case",
 ] }
-hashbrown = { version = "0.14", default-features = false, features = ["ahash", "inline-more", "allocator-api2"] }
-ahash = { version = "0.8", default-features = false, features = ["const-random"] }
+hashbrown = { version = "0.15", default-features = false, features = ["default-hasher", "inline-more", "allocator-api2"] }
 once_cell = { version = "1.19", default-features = false, features = ["alloc", "race"] }
-orx-priority-queue = { version = "1.2", default-features = false }
+orx-priority-queue = { version = "1.4", default-features = false }
 memchr = { version = "2.7", default-features = false, features = ["alloc"] }
 derive_more = { version = "1.0", default-features = false, features = ["deref", "deref_mut", "as_ref", "index", "index_mut"] }
 
@@ -143,7 +151,7 @@ sentencepiece-model = { version = "0.1", default-features = false, optional = tr
 serde_json = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
 
 # optional dependencies for the multiversion feature
-multiversion = { version = "0.7", default-features = false, optional = true }
+multiversion = { version = "0.8", default-features = false, optional = true }
 
 [dev-dependencies]
 
@@ -202,6 +210,11 @@ strip = "none"
 [profile.bench.build-override]
 
 opt-level = 3
+
+[profile.test]
+
+inherits = "dev"
+opt-level = 1
 
 
 [[bench]]
