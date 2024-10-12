@@ -1,0 +1,105 @@
+[package]
+
+name = "kitoken-javascript"
+description = "JavaScript bindings for Kitoken"
+version = "0.0.0"
+edition = "2021"
+resolver = "2"
+publish = false
+workspace = "../.."
+
+
+[lib]
+
+name = "kitoken"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+
+[features]
+
+default = [
+    "std",
+    "serialization",
+    "normalization",
+]
+
+std = ["kitoken/std", "wasm-bindgen/std"]
+serialization = ["kitoken/serialization"]
+normalization = ["kitoken/normalization"]
+regex-unicode = ["kitoken/regex-unicode"]
+convert = ["kitoken/convert"]
+split = ["kitoken/split"]
+regex-perf = ["kitoken/regex-perf"]
+
+
+[dependencies]
+
+kitoken = { path = "../..", default-features = false, features = [] }
+
+log = { version = "0.4.22" }
+rlsf = { version = "0.2.1", features = ["std"] }
+wasm-bindgen = { version = "0.2.95", default-features = false, features = ["spans", "strict-macro"] }
+
+
+[dev-dependencies]
+
+kitoken-javascript = { path = ".", features = ["convert"] }
+
+
+[package.metadata]
+wasm-opt = true
+wasm-name-section = true
+wasm-producers-section = false
+
+[package.metadata.wasm-pack.profile.release]
+
+wasm-opt = [
+    '--enable-sign-ext',
+    '--enable-bulk-memory',
+    '--enable-mutable-globals',
+    '--enable-nontrapping-float-to-int',
+    '--enable-multivalue',
+    '--enable-reference-types',
+    '--low-memory-unused',
+    # '--enable-simd',
+    '--ignore-implicit-traps',
+    '--strip-producers',
+    '--strip-debug',
+    '-O4',
+    '--intrinsic-lowering',
+    # '--alignment-lowering',
+    '--flatten',
+    '--gto',
+    '--cfp',
+    '--gsi',
+    '--gufa-optimizing',
+    '--const-hoisting',
+    '-Os',
+]
+
+[package.metadata.wasm-pack.profile.profiling]
+
+wasm-opt = [
+    '--enable-sign-ext',
+    '--enable-bulk-memory',
+    '--enable-mutable-globals',
+    '--enable-nontrapping-float-to-int',
+    '--enable-multivalue',
+    '--enable-reference-types',
+    '--low-memory-unused',
+    # '--enable-simd',
+    '--ignore-implicit-traps',
+    '-g',
+    '--strip-producers',
+    '-O4',
+    '--intrinsic-lowering',
+    # '--alignment-lowering',
+    '--flatten',
+    '--gto',
+    '--cfp',
+    '--gsi',
+    '--gufa-optimizing',
+    '--const-hoisting',
+    '-Os',
+]

@@ -1,0 +1,76 @@
+[project]
+
+name = "kitoken"
+description = "Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization"
+requires-python = ">=3.10"
+license = { text = "BSD-2-Clause" }
+version = "0.0.0"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Environment :: Console",
+    "Topic :: File Formats",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: BSD License",
+    "Typing :: Typed",
+]
+authors = [{ name = "Christian Sdunek", email = "me@systemcluster.me" }]
+urls = { repository = "https://github.com/Systemcluster/kitoken" }
+
+
+[build-system]
+
+requires = [
+    "maturin[zig]>=1.7,<2.0",
+]
+build-backend = "maturin"
+
+
+[tool.rye]
+
+managed = true
+distribution = true
+universal = true
+virtual = false
+
+dev-dependencies = [
+    "maturin[zig]>=1.7,<2.0",
+    "pip>=24.2",
+]
+
+
+[tool.rye.scripts]
+
+"build" = { cmd = "maturin build --strip", env = { RUSTC_BOOTSTRAP = 1, RUSTFLAGS = "-Ctarget-feature=+crt-static" } }
+"build:manylinux" = { cmd = "maturin build --strip --zig --compatibility manylinux_2_28 --target x86_64-unknown-linux-gnu", env = { RUSTC_BOOTSTRAP = 1, RUSTFLAGS = "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static" } }
+"build:musllinux" = { cmd = "maturin build --strip --zig --compatibility musllinux_1_2 --target x86_64-unknown-linux-musl", env = { RUSTC_BOOTSTRAP = 1, RUSTFLAGS = "-Ctarget-cpu=x86-64-v2 -Ctarget-features+crt-static" } }
+"build:msvc-x64" = { cmd = "maturin build --strip --target x86_64-pc-windows-msvc", env = { RUSTC_BOOTSTRAP = 1, RUSTFLAGS = "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static" } }
+"build:msvc-aarch64" = { cmd = "maturin build --strip --target aarch64-pc-windows-msvc", env = { RUSTC_BOOTSTRAP = 1, RUSTFLAGS = "-Ctarget-feature=+crt-static" } }
+"build:macos-x64" = { cmd = "maturin build --strip --target x86_64-apple-darwin", env = { RUSTC_BOOTSTRAP = 1, RUSTFLAGS = "-Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static" } }
+"build:macos-aarch64" = { cmd = "maturin build --strip --target aarch64-apple-darwin", env = { RUSTC_BOOTSTRAP = 1, RUSTFLAGS = "-Ctarget-feature=+crt-static" } }
+
+[tool.maturin]
+
+profile = "performance"
+bindings = "pyo3"
+compatibility = "linux"
+manifest-path = "Cargo.toml"
+features = [
+    "pyo3/extension-module",
+    "pyo3/generate-import-lib",
+]
+include = [
+    "kitoken.pyi",
+]
+exclude = [
+    "test.py",
+]
