@@ -11,6 +11,7 @@ repository = "https://github.com/Systemcluster/kitoken"
 readme = "README.md"
 edition = "2021"
 resolver = "2"
+rust-version = "1.81.0"
 include = [
     "Cargo.toml",
     "src/**/*",
@@ -31,6 +32,10 @@ members = [
 
 name = "kitoken"
 path = "src/lib.rs"
+
+[[bin]]
+name = "kitoken"
+path = "src/main.rs"
 
 
 [features]
@@ -105,7 +110,7 @@ unstable = []
 
 bstr = { version = "1.10", default-features = false, features = ["alloc"] }
 log = { version = "0.4" }
-fancy-regex = { version = "0.13", default-features = false }
+fancy-regex = { version = "0.14", default-features = false }
 regex-automata = { version = "0.4", default-features = false, features = [
     "alloc",
     "syntax",
@@ -122,8 +127,7 @@ regex-syntax = { version = "0.8", default-features = false, features = [
     "unicode-gencat",
     "unicode-case",
 ] }
-hashbrown = { version = "0.14", default-features = false, features = ["ahash", "inline-more", "allocator-api2"] }
-ahash = { version = "0.8", default-features = false, features = ["const-random"] }
+hashbrown = { version = "0.15", default-features = false, features = ["inline-more", "allocator-api2"] }
 once_cell = { version = "1.19", default-features = false, features = ["alloc", "race"] }
 orx-priority-queue = { version = "1.4", default-features = false }
 memchr = { version = "2.7", default-features = false, features = ["alloc"] }
