@@ -42,6 +42,37 @@ mod hf {
         Ok(precompiled_charsmap)
     }
 
+    fn from_merges<'de, D>(deserializer: D) -> Result<HashMap<Vec<u8>, usize>, D::Error>
+    where
+        D: Deserializer<'de>, {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Merges {
+            Merged(Vec<String>),
+            Pair(Vec<(String, String)>),
+        }
+        let merges = match Merges::deserialize(deserializer)? {
+            Merges::Merged(merges) => merges
+                .into_iter()
+                .enumerate()
+                .map(|(i, merge)| {
+                    let mut parts = merge.splitn(2, ' ');
+                    if let (Some(left), Some(right)) = (parts.next(), parts.next()) {
+                        Some(([left.as_bytes(), right.as_bytes()].concat(), i))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Option<_>>(),
+            Merges::Pair(merges) => merges
+                .into_iter()
+                .enumerate()
+                .map(|(i, (left, right))| Some(([left.as_bytes(), right.as_bytes()].concat(), i)))
+                .collect(),
+        };
+        merges.ok_or_else(|| serde::de::Error::custom("invalid merges format"))
+    }
+
     fn default_true() -> bool {
         true
     }
@@ -65,8 +96,11 @@ mod hf {
         pub end_of_word_suffix:        Option<String>,
         pub fuse_unk:                  Option<bool>,
         pub byte_fallback:             Option<bool>,
+        #[allow(unused)]
+        pub ignore_merges:             Option<bool>,
         pub vocab:                     HashMap<String, u32>,
-        pub merges:                    Vec<String>,
+        #[serde(deserialize_with = "from_merges")]
+        pub merges:                    HashMap<Vec<u8>, usize>,
     }
 
     #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -1142,37 +1176,18 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 decode_byte_runes = true;
             }
 
-            let merges = bpe
-                .merges
-                .into_iter()
-                .enumerate()
-                .map(|(i, merge)| {
-                    let mut parts = merge.splitn(2, ' ');
-                    if let (Some(left), Some(right)) = (parts.next(), parts.next()) {
-                        Some(([left.as_bytes(), right.as_bytes()].concat(), i))
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Option<HashMap<_, _>>>();
-            let merges = if let Some(merges) = merges {
-                merges
-            } else {
-                return Err(ConversionError::InvalidData("failed to parse BPE merges".to_string()));
-            };
-
             let sort_vocab = |vocab: &mut Vocab| {
                 vocab.sort_by(|Token { bytes: a, id: ai }, Token { bytes: b, id: bi }| {
-                    if let (Some(ma), Some(mb)) = (merges.get(a), merges.get(b)) {
+                    if let (Some(ma), Some(mb)) = (bpe.merges.get(a), bpe.merges.get(b)) {
                         let comp = ma.cmp(mb);
                         if comp == Ordering::Equal {
                             ai.cmp(bi)
                         } else {
                             comp
                         }
-                    } else if merges.get(a).is_some() {
+                    } else if bpe.merges.get(a).is_some() {
                         Ordering::Less
-                    } else if merges.get(b).is_some() {
+                    } else if bpe.merges.get(b).is_some() {
                         Ordering::Greater
                     } else {
                         ai.cmp(bi)
