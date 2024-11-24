@@ -11,6 +11,7 @@ repository = "https://github.com/Systemcluster/kitoken"
 readme = "README.md"
 edition = "2021"
 resolver = "2"
+rust-version = "1.82.0"
 include = [
     "Cargo.toml",
     "src/**/*",
@@ -96,6 +97,9 @@ regex-onig = ["dep:onig"]
 
 # Enables the use of multiversion for generating multiple code paths with different CPU feature utilization
 multiversion = ["dep:multiversion"]
+
+# Enables the use of unstable features
+unstable = []
 
 
 [dependencies]
