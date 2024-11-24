@@ -2,7 +2,7 @@
 
 name = "kitoken"
 description = "Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization"
-version = "0.0.0"
+version = "0.10.0"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
 keywords = ["tokenizer", "nlp", "bpe", "unigram", "wordpiece"]
 categories = ["text-processing", "algorithms", "wasm", "no-std", "parser-implementations"]
@@ -11,6 +11,7 @@ repository = "https://github.com/Systemcluster/kitoken"
 readme = "README.md"
 edition = "2021"
 resolver = "2"
+rust-version = "1.82.0"
 include = [
     "Cargo.toml",
     "src/**/*",
@@ -96,6 +97,9 @@ regex-onig = ["dep:onig"]
 
 # Enables the use of multiversion for generating multiple code paths with different CPU feature utilization
 multiversion = ["dep:multiversion"]
+
+# Enables the use of unstable features
+unstable = []
 
 
 [dependencies]

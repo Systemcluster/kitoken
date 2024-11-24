@@ -1,5 +1,10 @@
 # kitoken
 
+[![Crates.io](https://img.shields.io/crates/v/kitoken)](https://crates.io/crates/kitoken)
+[![NPM](https://img.shields.io/npm/v/kitoken)](https://www.npmjs.com/package/kitoken)
+[![PyPI](https://img.shields.io/pypi/v/kitoken)](https://pypi.org/project/kitoken)
+[![Tests & Checks](https://img.shields.io/github/actions/workflow/status/Systemcluster/kitoken/tests.yml?label=tests%20%26%20checks)](https://github.com/Systemcluster/kitoken/actions/workflows/tests.yml)
+
 **Tokenizer for language models.**
 
 ```rust

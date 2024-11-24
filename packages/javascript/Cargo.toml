@@ -2,7 +2,7 @@
 
 name = "kitoken-javascript"
 description = "JavaScript bindings for Kitoken"
-version = "0.0.0"
+version = "0.10.0"
 edition = "2021"
 resolver = "2"
 publish = false
