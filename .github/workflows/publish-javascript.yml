@@ -1,0 +1,85 @@
+name: Publish JavaScript
+
+on:
+  workflow_run:
+    branches:
+      - main
+    workflows:
+      - Tests & Checks
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+
+  publish:
+
+    name: Publish
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up Rust
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          components: |
+            rust-src
+          cache-key-job: true
+
+      - name: Set up Node.js
+        uses: Systemcluster/actions@setup-node-v0
+        with:
+          cache: true
+          node-version: lts
+          package-manager: pnpm
+          directory: packages/javascript
+
+      - name: Build
+        env:
+          RUSTC_BOOTSTRAP: 1
+        run: |
+          cd packages/javascript
+          pnpm install --ignore-scripts
+          pnpm pack
+
+      - name: Publish (dry-run)
+        id: publish-dry-run
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_REGISTRY_TOKEN }}
+        if: github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster' && env.NPM_TOKEN == ''
+        run: |
+          cd packages/javascript
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          pnpm publish --ignore-scripts --access public --no-git-checks --dry-run
+
+      - name: Publish
+        id: publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_REGISTRY_TOKEN }}
+        if: github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster' && env.NPM_TOKEN != ''
+        run: |
+          cd packages/javascript
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          pnpm publish --ignore-scripts --access public --no-git-checks
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: javascript
+          path: packages/javascript

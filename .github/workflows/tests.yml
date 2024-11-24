@@ -1,0 +1,215 @@
+name: Tests & Checks
+
+on:
+  pull_request:
+    paths-ignore:
+      - ".github/**"
+      - "**/*.md"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: write
+  statuses: write
+
+jobs:
+
+  checks:
+
+    name: Checks
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        toolchain:
+          - stable
+
+    env:
+      RUST_BACKTRACE: full
+      RUST_LOG: info
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up Rust
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          components: |
+            clippy
+          cache-key-job: true
+
+      - name: Check
+        run: |
+          cargo check -p kitoken
+          cargo clippy -p kitoken
+
+      - name: Test
+        continue-on-error: true
+        id: test
+        env:
+          DUMP_ERRORS: true
+        run: |
+          cargo test -- --nocapture --test-threads=1
+
+      - name: Upload errors
+        uses: actions/upload-artifact@v4
+        if: steps.test.outcome == 'failure'
+        with:
+          name: errors
+          path: |
+            *.error.txt
+
+      - name: Fail
+        if: steps.test.outcome == 'failure'
+        run: exit 1
+
+
+  javascript:
+
+    name: JavaScript
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up Node.js
+        uses: Systemcluster/actions@setup-node-v0
+        with:
+          cache: true
+          node-version: lts
+          package-manager: pnpm
+          directory: packages/javascript
+
+      - name: Set up Rust
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          components: |
+            rust-src
+          cache-key-job: true
+
+      - name: Check
+        run: |
+          cd packages/javascript
+          cargo check
+          cargo clippy
+
+      - name: Build
+        env:
+          RUSTC_BOOTSTRAP: 1
+        run: |
+          cd packages/javascript
+          mv ../../README.md .
+          pnpm install --ignore-scripts
+          pnpm run build:node
+
+      - name: Test
+        run: |
+          cd packages/javascript
+          node test.js
+
+  python:
+
+    name: Python
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Rust
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          components: |
+            rust-src
+          cache-key-job: true
+
+      - name: Check
+        run: |
+          cd packages/python
+          cargo check
+          cargo clippy
+
+      - name: Build
+        run: |
+          cd packages/python
+          mv ../../README.md .
+          pip install uv
+          uv sync
+          uv run maturin develop
+
+      - name: Test
+        run: |
+          cd packages/python
+          uv run python test.py
+
+  formatting:
+
+    name: Formatting
+    runs-on: ${{ matrix.os }}
+
+    if: github.event_name == 'pull_request'
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - nightly
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up Rust
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          components: rustfmt
+          cache-key-job: true
+
+      - name: Check formatting
+        run: |
+          cargo fmt --all -- --check

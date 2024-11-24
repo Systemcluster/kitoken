@@ -1,4 +1,4 @@
-tests/data/* linguist-vendored
-tests/models/* linguist-vendored
-benches/data/* linguist-vendored
+tests/data/** linguist-vendored binary
+tests/models/** linguist-vendored binary
+benches/data/** linguist-vendored binary
 benches/*.svg linguist-generated
