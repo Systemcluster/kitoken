@@ -1,0 +1,205 @@
+name: Publish
+
+on:
+  workflow_run:
+    branches:
+      - main
+    workflows:
+      - Tests & Checks
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+
+  publish:
+
+    name: Publish
+    runs-on: ${{ matrix.os }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+      version: ${{ steps.publish.outputs.version }}
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up Rust toolchain
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          cache-key-job: true
+
+      - name: Publish crates
+        uses: Systemcluster/actions@release-crates-v0
+        id: publish
+        if: github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster'
+        with:
+          crates-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          dry-run: ${{ !secrets.CARGO_REGISTRY_TOKEN }}
+          allow-dirty: true
+          tag-crate: kitoken
+
+  javascript:
+
+    name: Publish JavaScript
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    needs:
+      - publish
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - name: Set up Rust toolchain
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          components: |
+            rust-src
+          cache-key-job: true
+
+      - name: Set up Node.js
+        uses: Systemcluster/actions@setup-node-v0
+        with:
+          cache: true
+          node-version: lts
+          package-manager: pnpm
+          directory: packages/javascript
+
+      - name: Build
+        run: |
+          cd packages/javascript
+          mv ../../README.md .
+          pnpm install
+          pnpm pack
+
+      - name: Publish (dry-run)
+        id: publish-dry-run
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_REGISTRY_TOKEN }}
+        if: github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster' && env.NPM_TOKEN == ''
+        run: |
+          cd packages/javascript
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          pnpm publish --access public --no-git-checks --dry-run
+
+      - name: Publish
+        id: publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_REGISTRY_TOKEN }}
+        if: github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster' && env.NPM_TOKEN != ''
+        run: |
+          cd packages/javascript
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          pnpm publish --access public --no-git-checks
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: javascript
+          path: packages/javascript
+
+  python:
+
+    name: Publish Python
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    needs:
+      - publish
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        toolchain:
+          - stable
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          show-progress: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Rust toolchain
+        uses: Systemcluster/actions@setup-rust-v0
+        with:
+          channel: ${{ matrix.toolchain }}
+          components: |
+            rust-src
+          cache-key-job: true
+          targets: |
+            x86_64-unknown-linux-gnu
+            aarch64-unknown-linux-gnu
+            x86_64-unknown-linux-musl
+            aarch64-unknown-linux-musl
+            x86_64-apple-darwin
+            aarch64-apple-darwin
+            x86_64-pc-windows-gnu
+            aarch64-pc-windows-gnu
+
+      - name: Build
+        run: |
+          cd packages/python
+          mv ../../README.md .
+          pip install uv
+          uv sync
+          uv run poe sdist
+          uv run poe build
+
+      - name: Publish (dry-run)
+        id: publish-dry-run
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_REGISTRY_TOKEN }}
+          TWINE_NON_INTERACTIVE: '1'
+        if: github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster' && env.TWINE_PASSWORD == ''
+        run: |
+          uv run twine check --strict target/wheels/*
+
+      - name: Publish
+        id: publish
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_REGISTRY_TOKEN }}
+          TWINE_NON_INTERACTIVE: '1'
+        if: github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster' && env.TWINE_PASSWORD != ''
+        run: |
+          uv run twine check --strict target/wheels/*
+          uv run twine upload --skip-existing target/wheels/*
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python
+          path: target/wheels

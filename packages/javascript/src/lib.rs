@@ -12,7 +12,6 @@ use alloc::vec::Vec;
 
 use core::fmt::{Debug, Display};
 
-use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
 use ::kitoken::Kitoken as Inner;
@@ -77,7 +76,7 @@ impl Kitoken {
     ) -> Result<Vec<JsValue>, JsValue> {
         let tokens = tokens
             .into_iter()
-            .map(from_value)
+            .map(serde_wasm_bindgen::from_value)
             .collect::<Result<Vec<Vec<u32>>, _>>()
             .map_err(|_| JsValue::from_str("expected an array of arrays of tokens"))?;
         let result = tokens
@@ -90,7 +89,7 @@ impl Kitoken {
     /// Returns the definition of the tokenizer.
     #[cfg(feature = "inspect")]
     pub fn definition(&self) -> JsValue {
-        to_value(&self.inner.to_definition()).unwrap()
+        serde_wasm_bindgen::to_value(&self.inner.to_definition()).unwrap()
     }
 
     /// Sets the definition of the tokenizer.
@@ -98,7 +97,7 @@ impl Kitoken {
     /// Returns an error if the definition is invalid.
     #[cfg(feature = "inspect")]
     pub fn set_definition(&mut self, definition: JsValue) -> Result<(), JsValue> {
-        let definition = from_value(definition).map_err(convert_error)?;
+        let definition = serde_wasm_bindgen::from_value(definition).map_err(convert_error)?;
         self.inner = Rc::new(Inner::from_definition(definition).map_err(convert_error)?);
         Ok(())
     }
@@ -106,7 +105,7 @@ impl Kitoken {
     /// Returns the configuration of the tokenizer.
     #[cfg(feature = "inspect")]
     pub fn config(&self) -> JsValue {
-        to_value(&self.inner.to_definition().config).unwrap()
+        serde_wasm_bindgen::to_value(&self.inner.to_definition().config).unwrap()
     }
 
     /// Sets the configuration of the tokenizer.
@@ -115,7 +114,7 @@ impl Kitoken {
     #[cfg(feature = "inspect")]
     pub fn set_config(&mut self, config: JsValue) -> Result<(), JsValue> {
         let mut definition = self.inner.to_definition();
-        definition.config = from_value(config).map_err(convert_error)?;
+        definition.config = serde_wasm_bindgen::from_value(config).map_err(convert_error)?;
         self.inner = Rc::new(Inner::from_definition(definition).map_err(convert_error)?);
         Ok(())
     }
