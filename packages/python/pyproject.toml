@@ -23,9 +23,15 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Typing :: Typed",
 ]
+keywords = ["tokenizer", "nlp", "bpe", "unigram", "wordpiece"]
 authors = [{ name = "Christian Sdunek", email = "me@systemcluster.me" }]
-urls = { repository = "https://github.com/Systemcluster/kitoken" }
 readme = "README.md"
+
+
+[project.urls]
+
+Homepage = "https://kitoken.dev"
+Repository = "https://github.com/Systemcluster/kitoken"
 
 
 [build-system]
