@@ -8,11 +8,19 @@
         "email": "me@systemcluster.me"
     },
     "license": "BSD-2-Clause",
+    "homepage": "https://kitoken.dev",
     "repository": {
         "type": "git",
         "url": "github:Systemcluster/kitoken"
     },
     "readme": "README.md",
+    "keywords": [
+        "tokenizer",
+        "nlp",
+        "bpe",
+        "unigram",
+        "wordpiece"
+    ],
     "engines": {
         "node": ">=18"
     },

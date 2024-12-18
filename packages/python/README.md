@@ -5,10 +5,10 @@
 ```py
 from kitoken import Kitoken
 
-const encoder = Kitoken.from_file("models/llama2.kit")
+encoder = Kitoken.from_file("models/llama3.3.model")
 
-const tokens = encoder.encode("hello world!", True)
-const string = encoder.decode(tokens).decode("utf-8")
+tokens = encoder.encode("hello world!", True)
+string = encoder.decode(tokens).decode("utf-8")
 
 assert string == "hello world!"
 ```
@@ -28,7 +28,7 @@ assert string == "hello world!"
 
 ## Overview
 
-Kitoken is a fast and versatile tokenizer for language models. Multiple tokenization algorithms are supported:
+Kitoken is a fast and versatile tokenizer for language models with support for multiple tokenization algorithms:
 
 - **BytePair**: A variation of the BPE algorithm, merging byte or character pairs.
 - **Unigram**: The Unigram subword algorithm.
