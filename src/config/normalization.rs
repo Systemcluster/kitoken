@@ -1,5 +1,7 @@
 //! Pre-tokenization input normalization.
 
+use core::ops::Range;
+
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
@@ -62,6 +64,14 @@ impl From<Regex> for NormalizationReplacePattern {
     }
 }
 
+/// Condition for conditional normalization.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
+pub enum NormalizationCondition {
+    StartOfText,
+    EndOfText,
+}
+
 /// Pre-tokenization input normalization configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serialization", derive(Deserialize, Serialize))]
@@ -98,11 +108,16 @@ pub enum Normalization {
     },
     /// Precompiled character map.
     CharsMap { map: CharsMap },
+    /// Conditional normalization.
+    Conditional {
+        condition:     NormalizationCondition,
+        normalization: Box<Normalization>,
+    },
 }
 
 impl Normalization {
     #[inline(never)]
-    pub fn normalize(&self, text: &mut Cow<str>) {
+    pub fn normalize(&self, text: &mut Cow<str>, position: Range<usize>) {
         use Normalization::*;
         match self {
             Unicode { scheme } => {
@@ -146,6 +161,17 @@ impl Normalization {
             }
             CharsMap { map } => {
                 normalize_charsmap(text, map);
+            }
+            Conditional {
+                condition,
+                normalization,
+            } => {
+                if match condition {
+                    NormalizationCondition::StartOfText => position.start == 0,
+                    NormalizationCondition::EndOfText => position.end == usize::MAX,
+                } {
+                    normalization.normalize(text, position);
+                }
             }
         }
     }
@@ -324,7 +350,7 @@ mod tests {
     fn test_normalization_nmt() {
         let mut text = Cow::Borrowed("aaa\u{200D}bbb\u{8f}");
         let normalization = Normalization::NMT;
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aaa bbb");
     }
 
@@ -332,12 +358,12 @@ mod tests {
     fn test_normalization_case_fold() {
         let mut text = Cow::Borrowed("AAA bbb");
         let normalization = Normalization::CaseFold { upper: false };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aaa bbb");
 
         let mut text = Cow::Borrowed("AAA bbb");
         let normalization = Normalization::CaseFold { upper: true };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "AAA BBB");
     }
 
@@ -347,7 +373,7 @@ mod tests {
         let normalization = Normalization::Append {
             append: " bbb".to_string(),
         };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aaa bbb");
     }
 
@@ -357,7 +383,7 @@ mod tests {
         let normalization = Normalization::Prepend {
             prepend: "aaa ".to_string(),
         };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aaa bbb");
     }
 
@@ -370,7 +396,7 @@ mod tests {
             right:     3,
             pad:       false,
         };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aabbbaaa");
 
         let mut text = Cow::Borrowed("aba");
@@ -380,7 +406,7 @@ mod tests {
             right:     3,
             pad:       true,
         };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aabaaa");
     }
 
@@ -392,7 +418,7 @@ mod tests {
             left:      2,
             right:     3,
         };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aba");
     }
 
@@ -400,7 +426,7 @@ mod tests {
     fn test_normalization_collapse() {
         let mut text = Cow::Borrowed("abbbba bbb");
         let normalization = Normalization::Collapse { character: 'b' };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aba b");
     }
 
@@ -411,7 +437,40 @@ mod tests {
             pattern:     Regex::new(r"b").unwrap().into(),
             replacement: "a".to_string(),
         };
-        normalization.normalize(&mut text);
+        normalization.normalize(&mut text, 0..usize::MAX);
         assert_eq!(text, "aaa aaa");
+    }
+
+    #[test]
+    fn test_normalization_conditional() {
+        let mut text = Cow::Borrowed("aba bbb");
+        let normalization = Normalization::Conditional {
+            condition:     NormalizationCondition::StartOfText,
+            normalization: Box::new(Normalization::Replace {
+                pattern:     Regex::new(r"b").unwrap().into(),
+                replacement: "a".to_string(),
+            }),
+        };
+        normalization.normalize(&mut text, 0..usize::MAX);
+        assert_eq!(text, "aaa aaa");
+
+        let mut text = Cow::Borrowed("aba bbb");
+        normalization.normalize(&mut text, 1..usize::MAX);
+        assert_eq!(text, "aba bbb");
+
+        let mut text = Cow::Borrowed("aba bbb");
+        let normalization = Normalization::Conditional {
+            condition:     NormalizationCondition::EndOfText,
+            normalization: Box::new(Normalization::Replace {
+                pattern:     Regex::new(r"b").unwrap().into(),
+                replacement: "a".to_string(),
+            }),
+        };
+        normalization.normalize(&mut text, 0..usize::MAX);
+        assert_eq!(text, "aaa aaa");
+
+        let mut text = Cow::Borrowed("aba bbb");
+        normalization.normalize(&mut text, 0..4);
+        assert_eq!(text, "aba bbb");
     }
 }

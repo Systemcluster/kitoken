@@ -277,7 +277,7 @@ impl Kitoken {
             if let Some(next) = extracted.pop() {
                 if next.0 > posit {
                     let mut text = text[posit..next.0].into();
-                    self.config.normalize(&mut text);
+                    self.config.normalize(&mut text, posit..next.0);
                     parts.push(TextPart {
                         text,
                         special: Token::INVALID,
@@ -295,7 +295,7 @@ impl Kitoken {
                 posit = next.1;
             } else {
                 let mut rest = text[posit..text.len()].into();
-                self.config.normalize(&mut rest);
+                self.config.normalize(&mut rest, posit..usize::MAX);
                 parts.push(TextPart {
                     text:    rest,
                     special: Token::INVALID,

@@ -2,6 +2,8 @@
 //!
 //! Defines the tokenization mode fallback, input normalization, pre-tokenization split behavior, post-tokenization processing, post-decode processing, and input templates.
 
+use core::ops::Range;
+
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -128,12 +130,12 @@ impl Configuration {
 
     /// Normalizes the input before tokenization.
     #[inline(never)]
-    pub fn normalize(&self, text: &mut Cow<str>) {
+    pub fn normalize(&self, text: &mut Cow<str>, position: Range<usize>) {
         if text.is_empty() {
             return;
         }
         for norm in &self.normalization {
-            norm.normalize(text);
+            norm.normalize(text, position.clone());
         }
     }
 

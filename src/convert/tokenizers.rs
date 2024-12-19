@@ -17,9 +17,9 @@ use hashbrown::HashMap;
 use crate::convert::ConversionError;
 use crate::{
     Configuration, Decoding, Definition, Fallback, InsertionPosition, Kitoken, Metadata, Model,
-    Normalization, Processing, ProcessingDirection, Regex, Scores, SpecialToken, SpecialTokenKind,
-    SpecialVocab, Split, SplitBehavior, Template, Token, TokenBytes, TokenId, UnicodeNormalization,
-    Vocab,
+    Normalization, NormalizationCondition, Processing, ProcessingDirection, Regex, Scores,
+    SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior, Template, Token,
+    TokenBytes, TokenId, UnicodeNormalization, Vocab,
 };
 
 mod hf {
@@ -642,12 +642,22 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     pattern:     Regex::new(r" ")?.into(),
                     replacement: replacement.to_string(),
                 });
-                if prepend_scheme != PrependScheme::Never {
+                if prepend_scheme == PrependScheme::Always {
                     config.normalization.push(Normalization::Extend {
                         character: replacement,
                         left:      1,
                         right:     0,
                         pad:       true,
+                    });
+                } else if prepend_scheme == PrependScheme::First {
+                    config.normalization.push(Normalization::Conditional {
+                        condition:     NormalizationCondition::StartOfText,
+                        normalization: Box::new(Normalization::Extend {
+                            character: replacement,
+                            left:      1,
+                            right:     0,
+                            pad:       true,
+                        }),
                     });
                 }
                 if split {
