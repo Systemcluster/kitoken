@@ -75,7 +75,7 @@ use ms::Tokenizer;
 /// use kitoken::convert::convert_tekken;
 /// use kitoken::Kitoken;
 ///
-/// let data = std::fs::read("tests/models/tekken/nemo.json")?;
+/// let data = std::fs::read("tests/models/tekken/mistral2410.json")?;
 /// let definition = convert_tekken(data).unwrap();
 ///
 /// let tokenizer = Kitoken::try_from(definition).unwrap();
