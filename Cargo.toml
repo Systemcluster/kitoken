@@ -2,7 +2,7 @@
 
 name = "kitoken"
 description = "Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization"
-version = "0.10.0"
+version = "0.10.1"
 authors = ["Christian Sdunek <me@systemcluster.me>"]
 keywords = ["tokenizer", "nlp", "bpe", "unigram", "wordpiece"]
 categories = ["text-processing", "algorithms", "wasm", "no-std", "parser-implementations"]
