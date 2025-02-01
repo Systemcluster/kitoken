@@ -7,9 +7,11 @@
 
 **Tokenizer for language models.**
 
+<sup>**Tokenize text for Llama, Gemini, GPT-4, Mistral and many others; in the web, on the client and any platform.**</sup>
+
 ```rust
 use kitoken::Kitoken;
-let encoder = Kitoken::from_file("models/llama2.kit")?;
+let encoder = Kitoken::from_file("models/llama3.kit")?;
 
 let tokens = encoder.encode("Your future belongs to me.", true)?;
 let string = String::from_utf8(encoder.decode(&tokens, true)?)?;
@@ -17,30 +19,18 @@ let string = String::from_utf8(encoder.decode(&tokens, true)?)?;
 assert!(string == "Your future belongs to me.");
 ```
 
-## Features
-
-- **Fast encoding and decoding**\
-  Faster than most other tokenizers in both common and uncommon scenarios.
-- **Support for a wide variety of tokenizer formats and tokenization strategies**\
-  Including support for Tokenizers, SentencePiece, Tiktoken and more.
-- **Compatible with many systems and platforms**\
-  Runs on Windows, Linux, macOS and embedded, and comes with bindings for Web, Node and Python.
-- **Compact data format**\
-  Definitions are stored in an efficient binary format and without merge list.
-- **Support for normalization and pre-tokenization**\
-  Including unicode normalization, whitespace normalization, and many others.
-
 ## Overview
 
-Kitoken is a fast and versatile tokenizer for language models. Multiple tokenization algorithms are supported:
+Kitoken is a fast and versatile tokenizer for language models compatible with [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers), [OpenAI Tiktoken](https://github.com/openai/tiktoken) and [Mistral Tekken](https://docs.mistral.ai/guides/tokenization).
 
-- **BytePair**: A variation of the BPE algorithm, merging byte or character pairs.
-- **Unigram**: The Unigram subword algorithm.
-- **WordPiece**: The WordPiece subword algorithm.
-
-Kitoken is compatible with many existing tokenizers,
-including [SentencePiece](https://github.com/google/sentencepiece), [HuggingFace Tokenizers](https://github.com/huggingface/tokenizers), [OpenAI Tiktoken](https://github.com/openai/tiktoken) and [Mistral Tekken](https://docs.mistral.ai/guides/tokenization),
-while outperforming them in most scenarios. See the [benchmarks](#benchmarks) for comparisons with different datasets.
+- **Fast and efficient tokenization**\
+  Faster than most other tokenizers in both common and uncommon scenarios; see the [benchmarks](#benchmarks) for comparisons with different datasets.
+- **Usable in any environment**\
+  Comes with bindings for Web, Node and Python and runs on any platform; see [kitoken.dev](https://kitoken.dev) for a web demo.
+- **Support for normalization and pre-tokenization**\
+  Including unicode-aware normalization, pre-tokenization and post-processing options.
+- **Compact data format**\
+  Definitions are stored in an efficient binary format and without merge list.
 
 ## Compatibility
 
@@ -70,7 +60,7 @@ If the model does not contain a trainer definition, `Unigram` is assumed as the 
 ### Tokenizers
 
 ```rust
-let encoder = Kitoken::from_tokenizers_file("models/llama2.json")?;
+let encoder = Kitoken::from_tokenizers_file("models/llama3.json")?;
 ```
 
 Kitoken can convert and initialize with HuggingFace Tokenizers definitions for `BPE`, `Unigram` and `WordPiece` models.
@@ -105,7 +95,7 @@ For other models, or depending on the data and requirements, these values can be
 ### Tekken
 
 ```rust
-let encoder = Kitoken::from_tekken_file("models/nemo.json")?;
+let encoder = Kitoken::from_tekken_file("models/tekken.json")?;
 ```
 
 Tekken is a `BPE` tokenizer with a custom definition format based on Tiktoken, used by Mistral for NeMo and newer models using `BytePair` tokenization in byte mode.
