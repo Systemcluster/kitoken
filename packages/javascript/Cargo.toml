@@ -39,9 +39,9 @@ inspect = []
 
 kitoken = { path = "../..", default-features = false, features = [] }
 
-log = { version = "0.4.22" }
+log = { version = "0.4.25" }
 rlsf = { version = "0.2.1", features = ["std"] }
-wasm-bindgen = { version = "0.2.95", default-features = false, features = ["spans", "strict-macro"] }
+wasm-bindgen = { version = "0.2.100", default-features = false, features = ["spans", "strict-macro"] }
 serde-wasm-bindgen = { version = "0.6.5" }
 
 

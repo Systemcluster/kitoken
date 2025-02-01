@@ -39,7 +39,8 @@ impl Kitoken {
         let text = text.extract::<&str>()?;
         py.allow_threads(|| self.inner.encode(text, encode_specials.unwrap_or(false)))
             .map_err(convert_error)
-            .map(|tokens| PyList::new_bound(py, tokens))
+            .map(|tokens| PyList::new(py, tokens))
+            .and_then(|texts| texts)
     }
 
     #[pyo3(signature = (text, encode_specials=false))]
@@ -53,7 +54,8 @@ impl Kitoken {
                 .collect::<Result<Vec<_>, _>>()
         })
         .map_err(convert_error)
-        .map(|tokens| PyList::new_bound(py, tokens))
+        .map(|tokens| PyList::new(py, tokens))
+        .and_then(|texts| texts)
     }
 
     #[pyo3(signature = (tokens, decode_specials=false))]
@@ -63,7 +65,7 @@ impl Kitoken {
         let tokens = tokens.extract::<Vec<u32>>()?;
         py.allow_threads(|| self.inner.decode(tokens, decode_specials.unwrap_or(false)))
             .map_err(convert_error)
-            .map(|s| PyBytes::new_bound(py, &s))
+            .map(|s| PyBytes::new(py, &s))
     }
 
     #[pyo3(signature = (tokens, decode_specials=false))]
@@ -78,7 +80,8 @@ impl Kitoken {
                 .collect::<Result<Vec<_>, _>>()
         })
         .map_err(convert_error)
-        .map(|texts| PyList::new_bound(py, texts.iter().map(|s| PyBytes::new_bound(py, s))))
+        .map(|texts| PyList::new(py, texts.iter().map(|s| PyBytes::new(py, s))))
+        .and_then(|texts| texts)
     }
 
     pub fn definition<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyAny>> {
@@ -115,7 +118,7 @@ impl Kitoken {
         let mut path = PathBuf::from(path.extract::<&str>()?);
         if path.is_relative() {
             path = py
-                .eval_bound("__builtins__.__import__('os').path.realpath('__file__')", None, None)?
+                .eval(c"__builtins__.__import__('os').path.realpath('__file__')", None, None)?
                 .extract::<String>()?
                 .parse::<PathBuf>()?
                 .parent()
@@ -139,7 +142,7 @@ impl Kitoken {
         let mut path = PathBuf::from(path.extract::<&str>()?);
         if path.is_relative() {
             path = py
-                .eval_bound("__builtins__.__import__('os').path.realpath('__file__')", None, None)?
+                .eval(c"__builtins__.__import__('os').path.realpath('__file__')", None, None)?
                 .extract::<String>()?
                 .parse::<PathBuf>()?
                 .parent()
@@ -150,7 +153,7 @@ impl Kitoken {
     }
 
     pub fn to_bytes<'a>(&self, py: Python<'a>) -> Bound<'a, PyBytes> {
-        PyBytes::new_bound(py, &py.allow_threads(|| self.inner.to_vec()))
+        PyBytes::new(py, &py.allow_threads(|| self.inner.to_vec()))
     }
 
     #[staticmethod]
