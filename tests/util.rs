@@ -13,7 +13,7 @@ static INIT_ENV: Once = Once::new();
 pub fn init_env() {
     INIT_ENV.call_once(|| {
         simple_logger::SimpleLogger::new()
-            .with_level(log::Level::Debug.to_level_filter())
+            .with_level(log::Level::Info.to_level_filter())
             .env()
             .init()
             .unwrap();

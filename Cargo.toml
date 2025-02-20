@@ -26,6 +26,7 @@ members = [
     ".",
     "packages/python",
     "packages/javascript",
+    "packages/cli",
 ]
 
 
