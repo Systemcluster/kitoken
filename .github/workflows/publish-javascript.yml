@@ -41,6 +41,9 @@ jobs:
           components: |
             rust-src
           cache-key-job: true
+          binaries: |
+            wasm-bindgen-cli
+            wasm-opt
 
       - name: Set up Node.js
         uses: Systemcluster/actions@setup-node-v0
