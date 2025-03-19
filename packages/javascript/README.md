@@ -33,10 +33,12 @@ See the main [README](//github.com/Systemcluster/kitoken) for more information.
 
 The JavaScript package provides multiple exports:
 
-| Export          | Description                                                                                           |
-|-----------------|-------------------------------------------------------------------------------------------------------|
-| `kitoken`       | The default export, importing the WebAssembly file directly. Usable with Webpack and other bundlers.  |
-| `kitoken/node`  | Uses Node.js functions to read the WebAssembly file from the file system. Provides support for additional split strategies and regex optimizations. |
-| `kitoken/web`   | Usable with web browsers, uses `new URL(..., import.meta.url)` to load the WebAssembly file.           |
-| `kitoken/minimal`| Smallest file size. Similar to the default export, but only supports initialization from `.kit` definitions. |
-| `kitoken/full`  | Largest file size. Similar to the default export, but provides support for additional split strategies and regex optimizations. |
+| Export            | Description                                                                                           |
+|-------------------|-------------------------------------------------------------------------------------------------------|
+| `kitoken`         | The default export, importing the WebAssembly file directly. Usable with Webpack and other bundlers.  |
+| `kitoken/node`    | Uses Node.js functions to read the WebAssembly file from the file system. Provides support for additional split strategies and regex optimizations. |
+| `kitoken/web`     | Can be used in web browsers without a bundler, uses `new URL(..., import.meta.url)` to load the WebAssembly file. |
+| `kitoken/minimal` | Smallest file size. Similar to the default export, but only supports initialization from `.kit` definitions. |
+| `kitoken/full`    | Largest file size. Similar to the default export, but provides support for additional split strategies and regex optimizations. |
+
+See also the [Node test](./test.js) and the [Web example](./examples/web.html).
