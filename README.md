@@ -7,11 +7,11 @@
 
 **Tokenizer for language models.**
 
-<sup>**Tokenize text for Llama, Gemini, GPT-4, Mistral and many others; in the web, on the client and any platform.**</sup>
+<sup>**Tokenize text for Llama, Gemini, GPT-4, DeepSeek, Mistral and many others; in the web, on the client and any platform.**</sup>
 
 ```rust
 use kitoken::Kitoken;
-let encoder = Kitoken::from_file("models/llama3.kit")?;
+let encoder = Kitoken::from_file("models/llama4.kit")?;
 
 let tokens = encoder.encode("Your future belongs to me.", true)?;
 let string = String::from_utf8(encoder.decode(&tokens, true)?)?;
@@ -26,8 +26,8 @@ Kitoken is a fast and versatile tokenizer for language models compatible with [S
 - **Fast and efficient tokenization**\
   Faster than most other tokenizers in both common and uncommon scenarios; see the [benchmarks](#benchmarks) for comparisons with different datasets.
 - **Runs in all environments**\
-  Native in Rust and with bindings for Web, Node and Python; see [kitoken.dev](https://kitoken.dev) for a web demo.
-- **Support for normalization and pre-tokenization**\
+  Native in Rust and with bindings for [Web](./packages/javascript), [Node](./packages/javascript) and [Python](./packages/python); see [kitoken.dev](https://kitoken.dev) for a web demo.
+- **Supports input and output processing**\
   Including unicode-aware normalization, pre-tokenization and post-processing options.
 - **Compact data format**\
   Definitions are stored in an efficient binary format and without merge list.
@@ -36,10 +36,15 @@ Kitoken is a fast and versatile tokenizer for language models compatible with [S
 
 Kitoken can load and convert many existing tokenizer formats. Every supported format is [tested](./tests) against the original implementation across a variety of inputs to ensure correctness and compatibility.
 
+> [!NOTE]
+> Most models on [Hugging Face](https://huggingface.co) are supported. Just take the `tokenizer.json` or `spiece.model` of a model and load it into Kitoken.
+
+Kitoken aims to be output-identical with existing implementations for all models. See the notes below for differences in specific cases.
+
 ### SentencePiece
 
 ```rust
-let encoder = Kitoken::from_sentencepiece_file("models/mistral.model")?;
+let encoder = Kitoken::from_file("models/gemma.model")?;
 ```
 
 Kitoken can convert and initialize with SentencePiece models in `BPE` and `Unigram` format.
@@ -60,7 +65,7 @@ If the model does not contain a trainer definition, `Unigram` is assumed as the 
 ### Tokenizers
 
 ```rust
-let encoder = Kitoken::from_tokenizers_file("models/llama3.json")?;
+let encoder = Kitoken::from_file("models/llama4.json")?;
 ```
 
 Kitoken can convert and initialize with HuggingFace Tokenizers definitions for `BPE`, `Unigram` and `WordPiece` models.
@@ -76,7 +81,7 @@ Some normalization, post-processing and decoding options used by Tokenizers are 
 <details>
 <summary>Notes</summary>
 
-- When using a `BPE` definition with an incomplete vocabulary and without an `unk` token, Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually. This can result in different encodings depending on vocabulary coverage and inputs in this scenario.
+- When using a `BPE` definition with an incomplete vocabulary and without an `unk` token, Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually. This can affect models that exploit the behavior of Tokenizers with a deliberately restricted vocabulary.
 - Tokenizers normalizes inputs character-by-character, while Kitoken normalizes inputs as one. This can result in differences during case-folding in some cases. For example, greek letter `Σ` has two lowercase forms, `σ` for within-word and `ς` for end-of-word use. Tokenizers will always lowercase `Σ` to `σ`, while Kitoken will lowercase it to either depending on the context.
 
 </details>
@@ -84,10 +89,10 @@ Some normalization, post-processing and decoding options used by Tokenizers are 
 ### Tiktoken
 
 ```rust
-let encoder = Kitoken::from_tiktoken_file("models/cl100k_base.tiktoken")?;
+let encoder = Kitoken::from_file("models/o200k_base.tiktoken")?;
 ```
 
-Tiktoken is a `BPE` tokenizer with a custom definition format used by OpenAI for GPT-3 and newer models using `BytePair` tokenization in byte mode.
+Tiktoken is a `BPE` tokenizer used by OpenAI for GPT-3 and newer models and uses `BytePair` tokenization in byte mode.
 
 Tiktoken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids without any additional metadata. Special tokens and the split regex are expected to be provided separately, but will be inferred from the data for common models including GPT-3, GPT-4 and GPT-4o.
 For other models, or depending on the data and requirements, these values can be adjusted manually.
@@ -95,10 +100,10 @@ For other models, or depending on the data and requirements, these values can be
 ### Tekken
 
 ```rust
-let encoder = Kitoken::from_tekken_file("models/tekken.json")?;
+let encoder = Kitoken::from_file("models/mistral.json")?;
 ```
 
-Tekken is a `BPE` tokenizer with a custom definition format based on Tiktoken, used by Mistral for NeMo and newer models using `BytePair` tokenization in byte mode.
+Tekken is a `BPE` tokenizer based on Tiktoken, used by Mistral for NeMo and newer models and uses `BytePair` tokenization in byte mode.
 
 Tekken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids, as well as metadata including the split regex and special tokens.
 

@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::Path;
 
 use alloc::format;
-use alloc::string::ToString;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use base64::{alphabet, engine, Engine};
@@ -14,8 +14,8 @@ use bstr::ByteSlice;
 
 use crate::convert::ConversionError;
 use crate::{
-    Configuration, Definition, Fallback, Kitoken, Metadata, Model, Regex, SpecialToken,
-    SpecialTokenKind, SpecialVocab, Split, SplitBehavior, Vocab,
+    Configuration, Definition, Fallback, InsertionPosition, Kitoken, Metadata, Model, Regex,
+    SpecialToken, SpecialTokenKind, SpecialVocab, Split, SplitBehavior, Template, Vocab,
 };
 
 static BASE64: engine::GeneralPurpose =
@@ -83,8 +83,91 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
     let mut config = Configuration::default();
     config.fallback.push(Fallback::Skip);
 
-    let specials: &[(&str, u32)] = if vocab.len() >= 199990 {
-        config.split.push(Split::Pattern { pattern:
+    let mut specials = Vec::<(String, u32)>::with_capacity(2048);
+    let reserved = move |name, count, start, pos| {
+        (start..count + start)
+            .enumerate()
+            .map(move |(n, i)| (format!("<|{name}reserved_special_token_{i}|>"), (pos + n) as u32))
+    };
+    let sequential = move |list: &'static [&'static str], pos| {
+        list.iter().enumerate().map(move |(n, s)| (s.to_string(), (pos + n) as u32))
+    };
+    match vocab.len() {
+        len @ 200000 => {
+            log::debug!("Detected llama4 vocab");
+            config.split.push(Split::Pattern { pattern:
+                Regex::new(&[
+                    r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+                    r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+                    r"\p{N}{1,3}",
+                    r" ?[^\s\p{L}\p{N}]+[\r\n/]*",
+                    r"\s*[\r\n]+",
+                    r"\s+(?!\S)",
+                ].join("|"))?.into(),
+                behavior: SplitBehavior::Isolate
+            });
+            config.templates.push(Template {
+                content:  "<|begin_of_text|>".to_string(),
+                position: InsertionPosition::SequenceStart,
+            });
+            config.templates.push(Template {
+                content:  "<|end_of_text|>".to_string(),
+                position: InsertionPosition::SequenceEnd,
+            });
+            // Ref: https://github.com/meta-llama/llama-models/blob/main/models/llama4/tokenizer.py
+            specials.extend(sequential(
+                &[
+                    "<|begin_of_text|>",
+                    "<|end_of_text|>",
+                    "<|fim_prefix|>",
+                    "<|fim_middle|>",
+                    "<|fim_suffix|>",
+                    "<|header_start|>",
+                    "<|header_end|>",
+                    "<|eom|>",
+                    "<|eot|>",
+                    "<|step|>",
+                ],
+                len,
+            ));
+            specials.extend(reserved("text_post_train_", 6, 0, len + specials.len()));
+            specials.extend(sequential(
+                &[
+                    "<|python_start|>",
+                    "<|python_end|>",
+                    "<|finetune_right_pad|>",
+                ],
+                len + specials.len(),
+            ));
+            specials.extend(reserved("text_post_train_", 61, 8, len + specials.len()));
+            specials.extend(sequential(
+                &[
+                    "<|image_start|>",
+                    "<|image_end|>",
+                    "<|vision_reserved_special_token_0|>",
+                    "<|vision_reserved_special_token_1|>",
+                    "<|tile_x_separator|>",
+                    "<|tile_y_separator|>",
+                    "<|vision_reserved_special_token_2|>",
+                    "<|vision_reserved_special_token_3|>",
+                    "<|vision_reserved_special_token_4|>",
+                    "<|vision_reserved_special_token_5|>",
+                    "<|image|>",
+                    "<|vision_reserved_special_token_6|>",
+                    "<|patch|>",
+                ],
+                len + specials.len(),
+            ));
+            specials.extend(reserved("vision_", 1041, 7, len + specials.len()));
+            specials.extend(reserved("reasoning_", 7, 0, len + specials.len()));
+            specials.extend(sequential(
+                &["<|reasoning_thinking_start|>", "<|reasoning_thinking_end|>"],
+                len + specials.len(),
+            ));
+        }
+        199990.. => {
+            log::debug!("Detected o200k vocab");
+            config.split.push(Split::Pattern { pattern:
             Regex::new(&[
                 r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
                 r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
@@ -95,42 +178,66 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
             ].join("|"))?.into(),
             behavior: SplitBehavior::Isolate
         });
-        &[("<|endoftext|>", 199999), ("<|endofprompt|>", 200018)]
-    } else if vocab.len() >= 100000 {
-        config.split.push(Split::Pattern { pattern:
+            specials.extend([
+                ("<|endoftext|>".to_string(), 199999),
+                ("<|endofprompt|>".to_string(), 200018),
+            ]);
+        }
+        100000.. => {
+            log::debug!("Detected cl100k vocab");
+            config.split.push(Split::Pattern { pattern:
             Regex::new(r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)")?.into(),
             behavior: SplitBehavior::Isolate
         });
-        &[
-            ("<|endoftext|>", 100257),
-            ("<|fim_prefix|>", 100258),
-            ("<|fim_middle|>", 100259),
-            ("<|fim_suffix|>", 100260),
-            ("<|endofprompt|>", 100276),
-            ("<|im_start|>", 100264),
-            ("<|im_end|>", 100265),
-        ]
-    } else {
-        config.split.push(Split::Pattern {
-            pattern:  Regex::new(r"'(?:[sdmt]|ll|ve|re)|\s?\p{L}+|\s?\p{N}+|\s?[^\s\p{L}\p{N}]+")?
+            specials.extend(
+                [
+                    ("<|endoftext|>", 100257),
+                    ("<|fim_prefix|>", 100258),
+                    ("<|fim_middle|>", 100259),
+                    ("<|fim_suffix|>", 100260),
+                    ("<|endofprompt|>", 100276),
+                    ("<|im_start|>", 100264),
+                    ("<|im_end|>", 100265),
+                ]
+                .map(|(s, n)| (s.to_string(), n)),
+            );
+        }
+        _ => {
+            log::debug!("Detected p50k vocab");
+            config.split.push(Split::Pattern {
+                pattern:  Regex::new(
+                    r"'(?:[sdmt]|ll|ve|re)|\s?\p{L}+|\s?\p{N}+|\s?[^\s\p{L}\p{N}]+",
+                )?
                 .into(),
-            behavior: SplitBehavior::Isolate,
-        });
-        &[
-            ("<|endoftext|>", 50256),
-            ("<|fim_prefix|>", 50281),
-            ("<|fim_middle|>", 50282),
-            ("<|fim_suffix|>", 50283),
-        ]
+                behavior: SplitBehavior::Isolate,
+            });
+            specials.extend(
+                [
+                    ("<|endoftext|>", 50256),
+                    ("<|fim_prefix|>", 50281),
+                    ("<|fim_middle|>", 50282),
+                    ("<|fim_suffix|>", 50283),
+                ]
+                .map(|(s, n)| (s.to_string(), n)),
+            );
+        }
     };
     let mut specials = specials
         .iter()
         .enumerate()
-        .map(|(i, &(s, t))| SpecialToken {
+        .map(|(i, &(ref s, t))| SpecialToken {
             id:      t,
             bytes:   s.as_bytes().to_vec(),
             kind:    SpecialTokenKind::Control,
-            ident:   None,
+            ident:   match s.as_str() {
+                "<|begin_of_text|>" => Some("bos"),
+                "<|end_of_text|>" | "<|endoftext|>" => Some("eos"),
+                "<|eot|>" => Some("eot"),
+                "<|eom|>" => Some("eom"),
+                "<|finetune_right_pad|>" => Some("pad"),
+                _ => None,
+            }
+            .map(|s| s.to_string()),
             score:   i as f32,
             extract: true,
         })
