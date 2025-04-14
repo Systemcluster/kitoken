@@ -18,14 +18,14 @@ jobs:
 
     name: Build Linux (GNU)
     runs-on: ${{ matrix.platform.runner }}
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster')}}
 
     strategy:
       matrix:
         platform:
           - runner: ubuntu-latest
             target: x86_64
-            rustflags: -Ctarget-cpu=x86-64-v2
+            rustflags: -Ctarget-cpu=x86-64-v2 -Clto
           - runner: ubuntu-latest
             target: x86
           - runner: ubuntu-latest
@@ -40,7 +40,7 @@ jobs:
     steps:
 
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
@@ -54,6 +54,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         env:
           RUSTFLAGS: ${{ matrix.platform.rustflags }}
+          CFLAGS: -Wno-error=date-time
         with:
           target: ${{ matrix.platform.target }}
           rust-toolchain: ${{ matrix.toolchain }}
@@ -72,14 +73,14 @@ jobs:
 
     name: Build Linux (musl)
     runs-on: ${{ matrix.platform.runner }}
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster')}}
 
     strategy:
       matrix:
         platform:
           - runner: ubuntu-latest
             target: x86_64
-            rustflags: -Ctarget-cpu=x86-64-v2
+            rustflags: -Ctarget-cpu=x86-64-v2 -Clto
           - runner: ubuntu-latest
             target: x86
           - runner: ubuntu-latest
@@ -92,7 +93,7 @@ jobs:
     steps:
 
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
@@ -106,6 +107,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         env:
           RUSTFLAGS: ${{ matrix.platform.rustflags }}
+          CFLAGS: -Wno-error=date-time
         with:
           target: ${{ matrix.platform.target }}
           rust-toolchain: ${{ matrix.toolchain }}
@@ -124,23 +126,23 @@ jobs:
 
     name: Build Windows
     runs-on: ${{ matrix.platform.runner }}
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster')}}
 
     strategy:
       matrix:
         platform:
           - runner: windows-latest
             target: x64
-            rustflags: -Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static
+            rustflags: -Ctarget-cpu=x86-64-v2 -Ctarget-feature=+crt-static -Clto
           - runner: windows-latest
             target: x86
-            rustflags: -Ctarget-feature=+crt-static
+            rustflags: -Ctarget-feature=+crt-static -Clto
         toolchain:
           - stable
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
@@ -153,6 +155,8 @@ jobs:
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          CFLAGS: -Wno-error=date-time
         with:
           target: ${{ matrix.platform.target }}
           rust-toolchain: ${{ matrix.toolchain }}
@@ -170,7 +174,7 @@ jobs:
 
     name: Build macOS
     runs-on: ${{ matrix.platform.runner }}
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster')}}
 
     strategy:
 
@@ -185,7 +189,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
@@ -197,6 +201,9 @@ jobs:
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          CFLAGS: -Wno-error=date-time
+          MACOSX_DEPLOYMENT_TARGET: 13.7
         with:
           target: ${{ matrix.platform.target }}
           rust-toolchain: ${{ matrix.toolchain }}
@@ -214,11 +221,11 @@ jobs:
 
     name: Build sdist
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster')}}
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
@@ -240,7 +247,7 @@ jobs:
 
     name: Publish
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main' && github.repository_owner == 'Systemcluster')}}
     needs: [linux-gnu, linux-musl, windows, macos, sdist]
 
     steps:

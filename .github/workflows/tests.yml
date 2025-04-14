@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
@@ -98,7 +98,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
@@ -153,7 +153,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
@@ -177,6 +177,8 @@ jobs:
           cargo clippy
 
       - name: Build
+        env:
+          CFLAGS: -Wno-error=date-time
         run: |
           cd packages/python
           mv ../../README.md .
@@ -205,7 +207,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
           show-progress: false
