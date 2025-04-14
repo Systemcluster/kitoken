@@ -68,11 +68,10 @@ pub struct Template {
 
 /// Errors returned when the configuration fails to validate.
 #[non_exhaustive]
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum ConfigurationError {
     /// The feature required for the configuration is not enabled.
-    #[cfg_attr(feature = "std", error("required feature not enabled: {0}"))]
+    #[error("required feature not enabled: {0}")]
     FeatureDisabled(String),
 }
 

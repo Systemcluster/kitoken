@@ -54,11 +54,14 @@
 //!   Generally not recommended since it has worse runtime performance and adds a dependency on the native `oniguruma` library.
 //!   However, it may be useful for certain models that require specific regex behavior that is not supported by or differs with `fancy-regex`.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg, doc_cfg_hide))]
 #![cfg_attr(docsrs, doc(cfg_hide(doc)))]
 
 extern crate alloc;
+
+#[cfg(feature = "std")]
+extern crate std;
 
 mod charsmap;
 mod config;
@@ -95,39 +98,25 @@ pub use crate::serialization::*;
 
 /// Errors encountered during initialization.
 #[non_exhaustive]
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum InitializationError {
     /// The configuration failed to validate.
-    #[cfg_attr(feature = "std", error("invalid config: {0}"))]
+    #[error("invalid config: {0}")]
     InvalidConfig(ConfigurationError),
     /// The encoder and scores must have the same length in unigram mode.
-    #[cfg_attr(
-        feature = "std",
-        error(
-            "encoder and scores must have the same length in unigram mode and every token must have a score"
-        )
-    )]
+    #[error("encoder and scores must have the same length in unigram mode and every token must have a score")]
     InvalidScores,
     /// The encoder and decoder must have the same length and the encoder must not have duplicates.
-    #[cfg_attr(
-        feature = "std",
-        error("encoder and decoder must have the same length (vocab must not have duplicates)")
-    )]
+    #[error("encoder and decoder must have the same length and vocab must not have duplicates")]
     InvalidEncoder,
     /// The special encoder and decoder must have the same length and the special encoder must not have duplicates.
-    #[cfg_attr(
-        feature = "std",
-        error(
-            "special encoder and decoder must have the same length (specials must not have duplicates)"
-        )
-    )]
+    #[error("special encoder and decoder must have the same length and specials must not have duplicates")]
     InvalidSpecialEncoder,
     /// The split regex failed to compile.
-    #[cfg_attr(feature = "std", error("invalid regex: {0}"))]
+    #[error("invalid regex: {0}")]
     InvalidRegex(String),
     /// The special encoder must contain valid utf-8.
-    #[cfg_attr(feature = "std", error("invalid utf-8: {0}"))]
+    #[error("invalid utf-8: {0}")]
     InvalidUtf8(Utf8Error),
 }
 impl From<ConfigurationError> for InitializationError {
@@ -283,7 +272,7 @@ impl Kitoken {
                         special: Token::INVALID,
                     })
                 }
-                let special = &self.specials[text[next.0..next.1].as_bytes()];
+                let special = &self.specials[&text.as_bytes()[next.0..next.1]];
                 parts.push(TextPart {
                     text:    text[next.0..next.1].into(),
                     special: if special.kind != SpecialTokenKind::Control || encode_specials {

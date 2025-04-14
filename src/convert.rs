@@ -28,20 +28,19 @@ pub use tekken::*;
 
 /// Errors encountered when the conversion fails.
 #[non_exhaustive]
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
     /// The data is invalid. See the error message for more information.
-    #[cfg_attr(feature = "std", error("invalid data: {0}"))]
+    #[error("invalid data: {0}")]
     InvalidData(String),
     /// The configuration is not supported.
-    #[cfg_attr(feature = "std", error("unsupported configuration: {0}"))]
+    #[error("unsupported configuration: {0}")]
     UnsupportedConfiguration(String),
     /// A regex failed to compile.
-    #[cfg_attr(feature = "std", error("invalid regex: {0}"))]
+    #[error("invalid regex: {0}")]
     InvalidRegex(String),
     /// The tokenizer failed to initialize.
-    #[cfg_attr(feature = "std", error("{0}"))]
+    #[error("{0}")]
     InitializationError(InitializationError),
     /// Reading the data failed.
     #[cfg(feature = "std")]

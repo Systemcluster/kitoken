@@ -118,7 +118,7 @@ fn split_pattern(text: &str, pattern: &SplitPattern) -> Vec<(usize, usize)> {
     }
     match pattern {
         SplitPattern::Character(character) => {
-            let matches = if character.len_utf8() == 0 {
+            if character.len_utf8() == 0 {
                 Vec::new()
             } else if character.len_utf8() == 1 {
                 memchr::memchr_iter(*character as u8, text.as_bytes())
@@ -128,14 +128,12 @@ fn split_pattern(text: &str, pattern: &SplitPattern) -> Vec<(usize, usize)> {
                 memchr::memmem::find_iter(text.as_bytes(), character.to_string().as_bytes())
                     .map(|a| (a, a + 1))
                     .collect()
-            };
-            matches
+            }
         }
         SplitPattern::String(string) => {
-            let matches = memchr::memmem::find_iter(text.as_bytes(), string.as_bytes())
+            memchr::memmem::find_iter(text.as_bytes(), string.as_bytes())
                 .map(|a| (a, a + string.len()))
-                .collect();
-            matches
+                .collect()
         }
         SplitPattern::Regex(regex) => regex.find_iter(text),
     }

@@ -3,7 +3,7 @@
 name = "kitoken-javascript"
 description = "JavaScript bindings for Kitoken"
 version = "0.10.1"
-edition = "2021"
+edition = "2024"
 resolver = "2"
 publish = false
 workspace = "../.."
@@ -24,7 +24,7 @@ default = [
     "normalization",
 ]
 
-std = ["kitoken/std", "wasm-bindgen/std"]
+std = ["kitoken/std", "wasm-bindgen/std", "rlsf/std"]
 serialization = ["kitoken/serialization"]
 normalization = ["kitoken/normalization"]
 regex-unicode = ["kitoken/regex-unicode"]
@@ -39,8 +39,8 @@ inspect = []
 
 kitoken = { path = "../..", default-features = false, features = [] }
 
-log = { version = "0.4.25" }
-rlsf = { version = "0.2.1", features = ["std"] }
+log = { version = "0.4.27" }
+rlsf = { version = "0.2.1" }
 wasm-bindgen = { version = "0.2.100", default-features = false, features = ["spans", "strict-macro"] }
 serde-wasm-bindgen = { version = "0.6.5" }
 

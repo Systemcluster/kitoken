@@ -43,7 +43,8 @@ pub fn test_models(path: impl AsRef<str>, extension: impl AsRef<str>) -> Vec<Pat
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    let models = models
+
+    models
         .into_iter()
         .map(|x| x.path())
         .filter(|x| x.extension().filter(|&e| e == extension.as_ref()).is_some())
@@ -55,8 +56,7 @@ pub fn test_models(path: impl AsRef<str>, extension: impl AsRef<str>) -> Vec<Pat
             }
             true
         })
-        .collect::<Vec<_>>();
-    models
+        .collect::<Vec<_>>()
 }
 
 pub fn test_encode_decode_lines(

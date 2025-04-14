@@ -17,14 +17,13 @@ const VERSION: &[u8] = &[0, 1];
 
 /// Errors encountered when deserializing the tokenizer.
 #[non_exhaustive]
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum DeserializationError {
     /// The data is invalid. See the error message for more information.
-    #[cfg_attr(feature = "std", error("{0}"))]
+    #[error("{0}")]
     InvalidData(String),
     /// The tokenizer failed to initialize.
-    #[cfg_attr(feature = "std", error("{0}"))]
+    #[error("{0}")]
     InitializationError(InitializationError),
     /// Reading the data failed.
     #[cfg(feature = "std")]

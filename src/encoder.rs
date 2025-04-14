@@ -18,11 +18,10 @@ pub(crate) use wordpiece::*;
 
 /// Errors encountered during encoding.
 #[non_exhaustive]
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum EncodeError {
     /// A piece could not be encoded.
-    #[cfg_attr(feature = "std", error("invalid piece {0:?}"))]
+    #[error("invalid piece {0:?}")]
     InvalidPiece(Vec<u8>),
 }
 

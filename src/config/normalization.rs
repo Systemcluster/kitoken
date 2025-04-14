@@ -236,7 +236,7 @@ fn normalize_prepend(text: &mut Cow<str>, prepend: &str) {
 
 #[inline(never)]
 fn normalize_extend(text: &mut Cow<str>, character: char, left: u32, right: u32, pad: bool) {
-    let mut buffer = core::iter::repeat(0).take(character.len_utf8()).collect::<Vec<_>>();
+    let mut buffer = core::iter::repeat_n(0, character.len_utf8()).collect::<Vec<_>>();
     character.encode_utf8(&mut buffer);
     if left > 0 {
         let mut left = left as usize;
@@ -247,7 +247,7 @@ fn normalize_extend(text: &mut Cow<str>, character: char, left: u32, right: u32,
         unsafe {
             text.to_mut()
                 .as_mut_vec()
-                .splice(..0, core::iter::repeat(&buffer).take(left).flatten().copied());
+                .splice(..0, core::iter::repeat_n(&buffer, left).flatten().copied());
         };
     }
     if right > 0 {
@@ -259,7 +259,7 @@ fn normalize_extend(text: &mut Cow<str>, character: char, left: u32, right: u32,
         unsafe {
             text.to_mut()
                 .as_mut_vec()
-                .extend(core::iter::repeat(&buffer).take(right).flatten().copied());
+                .extend(core::iter::repeat_n(&buffer, right).flatten().copied());
         };
     }
 }

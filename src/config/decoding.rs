@@ -108,7 +108,7 @@ impl Decoding {
 
 #[inline(never)]
 fn decode_extend(text: &mut Vec<u8>, character: char, left: u32, right: u32, pad: bool) {
-    let mut buffer = core::iter::repeat(0).take(character.len_utf8()).collect::<Vec<_>>();
+    let mut buffer = core::iter::repeat_n(0, character.len_utf8()).collect::<Vec<_>>();
     character.encode_utf8(&mut buffer);
     if left > 0 {
         let mut left = left as usize;
@@ -116,7 +116,7 @@ fn decode_extend(text: &mut Vec<u8>, character: char, left: u32, right: u32, pad
             let leading = text.chars().take(left).take_while(|&c| c == character).count();
             left = left.saturating_sub(leading);
         }
-        text.splice(..0, core::iter::repeat(&buffer).take(left).flatten().copied());
+        text.splice(..0, core::iter::repeat_n(&buffer, left).flatten().copied());
     }
     if right > 0 {
         let mut right = right as usize;
@@ -124,7 +124,7 @@ fn decode_extend(text: &mut Vec<u8>, character: char, left: u32, right: u32, pad
             let trailing = text.chars().rev().take(right).take_while(|&c| c == character).count();
             right = right.saturating_sub(trailing);
         }
-        text.extend(core::iter::repeat(&buffer).take(right).flatten().copied());
+        text.extend(core::iter::repeat_n(&buffer, right).flatten().copied());
     }
 }
 
@@ -200,6 +200,7 @@ fn decode_replace(text: &mut Vec<u8>, pattern: &DecodingReplacePattern, replacem
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::borrow::ToOwned;
     use alloc::vec::Vec;
 
     #[test]

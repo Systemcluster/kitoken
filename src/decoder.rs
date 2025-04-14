@@ -13,11 +13,10 @@ use crate::{
 
 /// Errors encountered during decoding.
 #[non_exhaustive]
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum DecodeError {
     /// A token could not be decoded.
-    #[cfg_attr(feature = "std", error("invalid token {0}"))]
+    #[error("invalid token {0}")]
     InvalidToken(TokenId),
 }
 

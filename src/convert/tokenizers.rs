@@ -5,6 +5,7 @@ use std::io::Read;
 #[cfg(feature = "std")]
 use std::path::Path;
 
+use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 use alloc::format;
 use alloc::string::{String, ToString};

@@ -1,4 +1,4 @@
-style_edition = "2021"
+style_edition = "2024"
 unstable_features = true
 
 blank_lines_lower_bound = 0

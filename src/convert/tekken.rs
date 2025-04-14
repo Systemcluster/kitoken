@@ -7,7 +7,6 @@ use std::path::Path;
 
 use alloc::format;
 use alloc::string::ToString;
-use alloc::vec::Vec;
 
 use crate::convert::ConversionError;
 use crate::{
@@ -16,7 +15,7 @@ use crate::{
 };
 
 mod ms {
-    use alloc::string::String;
+    use alloc::string::{String, ToString};
     use alloc::vec::Vec;
     use base64::{alphabet, engine, Engine};
     use serde::{Deserialize, Deserializer};
@@ -234,6 +233,7 @@ impl Definition {
     /// See [`convert_tekken`] for more details.
     #[cfg(feature = "std")]
     pub fn from_tekken_reader<R: Read>(reader: &mut R) -> Result<Self, ConversionError> {
+        use alloc::vec::Vec;
         let mut data = Vec::with_capacity(1024);
         reader.read_to_end(&mut data)?;
         Self::from_tekken_slice(&data)

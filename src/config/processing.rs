@@ -129,7 +129,7 @@ fn process_pad(
         length - len
     };
     if amount > 0 {
-        let padding = core::iter::repeat(id).take(amount).collect::<Vec<_>>();
+        let padding = core::iter::repeat_n(id, amount).collect::<Vec<_>>();
         match direction {
             ProcessingDirection::Left => {
                 tokens.splice(0..0, padding);

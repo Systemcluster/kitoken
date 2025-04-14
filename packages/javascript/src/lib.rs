@@ -1,4 +1,7 @@
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(all(target_arch = "wasm32", not(target_feature = "atomics")))]
 #[global_allocator]
@@ -8,9 +11,8 @@ static ALLOCATOR: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
 extern crate alloc;
 
 use alloc::rc::Rc;
+use alloc::string::String;
 use alloc::vec::Vec;
-
-use core::fmt::{Debug, Display};
 
 use wasm_bindgen::prelude::*;
 
@@ -159,6 +161,6 @@ impl Kitoken {
 }
 
 #[inline(never)]
-fn convert_error(e: impl Display) -> JsValue {
+fn convert_error(e: impl core::fmt::Display) -> JsValue {
     JsValue::from_str(&format!("{}", e))
 }

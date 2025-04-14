@@ -14,7 +14,7 @@ use alloc::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 /// Regex error type.
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(thiserror::Error)]
 pub struct RegexError(pub String);
 impl Display for RegexError {
     #[inline(always)]
@@ -95,7 +95,7 @@ impl Regex {
     }
 
     #[inline(always)]
-    pub(crate) fn escape(&self) -> Cow<str> {
+    pub(crate) fn escape(&self) -> Cow<'_, str> {
         fancy_regex::escape(&self.pattern)
     }
 }
@@ -166,6 +166,6 @@ impl<'de> Deserialize<'de> for Regex {
     }
 }
 
-pub(crate) fn escape(pattern: &str) -> Cow<str> {
+pub(crate) fn escape(pattern: &'_ str) -> Cow<'_, str> {
     fancy_regex::escape(pattern)
 }
