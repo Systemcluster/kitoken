@@ -1,0 +1,31 @@
+[package]
+
+name = "kitoken-cli"
+description = "Command line interface for Kitoken, the fast and versatile tokenizer for language models"
+version = "0.10.1"
+edition = "2024"
+resolver = "2"
+publish = false
+workspace = "../.."
+
+
+[[bin]]
+
+name = "kitoken"
+path = "src/main.rs"
+
+
+[dependencies]
+
+kitoken = { path = "../..", features = ["all"] }
+
+log = { version = "0.4.27" }
+clap = { version = "4.5.36", features = [
+    "std",
+    "color",
+    "suggestions",
+    "derive",
+    "unicode",
+    "wrap_help",
+] }
+simple_logger = { version = "5.0" }

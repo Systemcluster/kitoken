@@ -2,6 +2,8 @@ build/
 target/
 dist/
 
+tests/models/*/*.kit
+
 .vscode/
 .idea/
 

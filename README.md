@@ -32,12 +32,14 @@ Kitoken is a fast and versatile tokenizer for language models compatible with [S
 - **Compact data format**\
   Definitions are stored in an efficient binary format and without merge list.
 
+See also [`kitoken-cli`](./packages/cli) for Kitoken in the command line.
+
 ## Compatibility
 
 Kitoken can load and convert many existing tokenizer formats. Every supported format is [tested](./tests) against the original implementation across a variety of inputs to ensure correctness and compatibility.
 
 > [!NOTE]
-> Most models on [Hugging Face](https://huggingface.co) are supported. Just take the `tokenizer.json` or `spiece.model` of a model and load it into Kitoken.
+> Most models on [Hugging Face](https://huggingface.co) are supported. Just take the `tokenizer.json` or `spiece.model` and load it into Kitoken.
 
 Kitoken aims to be output-identical with existing implementations for all models. See the notes below for differences in specific cases.
 
@@ -58,7 +60,7 @@ If the model does not contain a trainer definition, `Unigram` is assumed as the 
 <summary>Notes</summary>
 
 - SentencePiece uses [different `nfkc` normalization rules in the `nmt_nfkc` and `nmt_nfkc_cf` schemes](https://github.com/google/sentencepiece/blob/master/doc/normalization.md) than during regular `nfkc` normalization. This difference is not entirely additive and prevents the normalization of `～` to `~`. Kitoken uses the regular `nfkc` normalization rules for `nmt_nfkc` and `nmt_nfkc_cf` and normalizes `～` to `~`.
-- SentencePiece's implementation of Unigram merges pieces with the same merge priority differently depending on preceding non-encodable pieces. For example, with `xlnet_base_cased`, SentencePiece encodes `.nnn` and `Զnnn` as `.., 8705, 180` but `ԶԶnnn` as `.., 180, 8705`. Kitoken always merges pieces with the same merge priority in the same order, resulting in `.., 180, 8705` for either case in the example and matching the behavior of Tokenizers.
+- SentencePiece's implementation of Unigram merges pieces with the same merge priority in a different order depending on preceding non-encodable pieces. For example, with `xlnet_base_cased`, SentencePiece encodes `.nnn` and `Զnnn` as `.., 8705, 180` but `ԶԶnnn` as `.., 180, 8705`. Kitoken always merges pieces with the same merge priority in the same order, resulting in `.., 180, 8705` for either case in the example and matching the behavior of Tokenizers.
 
 </details>
 
