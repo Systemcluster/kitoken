@@ -20,16 +20,16 @@ crate-type = ["cdylib"]
 
 kitoken = { path = "../..", default-features = false, features = ["all"] }
 
-log = { version = "0.4.27" }
-pyo3 = { version = "0.24.2", features = [
+log = { version = "0.4.29" }
+pyo3 = { version = "0.28.2", features = [
     "abi3",
     "abi3-py310",
     "serde",
     "extension-module",
     "generate-import-lib",
 ] }
-pyo3-log = { version = "0.12.4" }
-serde-pyobject = { version = "0.6.1" }
+pyo3-log = "0.13.3"
+serde-pyobject = "0.8.0"
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
 

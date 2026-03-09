@@ -25,10 +25,7 @@ impl Kitoken {
     #[new]
     pub fn new(data: &[u8], py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
-            inner: py
-                .allow_threads(|| Inner::from_slice(data))
-                .map(Arc::new)
-                .map_err(convert_error)?,
+            inner: py.detach(|| Inner::from_slice(data)).map(Arc::new).map_err(convert_error)?,
         })
     }
 
@@ -37,7 +34,7 @@ impl Kitoken {
         &self, text: Bound<'a, PyString>, encode_specials: Option<bool>, py: Python<'a>,
     ) -> PyResult<Bound<'a, PyList>> {
         let text = text.extract::<&str>()?;
-        py.allow_threads(|| self.inner.encode(text, encode_specials.unwrap_or(false)))
+        py.detach(|| self.inner.encode(text, encode_specials.unwrap_or(false)))
             .map_err(convert_error)
             .map(|tokens| PyList::new(py, tokens))
             .and_then(|texts| texts)
@@ -48,7 +45,7 @@ impl Kitoken {
         &self, text: Bound<'a, PyList>, encode_specials: Option<bool>, py: Python<'a>,
     ) -> PyResult<Bound<'a, PyList>> {
         let text = text.extract::<Vec<String>>()?;
-        py.allow_threads(|| {
+        py.detach(|| {
             text.iter()
                 .map(|text| self.inner.encode(text, encode_specials.unwrap_or(false)))
                 .collect::<Result<Vec<_>, _>>()
@@ -63,7 +60,7 @@ impl Kitoken {
         &self, tokens: Bound<'a, PyList>, decode_specials: Option<bool>, py: Python<'a>,
     ) -> PyResult<Bound<'a, PyBytes>> {
         let tokens = tokens.extract::<Vec<u32>>()?;
-        py.allow_threads(|| self.inner.decode(tokens, decode_specials.unwrap_or(false)))
+        py.detach(|| self.inner.decode(tokens, decode_specials.unwrap_or(false)))
             .map_err(convert_error)
             .map(|s| PyBytes::new(py, &s))
     }
@@ -73,7 +70,7 @@ impl Kitoken {
         &self, tokens: Bound<'a, PyList>, decode_specials: Option<bool>, py: Python<'a>,
     ) -> PyResult<Bound<'a, PyList>> {
         let tokens = tokens.extract::<Vec<Vec<u32>>>()?;
-        py.allow_threads(|| {
+        py.detach(|| {
             tokens
                 .into_iter()
                 .map(|tokens| self.inner.decode(&tokens, decode_specials.unwrap_or(false)))
@@ -93,7 +90,7 @@ impl Kitoken {
     ) -> PyResult<()> {
         let definition = from_pyobject(definition)?;
         self.inner = py
-            .allow_threads(|| Inner::from_definition(definition))
+            .detach(|| Inner::from_definition(definition))
             .map(Arc::new)
             .map_err(convert_error)?;
         Ok(())
@@ -107,7 +104,7 @@ impl Kitoken {
         let mut definition = self.inner.to_definition();
         definition.config = from_pyobject(config)?;
         self.inner = py
-            .allow_threads(|| Inner::from_definition(definition))
+            .detach(|| Inner::from_definition(definition))
             .map(Arc::new)
             .map_err(convert_error)?;
         Ok(())
@@ -131,10 +128,7 @@ impl Kitoken {
             ));
         }
         Ok(Kitoken {
-            inner: py
-                .allow_threads(|| Inner::from_file(path))
-                .map(Arc::new)
-                .map_err(convert_error)?,
+            inner: py.detach(|| Inner::from_file(path)).map(Arc::new).map_err(convert_error)?,
         })
     }
 
@@ -149,18 +143,18 @@ impl Kitoken {
                 .ok_or_else(|| PyValueError::new_err("no parent directory"))?
                 .join(path);
         }
-        py.allow_threads(|| self.inner.to_file(path)).map_err(convert_error)
+        py.detach(|| self.inner.to_file(path)).map_err(convert_error)
     }
 
     pub fn to_bytes<'a>(&self, py: Python<'a>) -> Bound<'a, PyBytes> {
-        PyBytes::new(py, &py.allow_threads(|| self.inner.to_vec()))
+        PyBytes::new(py, &py.detach(|| self.inner.to_vec()))
     }
 
     #[staticmethod]
     pub fn from_sentencepiece(data: &[u8], py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
             inner: py
-                .allow_threads(|| Inner::from_sentencepiece_slice(data))
+                .detach(|| Inner::from_sentencepiece_slice(data))
                 .map(Arc::new)
                 .map_err(convert_error)?,
         })
@@ -170,7 +164,7 @@ impl Kitoken {
     pub fn from_sentencepiece_file(path: &str, py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
             inner: py
-                .allow_threads(|| Inner::from_sentencepiece_file(path))
+                .detach(|| Inner::from_sentencepiece_file(path))
                 .map(Arc::new)
                 .map_err(convert_error)?,
         })
@@ -180,7 +174,7 @@ impl Kitoken {
     pub fn from_tiktoken(data: &[u8], py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
             inner: py
-                .allow_threads(|| Inner::from_tiktoken_slice(data))
+                .detach(|| Inner::from_tiktoken_slice(data))
                 .map(Arc::new)
                 .map_err(convert_error)?,
         })
@@ -190,7 +184,7 @@ impl Kitoken {
     pub fn from_tiktoken_file(path: &str, py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
             inner: py
-                .allow_threads(|| Inner::from_tiktoken_file(path))
+                .detach(|| Inner::from_tiktoken_file(path))
                 .map(Arc::new)
                 .map_err(convert_error)?,
         })
@@ -200,7 +194,7 @@ impl Kitoken {
     pub fn from_tokenizers(data: &[u8], py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
             inner: py
-                .allow_threads(|| Inner::from_tokenizers_slice(data))
+                .detach(|| Inner::from_tokenizers_slice(data))
                 .map(Arc::new)
                 .map_err(convert_error)?,
         })
@@ -210,7 +204,7 @@ impl Kitoken {
     pub fn from_tokenizers_file(path: &str, py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
             inner: py
-                .allow_threads(|| Inner::from_tokenizers_file(path))
+                .detach(|| Inner::from_tokenizers_file(path))
                 .map(Arc::new)
                 .map_err(convert_error)?,
         })
@@ -220,7 +214,7 @@ impl Kitoken {
     pub fn from_tekken(data: &[u8], py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
             inner: py
-                .allow_threads(|| Inner::from_tekken_slice(data))
+                .detach(|| Inner::from_tekken_slice(data))
                 .map(Arc::new)
                 .map_err(convert_error)?,
         })
@@ -230,7 +224,7 @@ impl Kitoken {
     pub fn from_tekken_file(path: &str, py: Python<'_>) -> PyResult<Kitoken> {
         Ok(Kitoken {
             inner: py
-                .allow_threads(|| Inner::from_tekken_file(path))
+                .detach(|| Inner::from_tekken_file(path))
                 .map(Arc::new)
                 .map_err(convert_error)?,
         })

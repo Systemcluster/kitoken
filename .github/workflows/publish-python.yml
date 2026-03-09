@@ -155,8 +155,6 @@ jobs:
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
-        env:
-          CFLAGS: -Wno-error=date-time
         with:
           target: ${{ matrix.platform.target }}
           rust-toolchain: ${{ matrix.toolchain }}

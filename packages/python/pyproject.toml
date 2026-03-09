@@ -37,16 +37,16 @@ Repository = "https://github.com/Systemcluster/kitoken"
 [build-system]
 
 requires = [
-    "maturin==1.6",
+    "maturin==1.12.6",
 ]
 build-backend = "maturin"
 
 
-[tool.uv]
+[dependency-groups]
 
-dev-dependencies = [
-    "maturin==1.6",
-    "pip>=24.2",
+dev = [
+    "maturin==1.12.6",
+    "pip>=26.0.1",
 ]
 
 
@@ -61,6 +61,7 @@ profile = "performance"
 bindings = "pyo3"
 manifest-path = "Cargo.toml"
 strip = true
+include-debuginfo = false
 include = [
     "kitoken.pyi",
 ]

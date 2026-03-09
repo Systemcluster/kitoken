@@ -108,7 +108,7 @@ unstable = []
 
 bstr = { version = "1.12", default-features = false, features = ["alloc"] }
 log = { version = "0.4" }
-fancy-regex = { version = "0.16", default-features = false }
+fancy-regex = { version = "0.17", default-features = false }
 regex-automata = { version = "0.4", default-features = false, features = [
     "alloc",
     "syntax",
@@ -127,9 +127,9 @@ regex-syntax = { version = "0.8", default-features = false, features = [
 ] }
 hashbrown = { version = "0.16", default-features = false, features = ["default-hasher", "inline-more", "allocator-api2"] }
 once_cell = { version = "1.21", default-features = false, features = ["alloc", "race"] }
-orx-priority-queue = { version = "1.7", default-features = false }
-memchr = { version = "2.7", default-features = false, features = ["alloc"] }
-derive_more = { version = "2.0", default-features = false, features = ["deref", "deref_mut", "as_ref", "index", "index_mut"] }
+orx-priority-queue = { version = "1.8", default-features = false }
+memchr = { version = "2.8", default-features = false, features = ["alloc"] }
+derive_more = { version = "2.1", default-features = false, features = ["deref", "deref_mut", "as_ref", "index", "index_mut"] }
 thiserror = { version = "2.0", default-features = false }
 
 # optional dependencies for the serialization feature
@@ -170,8 +170,8 @@ kitoken = { path = ".", default-features = false, features = [
 ] }
 
 console = { version = "0.16", features = ["windows-console-colors"] }
-simple_logger = { version = "5.0" }
-criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
+simple_logger = { version = "5.2" }
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 
 
 [package.metadata.docs.rs]
