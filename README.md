@@ -11,7 +11,7 @@
 
 ```rust
 use kitoken::Kitoken;
-let encoder = Kitoken::from_file("models/llama4.kit")?;
+let encoder = Kitoken::from_web("hf:Qwen/Qwen3.5-9B")?;
 
 let tokens = encoder.encode("Your future belongs to me.", true)?;
 let string = String::from_utf8(encoder.decode(&tokens, true)?)?;
@@ -29,19 +29,19 @@ Kitoken is a fast and versatile tokenizer for language models compatible with [S
   Native in Rust and with bindings for [Web](./packages/javascript), [Node](./packages/javascript) and [Python](./packages/python); see [kitoken.dev](https://kitoken.dev) for a web demo.
 - **Supports input and output processing**\
   Including unicode-aware normalization, pre-tokenization and post-processing options.
-- **Compact data format**\
+- **Compact data encoding**\
   Definitions are stored in an efficient binary format and without merge list.
 
 See also [`kitoken-cli`](./packages/cli) for Kitoken in the command line.
 
 ## Compatibility
 
-Kitoken can load and convert many existing tokenizer formats. Every supported format is [tested](./tests) against the original implementation across a variety of inputs to ensure correctness and compatibility.
+Kitoken can load and convert most existing tokenizer formats. Every supported format is [tested](./tests) against the original implementation across a wide variety of inputs to ensure correctness and compatibility.
 
 > [!NOTE]
 > Most models on [Hugging Face](https://huggingface.co) are supported. Just take the `tokenizer.json` or `spiece.model` and load it into Kitoken.
 
-Kitoken aims to be output-identical with existing implementations for all models. See the notes below for differences in specific cases.
+Kitoken aims to be output-identical with existing implementations for all models. <sup>See the notes below for differences in specific cases.</sup>
 
 ### SentencePiece
 
@@ -59,8 +59,8 @@ If the model does not contain a trainer definition, `Unigram` is assumed as the 
 <details>
 <summary>Notes</summary>
 
-- SentencePiece uses [different `nfkc` normalization rules in the `nmt_nfkc` and `nmt_nfkc_cf` schemes](https://github.com/google/sentencepiece/blob/master/doc/normalization.md) than during regular `nfkc` normalization. This difference is not entirely additive and prevents the normalization of `～` to `~`. Kitoken uses the regular `nfkc` normalization rules for `nmt_nfkc` and `nmt_nfkc_cf` and normalizes `～` to `~`.
-- SentencePiece's implementation of Unigram merges pieces with the same merge priority in a different order depending on preceding non-encodable pieces. For example, with `xlnet_base_cased`, SentencePiece encodes `.nnn` and `Զnnn` as `.., 8705, 180` but `ԶԶnnn` as `.., 180, 8705`. Kitoken always merges pieces with the same merge priority in the same order, resulting in `.., 180, 8705` for either case in the example and matching the behavior of Tokenizers.
+- SentencePiece uses [different `nfkc` normalization rules in the `nmt_nfkc` and `nmt_nfkc_cf` schemes](https://github.com/google/sentencepiece/blob/master/doc/normalization.md) than during regular `nfkc` normalization, preventing the normalization of `～` to `~`. Kitoken uses the regular `nfkc` normalization rules for `nmt_nfkc` and `nmt_nfkc_cf`.
+- SentencePiece's implementation of Unigram merges pieces with the same merge priority in a different order depending on preceding non-encodable pieces. Kitoken always merges pieces with the same merge priority in the same order, matching the behavior of Tokenizers.
 
 </details>
 
@@ -83,7 +83,7 @@ Some normalization, post-processing and decoding options used by Tokenizers are 
 <details>
 <summary>Notes</summary>
 
-- When using a `BPE` definition with an incomplete vocabulary and without an `unk` token, Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually. This can affect models that exploit the behavior of Tokenizers with a deliberately restricted vocabulary.
+- Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones when using an incomplete vocabulary without an `unk` token. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually. This can affect models that exploit the behavior of Tokenizers with a deliberately restricted vocabulary.
 - Tokenizers normalizes inputs character-by-character, while Kitoken normalizes inputs as one. This can result in differences during case-folding in some cases. For example, greek letter `Σ` has two lowercase forms, `σ` for within-word and `ς` for end-of-word use. Tokenizers will always lowercase `Σ` to `σ`, while Kitoken will lowercase it to either depending on the context.
 
 </details>

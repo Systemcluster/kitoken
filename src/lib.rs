@@ -53,6 +53,7 @@
 //! - `regex-onig`: Enables use of the `oniguruma` regex engine instead of `fancy-regex`.
 //!   Generally not recommended since it has worse runtime performance and adds a dependency on the native `oniguruma` library.
 //!   However, it may be useful for certain models that require specific regex behavior that is not supported by or differs with `fancy-regex`.
+//! - `web`: Enables fetching definitions from HuggingFace or other URLs.
 
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg, doc_cfg_hide))]
@@ -73,6 +74,8 @@ mod vocab;
 
 #[cfg(feature = "serialization")]
 mod serialization;
+#[cfg(feature = "web")]
+mod web;
 
 pub mod convert;
 
@@ -95,6 +98,11 @@ pub use crate::vocab::*;
 
 #[cfg(feature = "serialization")]
 pub use crate::serialization::*;
+#[cfg(feature = "web")]
+pub use crate::web::*;
+
+#[doc(hidden)]
+pub mod util;
 
 /// Errors encountered during initialization.
 #[non_exhaustive]
@@ -104,13 +112,17 @@ pub enum InitializationError {
     #[error("invalid config: {0}")]
     InvalidConfig(ConfigurationError),
     /// The encoder and scores must have the same length in unigram mode.
-    #[error("encoder and scores must have the same length in unigram mode and every token must have a score")]
+    #[error(
+        "encoder and scores must have the same length in unigram mode and every token must have a score"
+    )]
     InvalidScores,
     /// The encoder and decoder must have the same length and the encoder must not have duplicates.
     #[error("encoder and decoder must have the same length and vocab must not have duplicates")]
     InvalidEncoder,
     /// The special encoder and decoder must have the same length and the special encoder must not have duplicates.
-    #[error("special encoder and decoder must have the same length and specials must not have duplicates")]
+    #[error(
+        "special encoder and decoder must have the same length and specials must not have duplicates"
+    )]
     InvalidSpecialEncoder,
     /// The split regex failed to compile.
     #[error("invalid regex: {0}")]

@@ -49,7 +49,9 @@ class Kitoken:
         """
         ...
 
-    def encode_all(self, text: list[str], encode_specials: Optional[bool] = False) -> list[list[int]]:
+    def encode_all(
+        self, text: list[str], encode_specials: Optional[bool] = False
+    ) -> list[list[int]]:
         """
         Encodes the given texts into sequences of tokens.
         If `encode_specials` is `True`, the text is first split around special tokens which are separately encoded with the special encoder.
@@ -69,7 +71,9 @@ class Kitoken:
         """
     ...
 
-    def decode_all(self, data: list[list[int]], decode_specials: Optional[bool] = False) -> list[bytes]:
+    def decode_all(
+        self, data: list[list[int]], decode_specials: Optional[bool] = False
+    ) -> list[bytes]:
         """
         Decodes the given sequences of tokens into texts.
         Returns a list of lists of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
@@ -175,5 +179,14 @@ class Kitoken:
         Initializes the tokenizer from a `tekken` model file.
 
         :param path: The path to the file.
+        """
+        ...
+
+    @staticmethod
+    def from_web(url: str) -> Kitoken:
+        """
+        Initializes the tokenizer from a model URL.
+
+        :param url: The URL to the file.
         """
         ...

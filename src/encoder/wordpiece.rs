@@ -170,6 +170,7 @@ impl WordPiece {
             || self.max_word_chars > 0 && indices.clone().count() > self.max_word_chars
         {
             if fallback.peek() == Some(&Fallback::Unknown) && self.unknown.is_some() {
+                #[allow(clippy::unnecessary_unwrap)]
                 result.push(self.unknown.as_ref().unwrap().id);
             } else if fallback.peek() == Some(&Fallback::Skip) {
             } else {

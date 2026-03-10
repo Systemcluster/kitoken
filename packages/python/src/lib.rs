@@ -229,6 +229,13 @@ impl Kitoken {
                 .map_err(convert_error)?,
         })
     }
+
+    #[staticmethod]
+    pub fn from_web(url: &str, py: Python<'_>) -> PyResult<Kitoken> {
+        Ok(Kitoken {
+            inner: py.detach(|| Inner::from_web(url)).map(Arc::new).map_err(convert_error)?,
+        })
+    }
 }
 
 #[pymodule]
