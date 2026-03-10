@@ -12,7 +12,7 @@
 ```py
 from kitoken import Kitoken
 
-encoder = Kitoken.from_file("models/llama4.model")
+encoder = Kitoken.from_web("hf:Qwen/Qwen3.5-9B")
 
 tokens = encoder.encode("hello world!", True)
 string = encoder.decode(tokens).decode("utf-8")
@@ -29,8 +29,8 @@ Kitoken is a fast and versatile tokenizer for language models compatible with [S
 - **Runs in all environments**\
   Native in Rust and with bindings for [Web](./packages/javascript), [Node](./packages/javascript) and [Python](./packages/python); see [kitoken.dev](https://kitoken.dev) for a web demo.
 - **Supports input and output processing**\
-  Including unicode-aware normalization, pre-tokenization and post-decoding options.
-- **Compact data format**\
+  Including unicode-aware normalization, pre-tokenization and post-processing options.
+- **Compact data encoding**\
   Definitions are stored in an efficient binary format and without merge list.
 
 See the main [README](//github.com/Systemcluster/kitoken) for more information.

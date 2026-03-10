@@ -57,6 +57,7 @@ all = [
     "regex-unicode",
     "regex-perf",
     "multiversion",
+    "web",
 ]
 
 # Enables standard library features
@@ -99,6 +100,9 @@ regex-onig = ["dep:onig"]
 
 # Enables the use of multiversion for generating multiple code paths with different CPU feature utilization
 multiversion = ["dep:multiversion"]
+
+# Enables fetching definitions from HuggingFace or other URLs
+web = ["std", "dep:reqwest"]
 
 # Enables the use of unstable features
 unstable = []
@@ -156,6 +160,9 @@ serde_json = { version = "1.0", default-features = false, features = ["alloc"], 
 
 # optional dependencies for the multiversion feature
 multiversion = { version = "0.8", default-features = false, optional = true }
+
+# optional dependencies for the web feature
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls", "system-proxy"], optional = true }
 
 [dev-dependencies]
 

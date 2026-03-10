@@ -39,3 +39,10 @@ print(encoder.decode_all([[x] for x in t]))
 
 encoder.to_bytes()
 print("OK")
+
+try:
+    encoder = Kitoken.from_web("hf:Qwen/Qwen3.5-9B")
+    print(encoder)
+    print("Web OK")
+except Exception as e:
+    print(f"Web ERR: {e}")

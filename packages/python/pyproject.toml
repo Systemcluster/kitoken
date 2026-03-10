@@ -37,7 +37,7 @@ Repository = "https://github.com/Systemcluster/kitoken"
 [build-system]
 
 requires = [
-    "maturin==1.12.6",
+    "maturin==1.12.7",
 ]
 build-backend = "maturin"
 
@@ -45,7 +45,7 @@ build-backend = "maturin"
 [dependency-groups]
 
 dev = [
-    "maturin==1.12.6",
+    "maturin==1.12.7",
     "pip>=26.0.1",
 ]
 

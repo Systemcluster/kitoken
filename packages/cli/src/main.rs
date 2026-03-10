@@ -1,10 +1,10 @@
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Seek};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Once;
 
 use clap::Parser;
-use kitoken::{Definition, DeserializationError, Kitoken};
+use kitoken::{Definition, DeserializationError, Kitoken, WebRequestError};
 
 #[derive(Parser)]
 enum Command {
@@ -82,20 +82,18 @@ pub fn main() {
                 std::process::exit(1);
             }
             for path in paths {
-                convert(&path, true).unwrap_or_else(|error| {
+                convert_path(path.to_str().unwrap(), true).unwrap_or_else(|error| {
                     eprintln!("{}", error);
                     std::process::exit(1);
                 });
             }
         }
         Command::Compare { one, two } => {
-            let one = Path::new(&one);
-            let two = Path::new(&two);
-            let one = convert(one, false).unwrap_or_else(|error| {
+            let one = convert_path(&one, false).unwrap_or_else(|error| {
                 eprintln!("{}", error);
                 std::process::exit(1);
             });
-            let two = convert(two, false).unwrap_or_else(|error| {
+            let two = convert_path(&two, false).unwrap_or_else(|error| {
                 eprintln!("{}", error);
                 std::process::exit(1);
             });
@@ -129,8 +127,7 @@ pub fn main() {
             }
         }
         Command::Inspect { path } => {
-            let path = Path::new(&path);
-            let model = convert(path, false).unwrap_or_else(|error| {
+            let model = convert_path(&path, false).unwrap_or_else(|error| {
                 eprintln!("{}", error);
                 std::process::exit(1);
             });
@@ -138,9 +135,8 @@ pub fn main() {
             println!("{:#?}", model);
         }
         Command::Encode { model, input } => {
-            let model = Path::new(&model);
             let inputp = Path::new(&input);
-            let model = convert(model, false).unwrap_or_else(|error| {
+            let model = convert_path(&model, false).unwrap_or_else(|error| {
                 eprintln!("{}", error);
                 std::process::exit(1);
             });
@@ -166,9 +162,8 @@ pub fn main() {
             println!()
         }
         Command::Decode { model, input } => {
-            let model = Path::new(&model);
             let inputp = Path::new(&input);
-            let model = convert(model, false).unwrap_or_else(|error| {
+            let model = convert_path(&model, false).unwrap_or_else(|error| {
                 eprintln!("{}", error);
                 std::process::exit(1);
             });
@@ -202,10 +197,27 @@ pub fn main() {
     }
 }
 
-pub fn convert(path: &Path, write: bool) -> Result<Definition, DeserializationError> {
+pub fn convert_web(url: &str) -> Result<Definition, WebRequestError> {
+    let definition = Definition::from_web(url)?;
+    eprintln!("Definition loaded from {}", definition.meta.source);
+    convert(definition, None).map_err(|e| e.into())
+}
+
+pub fn convert_path(path: &str, write: bool) -> Result<Definition, WebRequestError> {
+    if path.starts_with("hf:") || path.starts_with("http:") || path.starts_with("https:") {
+        return convert_web(path);
+    }
     let mut reader = BufReader::new(File::open(path)?);
     let definition = Definition::from_reader(&mut reader)?;
-    eprintln!("Definition loaded from {}", path.display());
+    eprintln!("Definition loaded from {}", path);
+    eprintln!("Input size: {} bytes", reader.stream_position()?);
+    convert(definition, write.then(|| PathBuf::from(path).with_extension("kit")))
+        .map_err(|e| e.into())
+}
+
+pub fn convert(
+    definition: Definition, out: Option<PathBuf>,
+) -> Result<Definition, DeserializationError> {
     match definition.model {
         kitoken::Model::BytePair { .. } => eprintln!("Model type: BPE"),
         kitoken::Model::Unigram { .. } => eprintln!("Model type: Unigram"),
@@ -214,9 +226,7 @@ pub fn convert(path: &Path, write: bool) -> Result<Definition, DeserializationEr
     }
     eprintln!("Vocab size: {}", definition.model.vocab().len());
     eprintln!("Specials size: {}", definition.specials.len());
-    eprintln!("Input size: {} bytes", reader.stream_position()?);
-    if write {
-        let out = path.with_extension("kit");
+    if let Some(out) = out {
         let mut writer = BufWriter::new(File::create(&out)?);
         definition.to_writer(&mut writer)?;
         eprintln!("Definition written to {}", out.display());

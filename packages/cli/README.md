@@ -16,10 +16,12 @@ kitoken encode deepseek.kit ./texts.txt
 kitoken decode deepseek.kit ./tokens.txt
 ```
 
+`kitoken-cli` supports converting and inspecting model definitions:
+
 ```bash
 # Compare
 kitoken compare llama4.json llama4.model
-# Convert
+# Convert to .kit
 kitoken convert llama4.model
 # Inspect
 kitoken inspect llama4.kit

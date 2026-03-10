@@ -29,7 +29,7 @@ Kitoken is a fast and versatile tokenizer for language models compatible with [S
   Native in Rust and with bindings for [Web](./packages/javascript), [Node](./packages/javascript) and [Python](./packages/python); see [kitoken.dev](https://kitoken.dev) for a web demo.
 - **Supports input and output processing**\
   Including unicode-aware normalization, pre-tokenization and post-processing options.
-- **Compact data format**\
+- **Compact data encoding**\
   Definitions are stored in an efficient binary format and without merge list.
 
 See the main [README](//github.com/Systemcluster/kitoken) for more information.
