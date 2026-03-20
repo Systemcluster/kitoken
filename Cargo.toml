@@ -173,6 +173,7 @@ kitoken = { path = ".", default-features = false, features = [
     "normalization",
     "split",
     "regex-perf",
+    "regex-unicode",
     "multiversion",
 ] }
 

@@ -9,7 +9,7 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use base64::{alphabet, engine, Engine};
+use base64::{Engine, alphabet, engine};
 use bstr::ByteSlice;
 
 use crate::convert::ConversionError;
@@ -31,8 +31,8 @@ static BASE64: engine::GeneralPurpose =
 ///
 /// ```
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// use kitoken::convert::convert_tiktoken;
 /// use kitoken::Kitoken;
+/// use kitoken::convert::convert_tiktoken;
 ///
 /// let data = std::fs::read("tests/models/tiktoken/cl100k_base.tiktoken")?;
 /// let definition = convert_tiktoken(data).unwrap();
@@ -164,6 +164,32 @@ pub fn convert_tiktoken(data: impl AsRef<[u8]>) -> Result<Definition, Conversion
                 &["<|reasoning_thinking_start|>", "<|reasoning_thinking_end|>"],
                 len + specials.len(),
             ));
+        }
+        len @ 163584 => {
+            log::debug!("Detected kimi vocab");
+            specials.extend(sequential(
+                &[
+                    "<|im_end|>",
+                    "<|im_user|>",
+                    "<|im_assistant|>",
+                    "<|start_header_id|>",
+                    "<|end_header_id|>",
+                    "[EOT]",
+                    "<|im_system|>",
+                    "<|im_middle|>",
+                ],
+                len,
+            ));
+            config.split.push(Split::Pattern{pattern:Regex::new(&[
+                    r"[\p{Han}]+",
+                    r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+                    r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]+[\p{Ll}\p{Lm}\p{Lo}\p{M}&&[^\p{Han}]]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?",
+                    r"\p{N}{1,3}",
+                    r" ?[^\s\p{L}\p{N}]+[\r\n]*",
+                    r"\s*[\r\n]+",
+                    r"\s+(?!\S)",
+                ].join("|"))?.into(),
+            behavior: SplitBehavior::Isolate});
         }
         199990.. => {
             log::debug!("Detected o200k vocab");
