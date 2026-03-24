@@ -1,7 +1,7 @@
 {
     "name": "kitoken",
     "displayName": "Kitoken",
-    "description": "Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization",
+    "description": "Fast tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization",
     "version": "0.10.1",
     "author": {
         "name": "Christian Sdunek",

@@ -1,7 +1,7 @@
 [project]
 
 name = "kitoken"
-description = "Fast and versatile tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization"
+description = "Fast tokenizer for language models, supporting BPE, Unigram and WordPiece tokenization"
 requires-python = ">=3.10"
 license = { text = "BSD-2-Clause" }
 version = "0.10.1"
@@ -37,7 +37,7 @@ Repository = "https://github.com/Systemcluster/kitoken"
 [build-system]
 
 requires = [
-    "maturin==1.12.7",
+    "maturin==1.13.1",
 ]
 build-backend = "maturin"
 
@@ -45,7 +45,7 @@ build-backend = "maturin"
 [dependency-groups]
 
 dev = [
-    "maturin==1.12.7",
+    "maturin==1.13.1",
     "pip>=26.0.1",
 ]
 

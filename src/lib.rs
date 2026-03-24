@@ -56,8 +56,8 @@
 //! - `web`: Enables fetching definitions from HuggingFace or other URLs.
 
 #![no_std]
-#![cfg_attr(docsrs, feature(doc_auto_cfg, doc_cfg_hide))]
-#![cfg_attr(docsrs, doc(cfg_hide(doc)))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, doc(auto_cfg))]
 
 extern crate alloc;
 
