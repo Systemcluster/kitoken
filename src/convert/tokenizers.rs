@@ -27,7 +27,7 @@ mod hf {
     use alloc::string::{String, ToString};
     use alloc::vec::Vec;
 
-    use base64::{alphabet, engine, Engine};
+    use base64::{Engine, alphabet, engine};
     use hashbrown::HashMap;
     use serde::{Deserialize, Deserializer};
 
@@ -53,23 +53,27 @@ mod hf {
             Pair(Vec<(String, String)>),
         }
         let merges = match Merges::deserialize(deserializer)? {
-            Merges::Merged(merges) => merges
-                .into_iter()
-                .enumerate()
-                .map(|(i, merge)| {
+            Merges::Merged(merges) => {
+                let mut map = HashMap::with_capacity(merges.len());
+                for (i, merge) in merges.into_iter().enumerate() {
                     let mut parts = merge.splitn(2, ' ');
                     if let (Some(left), Some(right)) = (parts.next(), parts.next()) {
-                        Some(([left.as_bytes(), right.as_bytes()].concat(), i))
+                        let key = [left.as_bytes(), right.as_bytes()].concat();
+                        map.entry(key).or_insert(i);
                     } else {
-                        None
+                        return Err(serde::de::Error::custom("invalid merges format"));
                     }
-                })
-                .collect::<Option<_>>(),
-            Merges::Pair(merges) => merges
-                .into_iter()
-                .enumerate()
-                .map(|(i, (left, right))| Some(([left.as_bytes(), right.as_bytes()].concat(), i)))
-                .collect(),
+                }
+                Some(map)
+            }
+            Merges::Pair(merges) => {
+                let mut map = HashMap::with_capacity(merges.len());
+                for (i, (left, right)) in merges.into_iter().enumerate() {
+                    let key = [left.as_bytes(), right.as_bytes()].concat();
+                    map.entry(key).or_insert(i);
+                }
+                Some(map)
+            }
         };
         merges.ok_or_else(|| serde::de::Error::custom("invalid merges format"))
     }
@@ -413,8 +417,8 @@ use hf::{AddedToken, Tokenizer};
 ///
 /// ```
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// use kitoken::convert::convert_tokenizers;
 /// use kitoken::Kitoken;
+/// use kitoken::convert::convert_tokenizers;
 ///
 /// let data = std::fs::read("tests/models/tokenizers/llama2.json")?;
 /// let definition = convert_tokenizers(data).unwrap();
@@ -464,8 +468,8 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
 
     // Convert normalizers
     while let Some(normalizer) = normalizers.pop_front() {
-        use hf::Normalizer;
         use UnicodeNormalization::*;
+        use hf::Normalizer;
         match normalizer {
             Normalizer::BertNormalizer {
                 clean_text,
@@ -1157,8 +1161,10 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 vocab.insert(token.as_bytes().to_vec(), id);
             }
             let specials = get_specials(bpe.unk_token.as_ref(), None);
-            for special in specials.keys() {
-                vocab.remove(special);
+            for (special, t) in specials.iter() {
+                if t.kind != SpecialTokenKind::Priority {
+                    vocab.remove(special);
+                }
             }
 
             if let Some(unk) = bpe.unk_token {
@@ -1209,6 +1215,10 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             sort_vocab(&mut vocab);
 
             let mut specials = specials.into_values().collect::<SpecialVocab>();
+            specials.retain(|s| {
+                s.kind != SpecialTokenKind::Priority
+                    || s.bytes.len() > 1 && !bpe.merges.contains_key(s.bytes.as_slice())
+            });
             specials.sort();
 
             // Fix special tokens with invalid IDs
@@ -1247,8 +1257,10 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 });
             }
             let specials = get_specials(None, unigram.unk_id.map(|id| id as u32));
-            for special in specials.keys() {
-                vocab.remove(special);
+            for (special, t) in specials.iter() {
+                if t.kind != SpecialTokenKind::Priority {
+                    vocab.remove(special);
+                }
             }
 
             if let Some(unk) = unigram.unk_id {
@@ -1292,8 +1304,10 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 vocab.insert(token.as_bytes().to_vec(), id);
             }
             let specials = get_specials(Some(&wordpiece.unk_token), None);
-            for special in specials.keys() {
-                vocab.remove(special);
+            for (special, t) in specials.iter() {
+                if t.kind != SpecialTokenKind::Priority {
+                    vocab.remove(special);
+                }
             }
 
             if specials.get(wordpiece.unk_token.as_bytes()).is_some() {
@@ -1398,6 +1412,8 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                                 return None;
                             }
                             return Some((rune, token.id).into());
+                        } else {
+                            log::warn!("Byte rune invalid: {:?}", token)
                         }
                     }
                     Some(token.clone())
