@@ -14,6 +14,8 @@ use alloc::rc::Rc;
 use alloc::string::String;
 use alloc::vec::Vec;
 
+use either::Either;
+use kitoken::SpecialTokenKind;
 use wasm_bindgen::prelude::*;
 
 use ::kitoken::Kitoken as Inner;
@@ -38,54 +40,89 @@ impl Kitoken {
 
     /// Encodes the given text into a sequence of tokens.
     ///
-    /// If `encode_specials` is `true`, the text is first split around special tokens which are separately encoded with the special encoder.
+    /// `encode_specials` specifies which special tokens are tokenized with the special vocabulary instead of the regular vocabulary.
+    /// Accepted are arrays of strings "control", "priority", "unknown", and boolean values `true` and `false`.
+    /// When `true`, all special token categories from the special vocabulary are used.
     ///
     /// Returns a list of tokens, or an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
-    pub fn encode(&self, text: &str, encode_specials: Option<bool>) -> Result<Vec<u32>, JsValue> {
-        self.inner.encode(text, encode_specials.unwrap_or(false)).map_err(convert_error)
+    pub fn encode(&self, text: &str, encode_specials: JsValue) -> Result<Vec<u32>, JsValue> {
+        let specials = convert_special_kinds(encode_specials)?;
+        match specials {
+            Either::Left(b) => self.inner.encode(text, b),
+            Either::Right(v) => self.inner.encode(text, v),
+        }
+        .map_err(convert_error)
     }
 
     /// Encodes the given texts into sequences of tokens.
     ///
-    /// If `encode_specials` is `true`, the text is first split around special tokens which are separately encoded with the special encoder.
+    /// `encode_specials` specifies which special tokens are tokenized with the special vocabulary instead of the regular vocabulary.
+    /// Accepted are arrays of strings "control", "priority", "unknown", and boolean values `true` and `false`.
+    /// When `true`, all special token categories from the special vocabulary are used.
     ///
     /// Returns a list of lists of tokens, or an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
     pub fn encode_all(
-        &self, text: Vec<String>, encode_specials: Option<bool>,
+        &self, text: Vec<String>, encode_specials: JsValue,
     ) -> Result<Vec<JsValue>, JsValue> {
-        text.iter()
-            .map(|text| self.encode(text, encode_specials))
-            .map(|result| result.map(JsValue::from))
-            .collect::<Result<_, _>>()
+        let specials = convert_special_kinds(encode_specials)?;
+        match specials {
+            Either::Left(b) => text
+                .iter()
+                .map(|text| self.inner.encode(text, b))
+                .map(|result| result.map(JsValue::from))
+                .collect::<Result<_, _>>(),
+            Either::Right(v) => text
+                .iter()
+                .map(|text| self.inner.encode(text, v.as_slice()))
+                .map(|result| result.map(JsValue::from))
+                .collect::<Result<_, _>>(),
+        }
+        .map_err(convert_error)
     }
 
     /// Decodes the given sequence of tokens into text.
     ///
+    /// `decode_specials` specifies which tokens from the special vocabulary are included in the output.
+    /// Accepted are arrays of strings "control", "priority", "unknown", and boolean values `true` and `false`.
+    ///
     /// Returns a list of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
-    pub fn decode(
-        &self, tokens: &[u32], decode_specials: Option<bool>,
-    ) -> Result<Vec<u8>, JsValue> {
-        self.inner
-            .decode(tokens, decode_specials.unwrap_or(false))
-            .map_err(convert_error)
+    pub fn decode(&self, tokens: &[u32], decode_specials: JsValue) -> Result<Vec<u8>, JsValue> {
+        let specials = convert_special_kinds(decode_specials)?;
+        match specials {
+            Either::Left(b) => self.inner.decode(tokens, b),
+            Either::Right(v) => self.inner.decode(tokens, v),
+        }
+        .map_err(convert_error)
     }
 
     /// Decodes the given sequences of tokens into texts.
     ///
+    /// `decode_specials` specifies which tokens from the special vocabulary are included in the output.
+    /// Accepted are arrays of strings "control", "priority", "unknown", and boolean values `true` and `false`.
+    ///
     /// Returns a list of lists of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
     pub fn decode_all(
-        &self, tokens: Vec<JsValue>, decode_specials: Option<bool>,
+        &self, tokens: Vec<JsValue>, decode_specials: JsValue,
     ) -> Result<Vec<JsValue>, JsValue> {
         let tokens = tokens
             .into_iter()
             .map(serde_wasm_bindgen::from_value)
             .collect::<Result<Vec<Vec<u32>>, _>>()
             .map_err(|_| JsValue::from_str("expected an array of arrays of tokens"))?;
-        let result = tokens
-            .into_iter()
-            .map(|tokens| self.decode(&tokens, decode_specials))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(result.into_iter().map(JsValue::from).collect())
+        let specials = convert_special_kinds(decode_specials)?;
+        match specials {
+            Either::Left(b) => tokens
+                .iter()
+                .map(|tokens| self.inner.decode(tokens, b))
+                .map(|result| result.map(JsValue::from))
+                .collect::<Result<Vec<_>, _>>(),
+            Either::Right(v) => tokens
+                .iter()
+                .map(|tokens| self.inner.decode(tokens, v.as_slice()))
+                .map(|result| result.map(JsValue::from))
+                .collect::<Result<Vec<_>, _>>(),
+        }
+        .map_err(convert_error)
     }
 
     /// Returns the definition of the tokenizer.
@@ -163,4 +200,29 @@ impl Kitoken {
 #[inline(never)]
 fn convert_error(e: impl core::fmt::Display) -> JsValue {
     JsValue::from_str(&format!("{}", e))
+}
+
+#[inline(never)]
+fn convert_special_kinds(s: JsValue) -> Result<Either<bool, Vec<SpecialTokenKind>>, JsValue> {
+    if s.is_array() {
+        let v = serde_wasm_bindgen::from_value::<Vec<String>>(s)
+            .map_err(convert_error)?
+            .into_iter()
+            .map(|s| match s.as_str() {
+                "control" => Ok(SpecialTokenKind::Control),
+                "priority" => Ok(SpecialTokenKind::Priority),
+                "unknown" => Ok(SpecialTokenKind::Unknown),
+                _ => Err("invalid special token kind"),
+            })
+            .collect::<Result<Vec<_>, &'static str>>()?;
+        Ok(Either::Right(v))
+    } else {
+        if s.is_null_or_undefined() {
+            Ok(Either::Left(false))
+        } else {
+            serde_wasm_bindgen::from_value::<bool>(s)
+                .map(Either::Left)
+                .map_err(convert_error)
+        }
+    }
 }

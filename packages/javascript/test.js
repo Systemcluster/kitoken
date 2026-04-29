@@ -9,12 +9,22 @@ const model = fs.readFileSync("../../tests/models/sentencepiece/llama2.model");
 const encoder = new Kitoken(model);
 console.debug(encoder);
 
-const en = encoder.encode("hello world!", true);
+let en = encoder.encode("hello world!", true);
 console.debug(en);
-const de = encoder.decode(en);
+let de = encoder.decode(en);
 console.debug(new TextDecoder().decode(de));
 
 assert.equal(new TextDecoder().decode(de), "hello world!");
+
+en = encoder.encode("A<s>B", ["control"])
+console.debug(en)
+assert.deepEqual(en, new Uint32Array([319, 1, 29933]))
+de = new TextDecoder().decode(encoder.decode(en, ["control"]))
+console.debug(de)
+assert.equal(de, "A<s>B")
+de = new TextDecoder().decode(encoder.decode(en, []))
+console.debug(de)
+assert.equal(de, "AB")
 
 const text = new TextDecoder().decode(
     fs.readFileSync("../../benches/data/wagahai.txt"),
@@ -33,7 +43,9 @@ const conf = encoder.config();
 console.debug(conf);
 encoder.set_config(conf);
 const mult = encoder.encode_all(["hello world!", "hello world!"], true);
+console.debug(mult)
 const demu = encoder.decode_all(mult);
+console.debug(demu)
 assert.equal(new TextDecoder().decode(demu[0]), "hello world!");
 assert.equal(new TextDecoder().decode(demu[1]), "hello world!");
 

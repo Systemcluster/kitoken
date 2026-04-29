@@ -41,8 +41,9 @@ kitoken = { path = "../..", default-features = false, features = [] }
 
 log = { version = "0.4.29" }
 rlsf = { version = "0.2.2" }
-wasm-bindgen = { version = "0.2.114", default-features = false, features = ["spans", "strict-macro"] }
+wasm-bindgen = { version = "0.2.120", default-features = false, features = ["spans", "strict-macro"] }
 serde-wasm-bindgen = { version = "0.6.5" }
+either = { version = "1.15.0" }
 
 
 [dev-dependencies]

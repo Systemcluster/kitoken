@@ -85,6 +85,7 @@ Some normalization, post-processing and decoding options used by Tokenizers are 
 
 - Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones when using an incomplete vocabulary without an `unk` token. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually. This can affect models that exploit the behavior of Tokenizers with a deliberately restricted vocabulary.
 - Tokenizers normalizes inputs character-by-character, while Kitoken normalizes inputs as one. This can result in differences during case-folding in some cases. For example, greek letter `Σ` has two lowercase forms, `σ` for within-word and `ς` for end-of-word use. Tokenizers will always lowercase `Σ` to `σ`, while Kitoken will lowercase it to either depending on the context.
+- Tokenizers doesn't merge Metaspace replacement characters in inputs with spaces during encoding. Kitoken merges both as the same, matching the behavior of SentencePiece.
 
 </details>
 

@@ -2,14 +2,15 @@ use core::fmt::Display;
 use std::path::PathBuf;
 use std::sync::{Arc, Once};
 
+use either::Either;
 use log::LevelFilter;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyList, PyString};
 use pyo3_log::Logger;
-
-use ::kitoken::Kitoken as Inner;
 use serde_pyobject::{from_pyobject, to_pyobject};
+
+use ::kitoken::{Kitoken as Inner, SpecialTokenKind};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
 #[global_allocator]
@@ -29,52 +30,75 @@ impl Kitoken {
         })
     }
 
-    #[pyo3(signature = (text, encode_specials=false))]
+    #[pyo3(signature = (text, encode_specials=Either::Left(false)))]
     pub fn encode<'a>(
-        &self, text: Bound<'a, PyString>, encode_specials: Option<bool>, py: Python<'a>,
+        &self, text: Bound<'a, PyString>, encode_specials: Option<Either<bool, Vec<String>>>,
+        py: Python<'a>,
     ) -> PyResult<Bound<'a, PyList>> {
         let text = text.extract::<&str>()?;
-        py.detach(|| self.inner.encode(text, encode_specials.unwrap_or(false)))
-            .map_err(convert_error)
-            .map(|tokens| PyList::new(py, tokens))
-            .and_then(|texts| texts)
-    }
-
-    #[pyo3(signature = (text, encode_specials=false))]
-    pub fn encode_all<'a>(
-        &self, text: Bound<'a, PyList>, encode_specials: Option<bool>, py: Python<'a>,
-    ) -> PyResult<Bound<'a, PyList>> {
-        let text = text.extract::<Vec<String>>()?;
-        py.detach(|| {
-            text.iter()
-                .map(|text| self.inner.encode(text, encode_specials.unwrap_or(false)))
-                .collect::<Result<Vec<_>, _>>()
+        let specials = convert_special_kinds(encode_specials).map_err(convert_error)?;
+        py.detach(|| match specials {
+            Either::Left(b) => self.inner.encode(text, b),
+            Either::Right(v) => self.inner.encode(text, v),
         })
         .map_err(convert_error)
         .map(|tokens| PyList::new(py, tokens))
         .and_then(|texts| texts)
     }
 
-    #[pyo3(signature = (tokens, decode_specials=false))]
-    pub fn decode<'a>(
-        &self, tokens: Bound<'a, PyList>, decode_specials: Option<bool>, py: Python<'a>,
-    ) -> PyResult<Bound<'a, PyBytes>> {
-        let tokens = tokens.extract::<Vec<u32>>()?;
-        py.detach(|| self.inner.decode(tokens, decode_specials.unwrap_or(false)))
-            .map_err(convert_error)
-            .map(|s| PyBytes::new(py, &s))
+    #[pyo3(signature = (text, encode_specials=Either::Left(false)))]
+    pub fn encode_all<'a>(
+        &self, text: Bound<'a, PyList>, encode_specials: Option<Either<bool, Vec<String>>>,
+        py: Python<'a>,
+    ) -> PyResult<Bound<'a, PyList>> {
+        let text = text.extract::<Vec<String>>()?;
+        let specials = convert_special_kinds(encode_specials).map_err(convert_error)?;
+        py.detach(|| match specials {
+            Either::Left(b) => text
+                .iter()
+                .map(|text| self.inner.encode(text, b))
+                .collect::<Result<Vec<_>, _>>(),
+            Either::Right(v) => text
+                .iter()
+                .map(|text| self.inner.encode(text, v.as_slice()))
+                .collect::<Result<Vec<_>, _>>(),
+        })
+        .map_err(convert_error)
+        .map(|tokens| PyList::new(py, tokens))
+        .and_then(|texts| texts)
     }
 
-    #[pyo3(signature = (tokens, decode_specials=false))]
+    #[pyo3(signature = (tokens, decode_specials=Either::Left(false)))]
+    pub fn decode<'a>(
+        &self, tokens: Bound<'a, PyList>, decode_specials: Option<Either<bool, Vec<String>>>,
+        py: Python<'a>,
+    ) -> PyResult<Bound<'a, PyBytes>> {
+        let tokens = tokens.extract::<Vec<u32>>()?;
+        let specials = convert_special_kinds(decode_specials).map_err(convert_error)?;
+        py.detach(|| match specials {
+            Either::Left(b) => self.inner.decode(tokens, b),
+            Either::Right(v) => self.inner.decode(tokens, v),
+        })
+        .map_err(convert_error)
+        .map(|s| PyBytes::new(py, &s))
+    }
+
+    #[pyo3(signature = (tokens, decode_specials=Either::Left(false)))]
     pub fn decode_all<'a>(
-        &self, tokens: Bound<'a, PyList>, decode_specials: Option<bool>, py: Python<'a>,
+        &self, tokens: Bound<'a, PyList>, decode_specials: Option<Either<bool, Vec<String>>>,
+        py: Python<'a>,
     ) -> PyResult<Bound<'a, PyList>> {
         let tokens = tokens.extract::<Vec<Vec<u32>>>()?;
-        py.detach(|| {
-            tokens
+        let specials = convert_special_kinds(decode_specials).map_err(convert_error)?;
+        py.detach(|| match specials {
+            Either::Left(b) => tokens
                 .into_iter()
-                .map(|tokens| self.inner.decode(&tokens, decode_specials.unwrap_or(false)))
-                .collect::<Result<Vec<_>, _>>()
+                .map(|tokens| self.inner.decode(&tokens, b))
+                .collect::<Result<Vec<_>, _>>(),
+            Either::Right(v) => tokens
+                .into_iter()
+                .map(|tokens| self.inner.decode(&tokens, v.as_slice()))
+                .collect::<Result<Vec<_>, _>>(),
         })
         .map_err(convert_error)
         .map(|texts| PyList::new(py, texts.iter().map(|s| PyBytes::new(py, s))))
@@ -254,4 +278,25 @@ fn kitoken(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[inline(never)]
 fn convert_error(e: impl Display) -> PyErr {
     PyValueError::new_err(format!("{}", e))
+}
+
+#[inline(never)]
+fn convert_special_kinds(
+    s: Option<Either<bool, Vec<String>>>,
+) -> Result<Either<bool, Vec<SpecialTokenKind>>, &'static str> {
+    match s.unwrap_or(Either::Left(false)) {
+        Either::Left(b) => Ok(Either::Left(b)),
+        Either::Right(v) => {
+            let v = v
+                .iter()
+                .map(|s| match s.as_str() {
+                    "control" => Ok(SpecialTokenKind::Control),
+                    "priority" => Ok(SpecialTokenKind::Priority),
+                    "unknown" => Ok(SpecialTokenKind::Unknown),
+                    _ => Err("invalid special token kind"),
+                })
+                .collect::<Result<Vec<_>, &'static str>>()?;
+            Ok(Either::Right(v))
+        }
+    }
 }

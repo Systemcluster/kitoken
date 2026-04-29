@@ -14,6 +14,16 @@ print(de.decode("utf-8"))
 
 assert de.decode("utf-8") == "hello world!"
 
+en = encoder.encode("A<s>B", ["control"])
+print(en)
+assert en == [319, 1, 29933]
+de = encoder.decode(en, ["control"]).decode("utf-8")
+print(de)
+assert de == "A<s>B"
+de = encoder.decode(en, []).decode("utf-8")
+print(de)
+assert de == "AB"
+
 text = open("../../benches/data/wagahai.txt", "rb").read().decode("utf-8")
 now = time()
 for i in range(100):

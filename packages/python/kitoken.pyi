@@ -1,6 +1,5 @@
 from typing import Any, Optional
 
-
 class Kitoken:
     """
     Kitoken tokenizer.
@@ -38,47 +37,55 @@ class Kitoken:
         """
         ...
 
-    def encode(self, text: str, encode_specials: Optional[bool] = False) -> list[int]:
+    def encode(
+        self, text: str, encode_specials: Optional[bool | list[str]] = False
+    ) -> list[int]:
         """
         Encodes the given text into a sequence of tokens.
-        If `encode_specials` is `True`, the text is first split around special tokens which are separately encoded with the special encoder.
         Returns a list of tokens, or an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
 
         :param text: The text to encode.
-        :param encode_specials: Whether to encode special tokens.
+        :param encode_specials: Specifies which special tokens are tokenized with the special vocabulary instead of the regular vocabulary.
+        Accepted are lists of "control", "priority", "unknown", and boolean values `True` and `False`. When `True`, all special token categories from the special vocabulary are used.
         """
         ...
 
     def encode_all(
-        self, text: list[str], encode_specials: Optional[bool] = False
+        self, text: list[str], encode_specials: Optional[bool | list[str]] = False
     ) -> list[list[int]]:
         """
         Encodes the given texts into sequences of tokens.
-        If `encode_specials` is `True`, the text is first split around special tokens which are separately encoded with the special encoder.
         Returns a list of lists of tokens, or an error if no token for a part exists in the encoder and no unknown token id is set in the configuration.
 
         :param text: The texts to encode.
-        :param encode_specials: Whether to encode special tokens.
+        :param encode_specials: Specifies which special tokens are tokenized with the special vocabulary instead of the regular vocabulary.
+        Accepted are lists of "control", "priority", "unknown", and boolean values `True` and `False`. When `True`, all special token categories from the special vocabulary are used.
         """
         ...
 
-    def decode(self, data: list[int], decode_specials: Optional[bool] = False) -> bytes:
+    def decode(
+        self, data: list[int], decode_specials: Optional[bool | list[str]] = False
+    ) -> bytes:
         """
         Decodes the given sequence of tokens into text.
         Returns a list of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
 
         :param data: The sequence of tokens to decode.
+        :param decode_specials: Specifies which tokens from the special vocabulary are included in the output.
+        Accepted are lists of "control", "priority", "unknown", and boolean values `True` and `False`. When `True`, all special token categories from the special vocabulary are used.
         """
     ...
 
     def decode_all(
-        self, data: list[list[int]], decode_specials: Optional[bool] = False
+        self, data: list[list[int]], decode_specials: Optional[bool | list[str]] = False
     ) -> list[bytes]:
         """
         Decodes the given sequences of tokens into texts.
         Returns a list of lists of bytes, or an error if no byte sequence for a token exists in the decoder and no unknown token is set in the configuration.
 
         :param data: The sequences of tokens to decode.
+        :param decode_specials: Specifies which tokens from the special vocabulary are included in the output.
+        Accepted are lists of "control", "priority", "unknown", and boolean values `True` and `False`. When `True`, all special token categories from the special vocabulary are used.
         """
         ...
 

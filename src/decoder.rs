@@ -56,7 +56,7 @@ impl Decoder {
 
     #[inline(never)]
     pub(crate) fn decode(
-        &self, tokens: &[TokenId], decode_specials: bool,
+        &self, tokens: &[TokenId], decode_specials: &[SpecialTokenKind],
     ) -> Result<Vec<u8>, DecodeError> {
         let extend = self.subword_prefix.as_deref().unwrap_or_default();
         let mut result = Vec::<u8>::with_capacity(
@@ -89,14 +89,14 @@ impl Decoder {
     )]
     fn decode_direct(
         result: &mut Vec<u8>, tokens: &[TokenId], vocab: &DecoderMap, specials: &SpecialDecoderMap,
-        decode_specials: bool,
+        decode_specials: &[SpecialTokenKind],
     ) -> Result<(), DecodeError> {
         for token in tokens {
             let bytes = vocab.get(token);
             if let Some(bytes) = bytes {
                 result.extend(bytes);
             } else if let Some(special) = specials.get(token) {
-                if special.kind != SpecialTokenKind::Control || decode_specials {
+                if decode_specials.contains(&special.kind) {
                     result.extend(special);
                 }
             } else {
@@ -118,7 +118,7 @@ impl Decoder {
     )]
     fn decode_with_prefix(
         result: &mut Vec<u8>, tokens: &[TokenId], prefix: &str, vocab: &DecoderMap,
-        specials: &SpecialDecoderMap, decode_specials: bool,
+        specials: &SpecialDecoderMap, decode_specials: &[SpecialTokenKind],
     ) -> Result<(), DecodeError> {
         for token in tokens {
             let bytes = vocab.get(token);
@@ -131,7 +131,7 @@ impl Decoder {
                 if !result.is_empty() {
                     result.push(b' ');
                 }
-                if special.kind != SpecialTokenKind::Control || decode_specials {
+                if decode_specials.contains(&special.kind) {
                     result.extend(special);
                 }
             } else {

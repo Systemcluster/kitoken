@@ -132,16 +132,19 @@ pub enum InitializationError {
     InvalidUtf8(Utf8Error),
 }
 impl From<ConfigurationError> for InitializationError {
+    #[inline(always)]
     fn from(e: ConfigurationError) -> Self {
         Self::InvalidConfig(e)
     }
 }
 impl From<RegexError> for InitializationError {
+    #[inline(always)]
     fn from(e: RegexError) -> Self {
         Self::InvalidRegex(e.0)
     }
 }
 impl From<Utf8Error> for InitializationError {
+    #[inline(always)]
     fn from(e: Utf8Error) -> Self {
         Self::InvalidUtf8(e)
     }
@@ -159,6 +162,40 @@ impl Debug for SpecialsMap {
     #[inline(never)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_list().entries(self.0.values()).finish()
+    }
+}
+
+/// Special token specification for encoding and decoding.
+pub trait SpecialTokenKinds {
+    fn as_kinds(&self, meta: &Metadata) -> &[SpecialTokenKind];
+}
+/// Includes all [`SpecialTokenKind`] when `true`, [`SpecialTokenKind::Priority`] when `false` for "tokenizers" metadata, [`SpecialTokenKind::Priority`] and [`SpecialTokenKind::Unknown`] when `false` otherwise.
+impl SpecialTokenKinds for bool {
+    #[inline(always)]
+    fn as_kinds(&self, meta: &Metadata) -> &[SpecialTokenKind] {
+        if *self {
+            &[
+                SpecialTokenKind::Control,
+                SpecialTokenKind::Priority,
+                SpecialTokenKind::Unknown,
+            ]
+        } else if meta.source == "tokenizers" {
+            &[SpecialTokenKind::Priority]
+        } else {
+            &[SpecialTokenKind::Priority, SpecialTokenKind::Unknown]
+        }
+    }
+}
+impl<'a> SpecialTokenKinds for &'a [SpecialTokenKind] {
+    #[inline(always)]
+    fn as_kinds(&self, _meta: &Metadata) -> &'a [SpecialTokenKind] {
+        self
+    }
+}
+impl SpecialTokenKinds for Vec<SpecialTokenKind> {
+    #[inline(always)]
+    fn as_kinds(&self, _meta: &Metadata) -> &[SpecialTokenKind] {
+        self
     }
 }
 
@@ -257,12 +294,19 @@ impl Kitoken {
 
     /// Encodes the given text into a sequence of tokens.
     ///
-    /// If `encode_specials` is `true`, control tokens are tokenized with their ids, otherwise they are tokenized with the regular vocabulary.
+    /// `encode_specials` specifies which special tokens are tokenized with the special vocabulary instead of the regular vocabulary.
     ///
     /// Returns a list of tokens, or an error if no token for a part exists in the encoder, and the configuration has no unknown token or skip fallback set.
-    #[inline(never)]
+    #[inline(always)]
     pub fn encode(
-        &self, text: impl AsRef<str>, encode_specials: bool,
+        &self, text: impl AsRef<str>, encode_specials: impl SpecialTokenKinds,
+    ) -> Result<Vec<TokenId>, EncodeError> {
+        self.inner_encode(text, encode_specials.as_kinds(&self.meta))
+    }
+
+    #[inline(never)]
+    fn inner_encode(
+        &self, text: impl AsRef<str>, encode_specials: &[SpecialTokenKind],
     ) -> Result<Vec<TokenId>, EncodeError> {
         let text = text.as_ref();
         let mut extracted = if self.extract_split.is_empty() {
@@ -287,7 +331,7 @@ impl Kitoken {
                 let special = &self.specials[&text.as_bytes()[next.0..next.1]];
                 parts.push(TextPart {
                     text:    text[next.0..next.1].into(),
-                    special: if special.kind != SpecialTokenKind::Control || encode_specials {
+                    special: if encode_specials.contains(&special.kind) {
                         special.id
                     } else {
                         Token::INVALID
@@ -318,9 +362,7 @@ impl Kitoken {
                     .map(|(start, end)| {
                         (start, end, &self.specials[part.text[start..end].as_bytes()])
                     })
-                    .filter(|(_, _, special)| {
-                        special.kind != SpecialTokenKind::Control || encode_specials
-                    })
+                    .filter(|(_, _, special)| encode_specials.contains(&special.kind))
                     .collect::<Vec<_>>();
                 specials.reverse();
                 specials
@@ -364,15 +406,15 @@ impl Kitoken {
 
     /// Decodes the given sequence of tokens into text.
     ///
-    /// If `decode_specials` is `false`, control tokens are ignored.
+    /// `decode_specials` specifies which tokens from the special vocabulary are included in the output.
     ///
     /// Returns a list of bytes, or an error if no byte sequence for a token exists.
     #[inline(never)]
     pub fn decode(
-        &self, tokens: impl AsRef<[TokenId]>, decode_specials: bool,
+        &self, tokens: impl AsRef<[TokenId]>, decode_specials: impl SpecialTokenKinds,
     ) -> Result<Vec<u8>, DecodeError> {
         let tokens = tokens.as_ref();
-        let mut result = self.decoder.decode(tokens, decode_specials)?;
+        let mut result = self.decoder.decode(tokens, decode_specials.as_kinds(&self.meta))?;
         self.config.decode(&mut result);
         Ok(result)
     }

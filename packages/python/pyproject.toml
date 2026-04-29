@@ -50,6 +50,11 @@ dev = [
 ]
 
 
+[tool.uv]
+
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "src/lib.rs" }]
+
+
 [tool.uv.pip]
 
 universal = true
