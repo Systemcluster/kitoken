@@ -121,7 +121,7 @@ impl Kitoken {
     }
 
     pub fn config<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyAny>> {
-        to_pyobject(py, &self.inner.to_definition().config).map_err(convert_error)
+        to_pyobject(py, &self.inner.config()).map_err(convert_error)
     }
 
     pub fn set_config<'a>(&mut self, config: Bound<'a, PyAny>, py: Python<'a>) -> PyResult<()> {
@@ -132,6 +132,10 @@ impl Kitoken {
             .map(Arc::new)
             .map_err(convert_error)?;
         Ok(())
+    }
+
+    pub fn meta<'a>(&self, py: Python<'a>) -> PyResult<Bound<'a, PyAny>> {
+        to_pyobject(py, &self.inner.meta()).map_err(convert_error)
     }
 
     #[staticmethod]

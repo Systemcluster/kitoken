@@ -117,6 +117,12 @@ class Kitoken:
         """
         ...
 
+    def meta(self) -> Any:
+        """
+        Returns the metadata of the tokenizer.
+        """
+        ...
+
     @staticmethod
     def from_sentencepiece(data: bytes) -> Kitoken:
         """

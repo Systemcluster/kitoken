@@ -142,9 +142,8 @@ impl Kitoken {
     }
 
     /// Returns the configuration of the tokenizer.
-    #[cfg(feature = "inspect")]
     pub fn config(&self) -> JsValue {
-        serde_wasm_bindgen::to_value(&self.inner.to_definition().config).unwrap()
+        serde_wasm_bindgen::to_value(&self.inner.config()).unwrap()
     }
 
     /// Sets the configuration of the tokenizer.
@@ -156,6 +155,11 @@ impl Kitoken {
         definition.config = serde_wasm_bindgen::from_value(config).map_err(convert_error)?;
         self.inner = Rc::new(Inner::from_definition(definition).map_err(convert_error)?);
         Ok(())
+    }
+
+    /// Returns the metadata of the tokenizer.
+    pub fn meta(&self) -> JsValue {
+        serde_wasm_bindgen::to_value(&self.inner.meta()).unwrap()
     }
 
     /// Creates a definition from this tokenizer and serializes it to bytes.

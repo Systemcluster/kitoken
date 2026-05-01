@@ -418,4 +418,16 @@ impl Kitoken {
         self.config.decode(&mut result);
         Ok(result)
     }
+
+    /// Returns the configuration.
+    #[inline(always)]
+    pub fn config(&self) -> &Configuration {
+        &self.config
+    }
+
+    /// Returns the metadata.
+    #[inline(always)]
+    pub fn meta(&self) -> &Metadata {
+        &self.meta
+    }
 }
