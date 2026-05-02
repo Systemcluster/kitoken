@@ -17,7 +17,7 @@ use crate::{
 mod ms {
     use alloc::string::{String, ToString};
     use alloc::vec::Vec;
-    use base64::{alphabet, engine, Engine};
+    use base64::{Engine, alphabet, engine};
     use serde::{Deserialize, Deserializer};
 
     static BASE64: engine::GeneralPurpose =
@@ -71,8 +71,8 @@ use ms::Tokenizer;
 ///
 /// ```
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// use kitoken::convert::convert_tekken;
 /// use kitoken::Kitoken;
+/// use kitoken::convert::convert_tekken;
 ///
 /// let data = std::fs::read("tests/models/tekken/mistral2410.json")?;
 /// let definition = convert_tekken(data).unwrap();
@@ -105,13 +105,6 @@ pub fn convert_tekken(data: impl AsRef<[u8]>) -> Result<Definition, ConversionEr
 
     let tokenizer = serde_json::from_slice::<Tokenizer>(data)
         .map_err(|e| ConversionError::InvalidData(format!("invalid JSON: {}", e)))?;
-
-    if tokenizer.config.version != "v3" {
-        return Err(ConversionError::UnsupportedConfiguration(format!(
-            "unsupported version: {}",
-            tokenizer.config.version
-        )));
-    }
 
     let specials = &[
         ("<unk>", Some("unk".to_string()), false),
