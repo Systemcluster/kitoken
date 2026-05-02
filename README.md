@@ -59,8 +59,8 @@ If the model does not contain a trainer definition, `Unigram` is assumed as the 
 <details>
 <summary>Notes</summary>
 
-- SentencePiece uses [different `nfkc` normalization rules in the `nmt_nfkc` and `nmt_nfkc_cf` schemes](https://github.com/google/sentencepiece/blob/master/doc/normalization.md) than during regular `nfkc` normalization, preventing the normalization of `～` to `~`. Kitoken uses the regular `nfkc` normalization rules for `nmt_nfkc` and `nmt_nfkc_cf`.
-- SentencePiece's implementation of Unigram merges pieces with the same merge priority in a different order depending on preceding non-encodable pieces. Kitoken always merges pieces with the same merge priority in the same order, matching the behavior of Tokenizers.
+- <sup>SentencePiece uses [different `nfkc` normalization rules in the `nmt_nfkc` and `nmt_nfkc_cf` schemes](https://github.com/google/sentencepiece/blob/master/doc/normalization.md) than during regular `nfkc` normalization, preventing the normalization of `～` to `~`. Kitoken uses the regular `nfkc` normalization rules for `nmt_nfkc` and `nmt_nfkc_cf`.</sup>
+- <sup>SentencePiece's implementation of Unigram merges pieces with the same merge priority in a different order depending on preceding non-encodable pieces. Kitoken always merges pieces with the same merge priority in the same order, matching the behavior of Tokenizers.</sup>
 
 </details>
 
@@ -83,9 +83,9 @@ Some normalization, post-processing and decoding options used by Tokenizers are 
 <details>
 <summary>Notes</summary>
 
-- Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones when using an incomplete vocabulary without an `unk` token. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually. This can affect models that exploit the behavior of Tokenizers with a deliberately restricted vocabulary.
-- Tokenizers normalizes inputs character-by-character, while Kitoken normalizes inputs as one. This can result in differences during case-folding in some cases. For example, greek letter `Σ` has two lowercase forms, `σ` for within-word and `ς` for end-of-word use. Tokenizers will always lowercase `Σ` to `σ`, while Kitoken will lowercase it to either depending on the context.
-- Tokenizers doesn't merge Metaspace replacement characters in inputs with spaces during encoding. Kitoken merges both as the same, matching the behavior of SentencePiece.
+- <sup>Tokenizers skips over non-encodable pieces and attempts to merge the surrounding ones when using an incomplete vocabulary without an `unk` token. Kitoken always considers non-encodable pieces as un-mergeable and encodes the surrounding pieces individually. This can affect models that exploit the behavior of Tokenizers with a deliberately restricted vocabulary.</sup>
+- <sup>Tokenizers normalizes inputs character-by-character, while Kitoken normalizes inputs as one. This can result in differences during case-folding in some cases. For example, greek letter `Σ` has two lowercase forms, `σ` for within-word and `ς` for end-of-word use. Tokenizers will always lowercase `Σ` to `σ`, while Kitoken will lowercase it to either depending on the context.</sup>
+- <sup>Tokenizers doesn't merge Metaspace replacement characters in inputs with spaces during encoding. Kitoken merges both as the same, matching the behavior of SentencePiece.</sup>
 
 </details>
 
@@ -118,34 +118,30 @@ The core tokenization functions are optimized for multiple CPU architectures and
 
 ### Benchmarks
 
-Benchmarks were performed on a MacBook Pro M1 Max using each libraries Python bindings with [tokenizer-bench](https://github.com/Systemcluster/tokenizer-bench).
+Benchmarks were performed on a MacBook Pro M4 Max using each libraries Python bindings with [tokenizer-bench](https://github.com/Systemcluster/tokenizer-bench).
 
-#### Llama 2
+#### Gemma 3
 
-Llama 2 uses a SentencePiece-based tokenizer model and `BytePair` tokenization in character mode with byte mode fallback.
-
-<img src="./benches/encode_llama2_time.svg" width="100%" alt="Encoding Benchmark, Llama 2, time in seconds, 1000 iterations"/>
+<img src="./benches/encode_gemma3_time.svg" width="100%" alt="Encoding Benchmark: Gemma 3, time in seconds, 1000 iterations"/>
 
 <details>
 <summary>Encoding throughput</summary>
-<img src="./benches/encode_llama2_throughput.svg" width="100%" alt="Encoding Benchmark, Llama 2, throughput in MB/s"/>
+<img src="./benches/encode_gemma3_throughput.svg" width="100%" alt="Encoding Benchmark: Gemma 3, throughput in MB/s"/>
 </details>
 
-#### GPT-2
+#### Llama 4
 
-GPT-2 uses a Tokenizers-based tokenizer model and `BytePair` tokenization in byte mode.
-
-<img src="./benches/encode_gpt2_time.svg" width="100%" alt="Encoding Benchmark, GPT-2, time in seconds, 1000 iterations"/>
+<img src="./benches/encode_llama4_time.svg" width="100%" alt="Encoding Benchmark: Llama 4, time in seconds, 1000 iterations"/>
 
 <details>
 <summary>Encoding throughput</summary>
-<img src="./benches/encode_gpt2_throughput.svg" width="100%" alt="Encoding Benchmark, GPT-2, throughput in MB/s"/>
+<img src="./benches/encode_llama4_throughput.svg" width="100%" alt="Encoding Benchmark: Llama 4, throughput in MB/s"/>
 </details>
 
 #### Datasets
 
 - **Pride and Prejudice**: A text document containing *Pride and Prejudice* by Jane Austen. This data is a good representation for common English-language inputs containing a mix of short and long paragraphs.
 
-- **UTF-8 Sequence**: A text document containing a single-line UTF-8 sequence. This data is a good representation of inputs that might fail to split during pre-tokenization.
+- **UTF-8 Sequence**: A text document containing a single-line UTF-8 sequence. This data is a good representation of inputs that stress pre-tokenization.
 
 - **Wagahai**: A text document containing *Wagahai wa Neko de Aru* by Natsume Sōseki. This data is a good representation for Japanese-language inputs containing many long paragraphs.
