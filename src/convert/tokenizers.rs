@@ -1160,12 +1160,12 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             for (token, id) in bpe.vocab {
                 vocab.insert(token.as_bytes().to_vec(), id);
             }
-            let specials = get_specials(bpe.unk_token.as_ref(), None);
-            for (special, t) in specials.iter() {
-                if t.kind != SpecialTokenKind::Priority {
-                    vocab.remove(special);
-                }
-            }
+            let mut specials = get_specials(bpe.unk_token.as_ref(), None);
+            specials.retain(|bytes, special| {
+                // Drop priority specials used as merge keys
+                special.kind != SpecialTokenKind::Priority
+                    || bytes.len() > 1 && !bpe.merges.contains_key(bytes.as_slice())
+            });
 
             if let Some(unk) = bpe.unk_token {
                 if let Some(special) = specials.get(unk.as_bytes()) {
@@ -1211,14 +1211,14 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     }
                 });
             };
-            let mut vocab = vocab.into_iter().map(|token| token.into()).collect::<Vocab>();
+            let mut vocab = vocab
+                .into_iter()
+                .filter(|(b, _)| specials.get(b).is_none())
+                .map(|token| token.into())
+                .collect::<Vocab>();
             sort_vocab(&mut vocab);
 
             let mut specials = specials.into_values().collect::<SpecialVocab>();
-            specials.retain(|s| {
-                s.kind != SpecialTokenKind::Priority
-                    || s.bytes.len() > 1 && !bpe.merges.contains_key(s.bytes.as_slice())
-            });
             specials.sort();
 
             // Fix special tokens with invalid IDs
@@ -1257,11 +1257,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 });
             }
             let specials = get_specials(None, unigram.unk_id.map(|id| id as u32));
-            for (special, t) in specials.iter() {
-                if t.kind != SpecialTokenKind::Priority {
-                    vocab.remove(special);
-                }
-            }
 
             if let Some(unk) = unigram.unk_id {
                 if let Some((_, special)) =
@@ -1281,7 +1276,8 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 decode_byte_runes = true;
             }
 
-            let mut vocab = vocab.into_iter().collect::<Vec<_>>();
+            let mut vocab =
+                vocab.into_iter().filter(|(b, _)| specials.get(b).is_none()).collect::<Vec<_>>();
             vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
                 Ordering::Equal => a.index.cmp(&b.index),
                 other => other,
@@ -1289,7 +1285,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             let scores = vocab.iter().map(|(_, piece)| piece.score).collect::<Scores>();
             let vocab = vocab
                 .into_iter()
-                .map(|(text, piece)| (text, piece.index).into())
+                .map::<Token, _>(|(text, piece)| (text, piece.index).into())
                 .collect::<Vocab>();
 
             let mut specials = specials.into_values().collect::<SpecialVocab>();
@@ -1304,11 +1300,6 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 vocab.insert(token.as_bytes().to_vec(), id);
             }
             let specials = get_specials(Some(&wordpiece.unk_token), None);
-            for (special, t) in specials.iter() {
-                if t.kind != SpecialTokenKind::Priority {
-                    vocab.remove(special);
-                }
-            }
 
             if specials.get(wordpiece.unk_token.as_bytes()).is_some() {
                 config.fallback.insert(0, Fallback::Unknown);
@@ -1323,7 +1314,11 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 position: InsertionPosition::WordContinuation,
             });
 
-            let mut vocab = vocab.into_iter().map(|token| token.into()).collect::<Vocab>();
+            let mut vocab = vocab
+                .into_iter()
+                .map::<Token, _>(|token| token.into())
+                .filter(|t| specials.get(&t.bytes).is_none())
+                .collect::<Vocab>();
             vocab.sort_by(|Token { bytes: a, id: ai }, Token { bytes: b, id: bi }| {
                 let comp = ai.cmp(bi);
                 if comp == Ordering::Equal {
