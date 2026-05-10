@@ -7,7 +7,7 @@
 
 **Tokenizer for language models.**
 
-<sup>**Tokenize text for Llama, Gemini, GPT-4, DeepSeek, Mistral and many others; in the web, on the client and any platform.**</sup>
+<sup>**Tokenize text for Llama, Gemini, GPT-5, DeepSeek, Mistral and many others; in the web, on the client and any platform.**</sup>
 
 ```py
 from kitoken import Kitoken

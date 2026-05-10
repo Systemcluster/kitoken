@@ -2,7 +2,7 @@
 
 name = "kitoken-javascript"
 description = "JavaScript bindings for Kitoken"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2024"
 resolver = "2"
 publish = false
@@ -24,13 +24,22 @@ default = [
     "normalization",
 ]
 
+full = [
+    "default",
+    "regex-perf",
+    "regex-unicode",
+    "convert",
+    "split",
+    "inspect",
+]
+
 std = ["kitoken/std", "wasm-bindgen/std", "rlsf/std"]
 serialization = ["kitoken/serialization"]
 normalization = ["kitoken/normalization"]
+regex-perf = ["kitoken/regex-perf"]
 regex-unicode = ["kitoken/regex-unicode"]
 convert = ["kitoken/convert"]
 split = ["kitoken/split"]
-regex-perf = ["kitoken/regex-perf"]
 
 inspect = []
 

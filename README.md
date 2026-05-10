@@ -7,7 +7,7 @@
 
 **Tokenizer for language models.**
 
-<sup>**Tokenize text for Llama, Gemini, GPT-4, DeepSeek, Mistral and many others; in the web, on the client and any platform.**</sup>
+<sup>**Tokenize text for Llama, Gemini, GPT-5, DeepSeek, Mistral and many others; in the web, on the client and any platform.**</sup>
 
 ```rust
 use kitoken::Kitoken;
@@ -97,7 +97,7 @@ let encoder = Kitoken::from_file("models/o200k_base.tiktoken")?;
 
 Tiktoken is a `BPE` tokenizer used by OpenAI for GPT-3 and newer models and uses `BytePair` tokenization in byte mode.
 
-Tiktoken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids without any additional metadata. Special tokens and the split regex are expected to be provided separately, but will be inferred from the data for common models including GPT-3, GPT-4 and GPT-4o.
+Tiktoken definitions contain a sorted vocabulary of base64 encoded bytes and corresponding token ids without any additional metadata. Special tokens and the split regex are expected to be provided separately, but will be inferred from the data for common models including GPT-3, GPT-4, GPT-4o, GPT-5 and others including Kimi and Llama 4.
 For other models, or depending on the data and requirements, these values can be adjusted manually.
 
 ### Tekken
