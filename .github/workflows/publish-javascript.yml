@@ -59,7 +59,7 @@ jobs:
         run: |
           cd packages/javascript
           pnpm install --ignore-scripts
-          pnpm pack
+          pnpm prepare
 
       - name: Publish (dry-run)
         id: publish-dry-run
@@ -68,8 +68,11 @@ jobs:
         if: env.NPM_TOKEN == ''
         run: |
           cd packages/javascript
+          rm -f dist/.gitignore
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-          pnpm publish --ignore-scripts --access public --no-git-checks --dry-run
+          echo "registry=https://registry.npmjs.org/" >> .npmrc
+          echo "always-auth=true" >> .npmrc
+          npm publish --ignore-scripts --access public --provenance --dry-run
 
       - name: Publish
         id: publish
@@ -78,8 +81,11 @@ jobs:
         if: env.NPM_TOKEN != ''
         run: |
           cd packages/javascript
+          rm -f dist/.gitignore
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-          pnpm publish --ignore-scripts --access public --no-git-checks
+          echo "always-auth=true" >> .npmrc
+          echo "registry=https://registry.npmjs.org/" >> .npmrc
+          npm publish --ignore-scripts --access public --provenance
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v7

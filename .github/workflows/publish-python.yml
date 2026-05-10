@@ -103,6 +103,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Set up tools
+        run: |
+          sudo apt-get -y install musl-tools musl-dev
+
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         env:
@@ -178,7 +182,7 @@ jobs:
 
       matrix:
         platform:
-          - runner: macos-13
+          - runner: macos-14
             target: x86_64
           - runner: macos-14
             target: aarch64
