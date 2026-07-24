@@ -50,9 +50,6 @@
 //!     Disabled by default since it increases binary size and the majority of models don't require it.
 //! - `regex-unicode`: Enables support for additional regex unicode patterns including script and segmentation extensions.
 //!   Disabled by default since it increases binary size and the majority of models don't make use of these patterns.
-//! - `regex-onig`: Enables use of the `oniguruma` regex engine instead of `fancy-regex`.
-//!   Generally not recommended since it has worse runtime performance and adds a dependency on the native `oniguruma` library.
-//!   However, it may be useful for certain models that require specific regex behavior that is not supported by or differs with `fancy-regex`.
 //! - `web`: Enables fetching definitions from HuggingFace or other URLs.
 
 #![no_std]

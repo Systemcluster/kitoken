@@ -7,8 +7,6 @@ use alloc::borrow::Cow;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-#[cfg(feature = "regex-onig")]
-use alloc::sync::Arc;
 
 #[cfg(feature = "serialization")]
 use serde::{Deserialize, Serialize};
@@ -29,32 +27,22 @@ impl Debug for RegexError {
     }
 }
 
-/// Regex wrapper for different regex engines with serialization support.
+/// Regex wrapper with serialization support.
 #[derive(Clone)]
 pub struct Regex {
     pub(crate) pattern: String,
-    #[cfg(feature = "regex-onig")]
-    pub(crate) regex:   Arc<onig::Regex>,
-    #[cfg(not(feature = "regex-onig"))]
     pub(crate) regex:   fancy_regex::Regex,
 }
 #[allow(dead_code)]
 impl Regex {
     #[inline(always)]
     pub fn new(pattern: &str) -> Result<Self, RegexError> {
-        #[cfg(feature = "regex-onig")]
-        return Ok(Self {
-            pattern: pattern.to_string(),
-            regex:   Arc::new(onig::Regex::new(pattern).map_err(|e| RegexError(e.to_string()))?),
-        });
-        #[cfg(not(feature = "regex-onig"))]
-        return Ok(Self {
+        Ok(Self {
             pattern: pattern.to_string(),
             regex:   fancy_regex::Regex::new(pattern).map_err(|e| RegexError(e.to_string()))?,
-        });
+        })
     }
 
-    #[cfg(not(feature = "regex-onig"))]
     #[inline(always)]
     pub(crate) fn find_iter(&self, text: &str) -> Vec<(usize, usize)> {
         self.regex
@@ -64,34 +52,14 @@ impl Regex {
             .collect()
     }
 
-    #[cfg(feature = "regex-onig")]
-    #[inline(always)]
-    pub(crate) fn find_iter(&self, text: &str) -> Vec<(usize, usize)> {
-        self.regex.find_iter(text).collect()
-    }
-
-    #[cfg(not(feature = "regex-onig"))]
     #[inline(always)]
     pub(crate) fn find(&self, text: &str) -> Option<(usize, usize)> {
         self.regex.find(text).unwrap().map(|mat| (mat.start(), mat.end()))
     }
 
-    #[cfg(feature = "regex-onig")]
-    #[inline(always)]
-    pub(crate) fn find(&self, text: &str) -> Option<(usize, usize)> {
-        self.regex.find(text)
-    }
-
-    #[cfg(not(feature = "regex-onig"))]
     #[inline(always)]
     pub(crate) fn replace_all(&self, text: &str, replace: &str) -> String {
         self.regex.replace_all(text, replace).into_owned()
-    }
-
-    #[cfg(feature = "regex-onig")]
-    #[inline(always)]
-    pub(crate) fn replace_all(&self, text: &str, replace: &str) -> String {
-        self.regex.replace_all(text, replace)
     }
 
     #[inline(always)]

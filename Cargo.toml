@@ -95,8 +95,6 @@ convert-detect = ["serialization"]
 regex-unicode = ["fancy-regex/unicode"]
 # Enables additional regex performance optimizations
 regex-perf = ["fancy-regex/perf"]
-# Use the oniguruma regex engine instead of fancy-regex
-regex-onig = ["dep:onig"]
 
 # Enables the use of multiversion for generating multiple code paths with different CPU feature utilization
 multiversion = ["dep:multiversion"]
@@ -139,9 +137,6 @@ thiserror = { version = "2.0", default-features = false }
 # optional dependencies for the serialization feature
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive"], optional = true }
 postcard = { version = "1.1", default-features = false, features = ["alloc"], optional = true }
-
-# optional dependencies for the regex-onig feature
-onig = { version = "6.5", default-features = false, optional = true }
 
 # optional dependencies for the normalization-unicode feature
 unicode-normalization = { version = "0.1", optional = true }
