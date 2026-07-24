@@ -20,8 +20,8 @@ crate-type = ["cdylib"]
 
 kitoken = { path = "../..", default-features = false, features = ["all"] }
 
-log = { version = "0.4.29" }
-pyo3 = { version = "0.28.3", features = [
+log = { version = "0.4.33" }
+pyo3 = { version = "0.29.0", features = [
     "abi3",
     "abi3-py310",
     "serde",
@@ -29,10 +29,10 @@ pyo3 = { version = "0.28.3", features = [
     "generate-import-lib",
     "either",
 ] }
-pyo3-log = "0.13.3"
+pyo3-log = "0.13.4"
 serde-pyobject = "0.8.0"
-either = "1.15.0"
+either = "1.17.0"
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
 
-mimalloc = { version = "0.1.44", features = ["local_dynamic_tls"] }
+mimalloc = { version = "0.1.52", features = ["local_dynamic_tls"] }

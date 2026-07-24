@@ -180,8 +180,8 @@ impl Normalization {
 #[cfg(feature = "normalization-unicode")]
 #[inline(never)]
 fn normalize_unicode(text: &mut Cow<str>, scheme: UnicodeNormalization) {
-    use unicode_normalization::UnicodeNormalization as _;
     use UnicodeNormalization::*;
+    use unicode_normalization::UnicodeNormalization as _;
     match scheme {
         NFC => {
             *text.to_mut() = text.nfc().collect();

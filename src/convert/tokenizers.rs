@@ -1226,17 +1226,17 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 vocab.iter().map(|token| token.into()).collect::<HashMap<TokenId, TokenBytes>>();
             let mut vocab_max_id = vocab.iter().map(|token| token.id).max().unwrap_or(0);
             for special in specials.iter_mut() {
-                if let Some(v) = vocab_rev.get(&special.id) {
-                    if &special.bytes != v {
-                        log::warn!(
-                            "Special token with invalid ID: {:?} -> {} (replacing with {})",
-                            special.bytes.as_bstr(),
-                            special.id,
-                            vocab_max_id + 1
-                        );
-                        special.id = vocab_max_id + 1;
-                        vocab_max_id += 1;
-                    }
+                if let Some(v) = vocab_rev.get(&special.id)
+                    && &special.bytes != v
+                {
+                    log::warn!(
+                        "Special token with invalid ID: {:?} -> {} (replacing with {})",
+                        special.bytes.as_bstr(),
+                        special.id,
+                        vocab_max_id + 1
+                    );
+                    special.id = vocab_max_id + 1;
+                    vocab_max_id += 1;
                 }
             }
             drop(vocab_rev);

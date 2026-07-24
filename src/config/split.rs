@@ -151,11 +151,11 @@ fn split_unicode_script(text: &str) -> Vec<(usize, usize)> {
         if script == Script::Common {
             continue;
         }
-        if let Some(prev) = prev {
-            if script != prev {
-                matches.push((last, i));
-                last = i;
-            }
+        if let Some(prev) = prev
+            && script != prev
+        {
+            matches.push((last, i));
+            last = i;
         }
         prev = Some(script);
     }

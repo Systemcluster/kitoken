@@ -31,8 +31,8 @@ use crate::{
 ///
 /// ```
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// use kitoken::convert::convert_sentencepiece;
 /// use kitoken::Kitoken;
+/// use kitoken::convert::convert_sentencepiece;
 ///
 /// let data = std::fs::read("tests/models/sentencepiece/llama2.model")?;
 /// let definition = convert_sentencepiece(data).unwrap();
@@ -312,10 +312,8 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
                     for split in 1..text.len() {
                         let left = &text[..split];
                         let right = &text[split..];
-                        if let (Some(_), Some(_)) = (vocab.get(left), vocab.get(right)) {
-                            if !merges.contains_key(&piece.index) {
-                                merges.insert(piece.index, piece.score);
-                            }
+                        if vocab.contains_key(left) && vocab.contains_key(right) {
+                            merges.entry(piece.index).or_insert(piece.score);
                         }
                     }
                 }

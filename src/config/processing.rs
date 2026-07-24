@@ -123,7 +123,7 @@ fn process_pad(
     if len >= length {
         return;
     }
-    let amount = if stride > 0 && (length - len) % stride > 0 {
+    let amount = if stride > 0 && !(length - len).is_multiple_of(stride) {
         (length - len) + (stride - (length - len) % stride)
     } else {
         length - len
@@ -149,7 +149,7 @@ fn process_truncate(
     if len <= length {
         return;
     }
-    let amount = if stride > 0 && (len - length) % stride > 0 {
+    let amount = if stride > 0 && !(len - length).is_multiple_of(stride) {
         (len - length) + (stride - (len - length) % stride)
     } else {
         len - length

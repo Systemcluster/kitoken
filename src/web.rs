@@ -36,14 +36,10 @@ impl Definition {
         if !url.starts_with("http:") && !url.starts_with("https:") {
             return Err(WebRequestError::InvalidURL(url.to_string()));
         };
-        let mut definition = match reqwest::blocking::get(&url).and_then(|r| r.bytes()) {
-            Ok(r) => Definition::from_slice(&r).map_err(|e| e.into()),
-            Err(e) => return Err(e.into()),
-        };
-        if let Ok(ref mut definition) = definition {
-            definition.meta.source = url;
-        }
-        definition
+        let response = reqwest::blocking::get(&url)?.bytes()?;
+        let mut definition = Definition::from_slice(&response)?;
+        definition.meta.source = url;
+        Ok(definition)
     }
 }
 

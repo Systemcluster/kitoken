@@ -12,7 +12,7 @@ repository = "https://github.com/Systemcluster/kitoken"
 readme = "README.md"
 edition = "2024"
 resolver = "2"
-rust-version = "1.86.0"
+rust-version = "1.92.0"
 include = [
     "Cargo.toml",
     "src/**/*",
@@ -150,7 +150,7 @@ unicode-normalization = { version = "0.1", optional = true }
 unicode-script = { version = "0.5", optional = true }
 
 # optional dependencies for the convert-tiktoken and convert-tokenizers features
-base64 = { version = "0.22", default-features = false, features = ["alloc"], optional = true }
+base64 = { version = "0.23", default-features = false, features = ["alloc"], optional = true }
 
 # optional dependencies for the convert-sentencepiece feature
 sentencepiece-model = { version = "0.1", default-features = false, optional = true }

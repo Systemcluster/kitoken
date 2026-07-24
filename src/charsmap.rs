@@ -109,13 +109,13 @@ impl CharsMap {
         use bstr::ByteSlice;
         let mut result = String::with_capacity(original.len());
         original.as_bytes().graphemes().for_each(|grapheme| {
-            if grapheme.len() < 6 {
-                if let Some(transformed) = self.transform(grapheme) {
-                    for c in transformed.chars() {
-                        result.push(c);
-                    }
-                    return;
+            if grapheme.len() < 6
+                && let Some(transformed) = self.transform(grapheme)
+            {
+                for c in transformed.chars() {
+                    result.push(c);
                 }
+                return;
             }
             for (i, c) in grapheme.char_indices() {
                 let part = &grapheme[i..i + c.len_utf8()];
@@ -137,7 +137,7 @@ impl Debug for CharsMap {
         use bstr::ByteSlice;
         f.debug_struct("CharsMap")
             .field("array", &format!("Vec({})", self.array.len()))
-            .field("normalized", &format!("String({})", &self.normalized.as_bstr().len()))
+            .field("normalized", &format!("String({})", self.normalized.as_bstr().len()))
             .finish()
     }
 }
@@ -155,7 +155,9 @@ impl TryFrom<&[u8]> for CharsMap {
         }
         let mut bytes = [0u8; 4];
         let array = data[4..size]
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|chunk| {
                 bytes.copy_from_slice(chunk);
                 u32::from_le_bytes(bytes)

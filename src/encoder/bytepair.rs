@@ -180,12 +180,11 @@ impl BytePair {
                 result.push(part.special);
                 continue;
             }
-            if part.len() <= self.max_token_bytes && part.len() >= self.min_token_bytes {
-                if let Some(&token) = self.vocab.get(part.as_bytes()) {
+            if part.len() <= self.max_token_bytes && part.len() >= self.min_token_bytes
+                && let Some(&token) = self.vocab.get(part.as_bytes()) {
                     result.push(token);
                     continue;
                 }
-            }
             if part.len() > Self::ENCODE_LINEAR_LIMIT {
                 self.encode_pairs_heap(
                     part.as_bytes(),
@@ -221,12 +220,11 @@ impl BytePair {
                 result.push(part.special);
                 continue;
             }
-            if part.len() <= self.max_token_bytes && part.len() >= self.min_token_bytes {
-                if let Some(&token) = self.vocab.get(part.as_bytes()) {
+            if part.len() <= self.max_token_bytes && part.len() >= self.min_token_bytes
+                && let Some(&token) = self.vocab.get(part.as_bytes()) {
                     result.push(token);
                     continue;
                 }
-            }
             indices.extend(
                 part[..part.len() - end_of_word_len]
                     .char_indices()

@@ -63,9 +63,9 @@
         "prepare": "cross-env RUSTC_BOOTSTRAP=1 concurrently -m 1 'npm:build:node' 'npm:build:web-all'"
     },
     "devDependencies": {
-        "concurrently": "^9.2.1",
+        "concurrently": "^10.0.4",
         "cross-env": "^10.1.0",
         "move-file-cli": "^3.0.0",
-        "wasm-pack": "^0.14.0"
+        "wasm-pack": "^0.15.0"
     }
 }
