@@ -108,15 +108,15 @@ impl Decoding {
 
 #[inline(never)]
 fn decode_extend(text: &mut Vec<u8>, character: char, left: u32, right: u32, pad: bool) {
-    let mut buffer = core::iter::repeat_n(0, character.len_utf8()).collect::<Vec<_>>();
-    character.encode_utf8(&mut buffer);
+    let mut buffer = [0u8; 4];
+    let buffer = character.encode_utf8(&mut buffer).as_bytes();
     if left > 0 {
         let mut left = left as usize;
         if pad {
             let leading = text.chars().take(left).take_while(|&c| c == character).count();
             left = left.saturating_sub(leading);
         }
-        text.splice(..0, core::iter::repeat_n(&buffer, left).flatten().copied());
+        text.splice(..0, core::iter::repeat_n(buffer, left).flatten().copied());
     }
     if right > 0 {
         let mut right = right as usize;
@@ -124,7 +124,7 @@ fn decode_extend(text: &mut Vec<u8>, character: char, left: u32, right: u32, pad
             let trailing = text.chars().rev().take(right).take_while(|&c| c == character).count();
             right = right.saturating_sub(trailing);
         }
-        text.extend(core::iter::repeat_n(&buffer, right).flatten().copied());
+        text.extend(core::iter::repeat_n(buffer, right).flatten().copied());
     }
 }
 
@@ -161,30 +161,29 @@ fn decode_strip(text: &mut Vec<u8>, character: char, mut left: u32, mut right: u
 
 #[inline(never)]
 fn decode_collapse(text: &mut Vec<u8>, character: char) {
-    let mut buffer = [0; 8];
+    let mut buffer = [0u8; 4];
     let mut last = None;
-    *text = text
-        .chars()
-        .filter(|&c| {
-            if c == character {
-                if Some(c) == last {
-                    return false;
-                }
-                last = Some(c);
-            } else {
-                last = None;
+    let mut output = Vec::with_capacity(text.len());
+    for c in text.chars() {
+        if c == character {
+            if Some(c) == last {
+                continue;
             }
-            true
-        })
-        .flat_map(|c| c.encode_utf8(&mut buffer).as_bytes().to_vec())
-        .collect();
+            last = Some(c);
+        } else {
+            last = None;
+        }
+        output.extend_from_slice(c.encode_utf8(&mut buffer).as_bytes());
+    }
+    *text = output;
 }
 
 #[inline(never)]
 fn decode_replace(text: &mut Vec<u8>, pattern: &DecodingReplacePattern, replacement: &str) {
     match pattern {
         DecodingReplacePattern::Character(character) => {
-            let bytes = character.to_string().into_bytes();
+            let mut buffer = [0u8; 4];
+            let bytes = character.encode_utf8(&mut buffer).as_bytes();
             *text = text.replace(bytes, replacement.as_bytes());
         }
         DecodingReplacePattern::String(pattern) => {

@@ -5,7 +5,6 @@ use core::ops::Range;
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 
 use once_cell::race::OnceBox;
 #[cfg(feature = "serialization")]
@@ -236,8 +235,8 @@ fn normalize_prepend(text: &mut Cow<str>, prepend: &str) {
 
 #[inline(never)]
 fn normalize_extend(text: &mut Cow<str>, character: char, left: u32, right: u32, pad: bool) {
-    let mut buffer = core::iter::repeat_n(0, character.len_utf8()).collect::<Vec<_>>();
-    character.encode_utf8(&mut buffer);
+    let mut buffer = [0u8; 4];
+    let buffer = character.encode_utf8(&mut buffer).as_bytes();
     if left > 0 {
         let mut left = left as usize;
         if pad {
@@ -247,7 +246,7 @@ fn normalize_extend(text: &mut Cow<str>, character: char, left: u32, right: u32,
         unsafe {
             text.to_mut()
                 .as_mut_vec()
-                .splice(..0, core::iter::repeat_n(&buffer, left).flatten().copied());
+                .splice(..0, core::iter::repeat_n(buffer, left).flatten().copied());
         };
     }
     if right > 0 {
@@ -259,7 +258,7 @@ fn normalize_extend(text: &mut Cow<str>, character: char, left: u32, right: u32,
         unsafe {
             text.to_mut()
                 .as_mut_vec()
-                .extend(core::iter::repeat_n(&buffer, right).flatten().copied());
+                .extend(core::iter::repeat_n(buffer, right).flatten().copied());
         };
     }
 }

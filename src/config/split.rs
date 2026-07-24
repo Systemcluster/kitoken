@@ -125,9 +125,9 @@ fn split_pattern(text: &str, pattern: &SplitPattern) -> Vec<(usize, usize)> {
                     .map(|a| (a, a + 1))
                     .collect()
             } else {
-                memchr::memmem::find_iter(text.as_bytes(), character.to_string().as_bytes())
-                    .map(|a| (a, a + 1))
-                    .collect()
+                let mut buffer = [0u8; 4];
+                let bytes = character.encode_utf8(&mut buffer).as_bytes();
+                memchr::memmem::find_iter(text.as_bytes(), bytes).map(|a| (a, a + 1)).collect()
             }
         }
         SplitPattern::String(string) => {
@@ -175,7 +175,8 @@ fn split_unicode_script(text: &str) -> Vec<(usize, usize)> {
 #[inline(never)]
 fn invert(matches: &mut Vec<(usize, usize)>, len: usize) {
     let mut last = 0;
-    *matches = matches.iter().fold(Vec::new(), |mut acc, (start, end)| {
+    let capacity = matches.len() + 1;
+    *matches = matches.iter().fold(Vec::with_capacity(capacity), |mut acc, (start, end)| {
         if *start != last {
             acc.push((last, *start));
         }
@@ -191,7 +192,8 @@ fn invert(matches: &mut Vec<(usize, usize)>, len: usize) {
 #[inline(never)]
 fn expand(matches: &mut Vec<(usize, usize)>, len: usize) {
     let mut last = 0;
-    *matches = matches.iter().fold(Vec::new(), |mut acc, (start, end)| {
+    let capacity = matches.len() * 2 + 1;
+    *matches = matches.iter().fold(Vec::with_capacity(capacity), |mut acc, (start, end)| {
         if *start != last {
             acc.push((last, *start));
         }
@@ -211,7 +213,8 @@ fn merge(matches: &mut Vec<(usize, usize)>) {
         return;
     }
     let mut last = 0;
-    *matches = matches.iter().fold(Vec::new(), |mut acc, (start, end)| {
+    let capacity = matches.len();
+    *matches = matches.iter().fold(Vec::with_capacity(capacity), |mut acc, (start, end)| {
         if *start == last && !acc.is_empty() {
             acc.last_mut().unwrap().1 = *end;
         } else {
@@ -226,7 +229,8 @@ fn merge(matches: &mut Vec<(usize, usize)>) {
 #[inline(never)]
 fn merge_left(matches: &mut Vec<(usize, usize)>, len: usize) {
     let mut last = 0;
-    *matches = matches.iter().fold(Vec::new(), |mut acc, (start, end)| {
+    let capacity = matches.len() + 1;
+    *matches = matches.iter().fold(Vec::with_capacity(capacity), |mut acc, (start, end)| {
         if *start != last {
             acc.push((last, *end));
         } else {
@@ -248,7 +252,8 @@ fn merge_right(matches: &mut Vec<(usize, usize)>, len: usize) {
         return;
     }
     let mut last = 0;
-    *matches = matches.iter().fold(Vec::new(), |mut acc, (start, end)| {
+    let capacity = matches.len() + 1;
+    *matches = matches.iter().fold(Vec::with_capacity(capacity), |mut acc, (start, end)| {
         if *start != last && !acc.is_empty() {
             acc.last_mut().unwrap().1 = *start;
         }
