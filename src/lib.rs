@@ -301,6 +301,20 @@ impl Kitoken {
         self.inner_encode(text, encode_specials.as_kinds(&self.meta))
     }
 
+    /// Normalizes `text[start..end]` and pushes it as a non-special part.
+    #[inline(always)]
+    fn push_normalized<'a>(
+        &self, parts: &mut Vec<TextPart<'a>>, text: &'a str, start: usize, end: usize,
+    ) {
+        let mut part = text[start..end].into();
+        let position_end = if end == text.len() { usize::MAX } else { end };
+        self.config.normalize(&mut part, start..position_end);
+        parts.push(TextPart {
+            text:    part,
+            special: Token::INVALID,
+        });
+    }
+
     #[inline(never)]
     fn inner_encode(
         &self, text: impl AsRef<str>, encode_specials: &[SpecialTokenKind],
@@ -318,30 +332,20 @@ impl Kitoken {
         while posit < text.len() {
             if let Some(next) = extracted.pop() {
                 if next.0 > posit {
-                    let mut text = text[posit..next.0].into();
-                    self.config.normalize(&mut text, posit..next.0);
-                    parts.push(TextPart {
-                        text,
-                        special: Token::INVALID,
-                    })
+                    self.push_normalized(&mut parts, text, posit, next.0);
                 }
                 let special = &self.specials[&text.as_bytes()[next.0..next.1]];
-                parts.push(TextPart {
-                    text:    text[next.0..next.1].into(),
-                    special: if encode_specials.contains(&special.kind) {
-                        special.id
-                    } else {
-                        Token::INVALID
-                    },
-                });
+                if encode_specials.contains(&special.kind) {
+                    parts.push(TextPart {
+                        text:    text[next.0..next.1].into(),
+                        special: special.id,
+                    });
+                } else {
+                    self.push_normalized(&mut parts, text, next.0, next.1);
+                }
                 posit = next.1;
             } else {
-                let mut rest = text[posit..text.len()].into();
-                self.config.normalize(&mut rest, posit..usize::MAX);
-                parts.push(TextPart {
-                    text:    rest,
-                    special: Token::INVALID,
-                });
+                self.push_normalized(&mut parts, text, posit, text.len());
                 posit = text.len();
             }
         }
