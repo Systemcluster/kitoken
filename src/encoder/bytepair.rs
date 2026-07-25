@@ -18,12 +18,14 @@ use crate::{
 type TokenRank = u32;
 
 #[derive(Debug, Clone, Copy)]
+#[repr(C)]
 struct RankedPart {
     pub start: u32,
     pub rank:  TokenRank,
 }
 
 #[derive(Debug, Clone, Copy)]
+#[repr(C)]
 struct LinkedPart {
     pub start: u32,
     pub width: u32,
@@ -174,21 +176,25 @@ impl BytePair {
         &self, parts: &[TextPart], fallback: &[Fallback], result: &mut Vec<TokenId>,
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
+        let mut heap = PieceHeap::with_index_bound(Self::ENCODE_BUFFER_SIZE);
         let end_of_word_len = self.end_of_word.as_ref().map(|e| e.len()).unwrap_or(0);
         for part in parts {
             if part.special != Token::INVALID {
                 result.push(part.special);
                 continue;
             }
-            if part.len() <= self.max_token_bytes && part.len() >= self.min_token_bytes
-                && let Some(&token) = self.vocab.get(part.as_bytes()) {
-                    result.push(token);
-                    continue;
-                }
+            if part.len() <= self.max_token_bytes
+                && part.len() >= self.min_token_bytes
+                && let Some(&token) = self.vocab.get(part.as_bytes())
+            {
+                result.push(token);
+                continue;
+            }
             if part.len() > Self::ENCODE_LINEAR_LIMIT {
                 self.encode_pairs_heap(
                     part.as_bytes(),
                     &mut buffer,
+                    &mut heap,
                     result,
                     (0..(part.len() - end_of_word_len)).map(|i| i as u32).map(|i| (i, 1)),
                     fallback,
@@ -214,17 +220,20 @@ impl BytePair {
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
         let mut indices = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
+        let mut heap = PieceHeap::with_index_bound(Self::ENCODE_BUFFER_SIZE);
         let end_of_word_len = self.end_of_word.as_ref().map(|e| e.len()).unwrap_or(0);
         for part in parts {
             if part.special != Token::INVALID {
                 result.push(part.special);
                 continue;
             }
-            if part.len() <= self.max_token_bytes && part.len() >= self.min_token_bytes
-                && let Some(&token) = self.vocab.get(part.as_bytes()) {
-                    result.push(token);
-                    continue;
-                }
+            if part.len() <= self.max_token_bytes
+                && part.len() >= self.min_token_bytes
+                && let Some(&token) = self.vocab.get(part.as_bytes())
+            {
+                result.push(token);
+                continue;
+            }
             indices.extend(
                 part[..part.len() - end_of_word_len]
                     .char_indices()
@@ -234,6 +243,7 @@ impl BytePair {
                 self.encode_pairs_heap(
                     part.as_bytes(),
                     &mut buffer,
+                    &mut heap,
                     result,
                     indices.drain(..),
                     fallback,
@@ -366,10 +376,15 @@ impl BytePair {
     #[inline(never)]
     #[cold]
     fn encode_pairs_heap(
-        &self, piece: &[u8], buffer: &mut Vec<RankedPart>, result: &mut Vec<TokenId>,
-        indices: impl Iterator<Item = (u32, u32)>, fallback: &[Fallback],
+        &self, piece: &[u8], buffer: &mut Vec<RankedPart>, heap: &mut PieceHeap,
+        result: &mut Vec<TokenId>, indices: impl Iterator<Item = (u32, u32)>,
+        fallback: &[Fallback],
     ) -> Result<(), EncodeError> {
-        let mut heap = PieceHeap::with_index_bound(piece.len());
+        if piece.len() > heap.index_bound() {
+            *heap = PieceHeap::with_index_bound(piece.len());
+        } else {
+            heap.clear();
+        }
         let mut prior = u32::MAX;
         let mut iter = indices.enumerate().peekable();
         loop {
@@ -402,7 +417,7 @@ impl BytePair {
             });
             prior = e as _;
         }
-        BytePair::merge_bpe_parts_heap(piece, &mut heap, &self.ranks);
+        BytePair::merge_bpe_parts_heap(piece, heap, &self.ranks);
         let mut e = 0;
         while e <= prior {
             let part = heap.key_of(&e).unwrap();
