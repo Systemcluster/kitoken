@@ -182,12 +182,30 @@ pub fn convert_tekken(data: impl AsRef<[u8]>) -> Result<Definition, ConversionEr
     }
     specials.sort();
 
+    if vocab_len < specials.len() {
+        return Err(ConversionError::InvalidData(format!(
+            "vocab size is smaller than the number of special tokens: {} < {}",
+            vocab_len,
+            specials.len()
+        )));
+    }
+
+    let specials_offset: u32 = specials
+        .len()
+        .try_into()
+        .map_err(|_| ConversionError::InvalidData("too many special tokens".to_string()))?;
     let mut vocab = Vocab::with_capacity(vocab_len);
     // This will throw away any tokens beyond the set vocab size.
     // This is consistent with the behavior of `tekken`.
     for token in tokenizer.vocab.into_iter().take(vocab_len - specials.len()) {
+        let rank: u32 = token.rank.try_into().map_err(|_| {
+            ConversionError::InvalidData(format!("token rank is too large: {}", token.rank))
+        })?;
+        let id = rank.checked_add(specials_offset).ok_or_else(|| {
+            ConversionError::InvalidData(format!("token id overflows u32: {}", token.rank))
+        })?;
         vocab.push(Token {
-            id:    token.rank as u32 + specials.len() as u32,
+            id,
             bytes: token.token_bytes,
         });
     }

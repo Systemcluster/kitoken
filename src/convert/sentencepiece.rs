@@ -18,7 +18,7 @@ use crate::convert::ConversionError;
 use crate::{
     Configuration, Decoding, Definition, Fallback, InsertionPosition, Kitoken, Metadata, Model,
     Normalization, Processing, Regex, Scores, SpecialToken, SpecialTokenKind, SpecialVocab, Split,
-    SplitBehavior, Template, Token, UnicodeNormalization, Vocab,
+    SplitBehavior, Template, UnicodeNormalization, Vocab,
 };
 
 /// Converts a `sentencepiece` model into the definition format used by this crate.
@@ -136,6 +136,12 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
 
         let text = if piece_type == Type::Byte {
             // byte encoding in the form `<0xAA>`
+            if text.len() != 6 || !text.starts_with("<0x") || !text.ends_with('>') {
+                return Err(ConversionError::InvalidData(format!(
+                    "piece {} has invalid byte encoding: {:?}",
+                    index, text
+                )));
+            }
             let rune = &text[3..5];
             let rune = u32::from_str_radix(rune, 16)
                 .map_err(|e| ConversionError::InvalidData(format!("{:?}", e)))?;
@@ -322,22 +328,25 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
             let vocab_merges = create_merges(&vocab);
 
             let sort_vocab = |vocab: &mut Vocab, merges: &HashMap<u32, f32>| {
-                vocab.sort_by(|Token { id: ai, .. }, Token { id: bi, .. }| {
-                    if let (Some(ma), Some(mb)) = (merges.get(ai), merges.get(bi)) {
-                        let comp = mb.partial_cmp(ma).unwrap();
-                        if comp == Ordering::Equal {
-                            ai.cmp(bi)
-                        } else {
-                            comp
-                        }
-                    } else if merges.get(ai).is_some() {
-                        Ordering::Less
-                    } else if merges.get(bi).is_some() {
-                        Ordering::Greater
-                    } else {
-                        ai.cmp(bi)
-                    }
+                // Precompute each token's merge score once, instead of hashing on every
+                // comparison performed during the sort.
+                let mut ranked = vocab
+                    .drain(..)
+                    .map(|token| {
+                        let score = merges.get(&token.id).copied();
+                        (score, token)
+                    })
+                    .collect::<Vec<_>>();
+                ranked.sort_by(|(sa, a), (sb, b)| match (sa, sb) {
+                    (Some(sa), Some(sb)) => match sb.total_cmp(sa) {
+                        Ordering::Equal => a.id.cmp(&b.id),
+                        other => other,
+                    },
+                    (Some(_), None) => Ordering::Less,
+                    (None, Some(_)) => Ordering::Greater,
+                    (None, None) => a.id.cmp(&b.id),
                 });
+                vocab.extend(ranked.into_iter().map(|(_, token)| token));
             };
             let mut vocab = vocab
                 .into_iter()
@@ -353,7 +362,7 @@ fn convert_sentencepiece_model(model: SentencePieceModel) -> Result<Definition, 
         }
         ModelType::Unigram => {
             let mut vocab = vocab.into_iter().collect::<Vec<_>>();
-            vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
+            vocab.sort_by(|(_, a), (_, b)| match a.score.total_cmp(&b.score) {
                 Ordering::Equal => a.index.cmp(&b.index),
                 other => other,
             });

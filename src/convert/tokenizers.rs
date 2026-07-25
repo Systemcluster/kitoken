@@ -774,33 +774,8 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     while let Some(post_processor) = post_processors.pop_front() {
         use hf::PostProcessor;
         match post_processor {
-            PostProcessor::RobertaProcessing { sep, cls, .. } => {
-                specials.push(SpecialToken {
-                    id:      sep.1,
-                    bytes:   sep.0.as_bytes().to_vec(),
-                    kind:    SpecialTokenKind::Control,
-                    ident:   Some("sep".to_string()),
-                    score:   0.0,
-                    extract: true,
-                });
-                specials.push(SpecialToken {
-                    id:      cls.1,
-                    bytes:   cls.0.as_bytes().to_vec(),
-                    kind:    SpecialTokenKind::Control,
-                    ident:   Some("cls".to_string()),
-                    score:   0.0,
-                    extract: true,
-                });
-                config.templates.push(Template {
-                    content:  sep.0,
-                    position: InsertionPosition::SequenceEnd,
-                });
-                config.templates.push(Template {
-                    content:  cls.0,
-                    position: InsertionPosition::SequenceStart,
-                });
-            }
-            PostProcessor::BertProcessing { cls, sep } => {
+            PostProcessor::RobertaProcessing { sep, cls, .. }
+            | PostProcessor::BertProcessing { sep, cls } => {
                 specials.push(SpecialToken {
                     id:      sep.1,
                     bytes:   sep.0.as_bytes().to_vec(),
@@ -878,7 +853,14 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     });
                 }
                 if !pair.is_empty() {
-                    let mut state = 0;
+                    // Tracks which side of the `A`/`B` sequence markers a special token falls on.
+                    #[derive(Clone, Copy)]
+                    enum Segment {
+                        Before,
+                        Between,
+                        After,
+                    }
+                    let mut segment = Segment::Before;
                     let mut p0 = Vec::new();
                     let mut p1 = Vec::new();
                     let mut p2 = Vec::new();
@@ -886,13 +868,21 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                         use hf::TemplatePiece;
                         match piece {
                             TemplatePiece::Sequence { .. } => {
-                                state += 1;
+                                segment = match segment {
+                                    Segment::Before => Segment::Between,
+                                    Segment::Between => Segment::After,
+                                    Segment::After => {
+                                        log::warn!(
+                                            "TemplateProcessing pair template has more than two sequence markers, ignoring extra"
+                                        );
+                                        Segment::After
+                                    }
+                                };
                             }
-                            TemplatePiece::SpecialToken { id, .. } => match state {
-                                0 => p0.push(id.clone()),
-                                1 => p1.push(id.clone()),
-                                2 => p2.push(id.clone()),
-                                _ => {}
+                            TemplatePiece::SpecialToken { id, .. } => match segment {
+                                Segment::Before => p0.push(id.clone()),
+                                Segment::Between => p1.push(id.clone()),
+                                Segment::After => p2.push(id.clone()),
                             },
                         }
                     }
@@ -928,23 +918,23 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     });
                 }
                 if config.templates.is_empty() && !single.is_empty() {
-                    let mut state = 0;
+                    let mut past_sequence_marker = false;
                     for (i, piece) in single.iter().enumerate() {
                         use hf::TemplatePiece;
                         match piece {
                             TemplatePiece::Sequence { .. } => {
-                                state += 1;
+                                past_sequence_marker = true;
                             }
                             TemplatePiece::SpecialToken { id, .. } => {
                                 config.templates.push(Template {
                                     content:  id.clone(),
-                                    position: match state {
-                                        0 if i > 0 => InsertionPosition::SubSequenceStart,
-                                        0 => InsertionPosition::SequenceStart,
-                                        _ if i == single.len() - 1 => {
+                                    position: match past_sequence_marker {
+                                        false if i > 0 => InsertionPosition::SubSequenceStart,
+                                        false => InsertionPosition::SequenceStart,
+                                        true if i == single.len() - 1 => {
                                             InsertionPosition::SequenceEnd
                                         }
-                                        _ => InsertionPosition::SubSequenceEnd,
+                                        true => InsertionPosition::SubSequenceEnd,
                                     },
                                 });
                             }
@@ -1123,18 +1113,19 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             let ident = match kind {
                 SpecialTokenKind::Unknown => Some("unk".to_string()),
                 SpecialTokenKind::Control => {
-                    if (content.starts_with('[') && content.ends_with(']'))
+                    if content == "<startoftext>" {
+                        Some("sot".to_string())
+                    } else if content == "<endoftext>" {
+                        Some("eot".to_string())
+                    } else if (content.starts_with('[') && content.ends_with(']'))
                         || (content.starts_with('<') && content.ends_with('>'))
                     {
-                        if content.len() == 5 || content.len() == 6 {
-                            Some(content[1..content.len() - 1].to_ascii_lowercase())
-                        } else if content == "<startoftext>" {
-                            Some("sot".to_string())
-                        } else if content == "<endoftext>" {
-                            Some("eot".to_string())
-                        } else {
-                            None
-                        }
+                        Some(
+                            content
+                                .trim_start_matches(['<', '['])
+                                .trim_end_matches(['>', ']'])
+                                .to_ascii_lowercase(),
+                        )
                     } else {
                         None
                     }
@@ -1194,22 +1185,23 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             }
 
             let sort_vocab = |vocab: &mut Vocab| {
-                vocab.sort_by(|Token { bytes: a, id: ai }, Token { bytes: b, id: bi }| {
-                    if let (Some(ma), Some(mb)) = (bpe.merges.get(a), bpe.merges.get(b)) {
-                        let comp = ma.cmp(mb);
-                        if comp == Ordering::Equal {
-                            ai.cmp(bi)
-                        } else {
-                            comp
-                        }
-                    } else if bpe.merges.get(a).is_some() {
-                        Ordering::Less
-                    } else if bpe.merges.get(b).is_some() {
-                        Ordering::Greater
-                    } else {
-                        ai.cmp(bi)
-                    }
+                // Precompute each token's merge rank once (paired by position, not by ID, to
+                // avoid ambiguity if IDs were ever duplicated), instead of hashing on every
+                // comparison performed during the sort.
+                let mut ranked = vocab
+                    .drain(..)
+                    .map(|token| {
+                        let rank = bpe.merges.get(&token.bytes).copied();
+                        (rank, token)
+                    })
+                    .collect::<Vec<_>>();
+                ranked.sort_by(|(ra, a), (rb, b)| match (ra, rb) {
+                    (Some(ra), Some(rb)) => ra.cmp(rb).then_with(|| a.id.cmp(&b.id)),
+                    (Some(_), None) => Ordering::Less,
+                    (None, Some(_)) => Ordering::Greater,
+                    (None, None) => a.id.cmp(&b.id),
                 });
+                vocab.extend(ranked.into_iter().map(|(_, token)| token));
             };
             let mut vocab = vocab
                 .into_iter()
@@ -1222,12 +1214,15 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
             specials.sort();
 
             // Fix special tokens with invalid IDs
-            let vocab_rev =
-                vocab.iter().map(|token| token.into()).collect::<HashMap<TokenId, TokenBytes>>();
+            let vocab_index = vocab
+                .iter()
+                .enumerate()
+                .map(|(i, token)| (token.id, i))
+                .collect::<HashMap<TokenId, usize>>();
             let mut vocab_max_id = vocab.iter().map(|token| token.id).max().unwrap_or(0);
             for special in specials.iter_mut() {
-                if let Some(v) = vocab_rev.get(&special.id)
-                    && &special.bytes != v
+                if let Some(&i) = vocab_index.get(&special.id)
+                    && special.bytes != vocab[i].bytes
                 {
                     log::warn!(
                         "Special token with invalid ID: {:?} -> {} (replacing with {})",
@@ -1239,7 +1234,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     vocab_max_id += 1;
                 }
             }
-            drop(vocab_rev);
+            drop(vocab_index);
 
             let model = Model::BytePair {
                 vocab,
@@ -1278,7 +1273,7 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
 
             let mut vocab =
                 vocab.into_iter().filter(|(b, _)| specials.get(b).is_none()).collect::<Vec<_>>();
-            vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
+            vocab.sort_by(|(_, a), (_, b)| match a.score.total_cmp(&b.score) {
                 Ordering::Equal => a.index.cmp(&b.index),
                 other => other,
             });
@@ -1333,7 +1328,11 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
 
             let model = Model::WordPiece {
                 vocab,
-                max_word_chars: wordpiece.max_input_chars_per_word as _,
+                max_word_chars: wordpiece.max_input_chars_per_word.try_into().map_err(|_| {
+                    ConversionError::InvalidData(
+                        "WordPiece max_input_chars_per_word is too large".to_string(),
+                    )
+                })?,
             };
             (model, specials)
         }
@@ -1344,9 +1343,17 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
         use hf::{PaddingDirection, PaddingStrategy};
         if let PaddingStrategy::Fixed(length) = padding.strategy {
             config.processing.push(Processing::Pad {
-                length:    length as u32,
+                length:    length.try_into().map_err(|_| {
+                    ConversionError::InvalidData("Padding length is too large".to_string())
+                })?,
                 id:        padding.pad_id,
-                stride:    padding.pad_to_multiple_of.unwrap_or_default() as u32,
+                stride:    padding.pad_to_multiple_of.unwrap_or_default().try_into().map_err(
+                    |_| {
+                        ConversionError::InvalidData(
+                            "Padding pad_to_multiple_of is too large".to_string(),
+                        )
+                    },
+                )?,
                 direction: match padding.direction {
                     PaddingDirection::Left => ProcessingDirection::Left,
                     PaddingDirection::Right => ProcessingDirection::Right,
@@ -1357,8 +1364,12 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
     if let Some(truncation) = tokenizer.truncation {
         use hf::TruncationDirection;
         config.processing.push(Processing::Truncate {
-            length:    truncation.max_length as u32,
-            stride:    truncation.stride as u32,
+            length:    truncation.max_length.try_into().map_err(|_| {
+                ConversionError::InvalidData("Truncation max_length is too large".to_string())
+            })?,
+            stride:    truncation.stride.try_into().map_err(|_| {
+                ConversionError::InvalidData("Truncation stride is too large".to_string())
+            })?,
             direction: match truncation.direction {
                 TruncationDirection::Left => ProcessingDirection::Left,
                 TruncationDirection::Right => ProcessingDirection::Right,
@@ -1376,7 +1387,8 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                     if let Some(&replace) = byte_encoder.get(&c) {
                         replacement.push(replace);
                     } else {
-                        replacement.extend(c.to_string().as_bytes());
+                        let mut buf = [0u8; 4];
+                        replacement.extend(c.encode_utf8(&mut buf).as_bytes());
                     }
                 }
                 token.bytes = replacement;
@@ -1393,8 +1405,9 @@ pub fn convert_tokenizers(data: impl AsRef<[u8]>) -> Result<Definition, Conversi
                 .iter()
                 .filter_map(|token| {
                     if token.len() == 6 && token.starts_with(b"<0x") && token.ends_with(b">") {
-                        if let Ok(rune) =
-                            u32::from_str_radix(core::str::from_utf8(&token[3..5]).unwrap(), 16)
+                        if let Some(rune) = core::str::from_utf8(&token[3..5])
+                            .ok()
+                            .and_then(|hex| u32::from_str_radix(hex, 16).ok())
                         {
                             let rune = [rune as u8].to_vec();
                             if let Some(existing) = vocab_map.get(&rune) {
