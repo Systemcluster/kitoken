@@ -124,7 +124,8 @@ impl Encoder for BytePair {
 }
 impl BytePair {
     const ENCODE_BUFFER_SIZE: usize = 256;
-    const ENCODE_LINEAR_LIMIT: usize = 192;
+    const ENCODE_LINEAR_BYTE_LIMIT: usize = 192;
+    const ENCODE_LINEAR_CHAR_LIMIT: usize = 32;
 
     #[inline(never)]
     pub fn new(
@@ -190,13 +191,14 @@ impl BytePair {
                 result.push(token);
                 continue;
             }
-            if part.len() > Self::ENCODE_LINEAR_LIMIT {
+            let part_count = part.len() - end_of_word_len;
+            if part_count > Self::ENCODE_LINEAR_BYTE_LIMIT {
                 self.encode_pairs_heap(
                     part.as_bytes(),
                     &mut buffer,
                     &mut heap,
                     result,
-                    (0..(part.len() - end_of_word_len)).map(|i| i as u32).map(|i| (i, 1)),
+                    (0..part_count).map(|i| i as u32).map(|i| (i, 1)),
                     fallback,
                 )?;
             } else {
@@ -204,7 +206,7 @@ impl BytePair {
                     part.as_bytes(),
                     &mut buffer,
                     result,
-                    (0..(part.len() - end_of_word_len)).map(|i| i as u32),
+                    (0..part_count).map(|i| i as u32),
                     fallback,
                 )?;
             }
@@ -239,7 +241,7 @@ impl BytePair {
                     .char_indices()
                     .map(|(s, _, c)| (s as u32, c.len_utf8() as u32)),
             );
-            if indices.len() > Self::ENCODE_LINEAR_LIMIT {
+            if indices.len() > Self::ENCODE_LINEAR_CHAR_LIMIT {
                 self.encode_pairs_heap(
                     part.as_bytes(),
                     &mut buffer,
