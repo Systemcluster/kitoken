@@ -26,36 +26,23 @@ struct RankedPart {
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
-struct LinkedPart {
-    pub start: u32,
-    pub width: u32,
-    pub prior: u32,
-    pub after: u32,
-    pub rank:  TokenRank,
+struct PartState {
+    start: u32,
+    width: u32,
+    prior: u32,
+    after: u32,
 }
-impl PartialEq for LinkedPart {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.rank == other.rank
-    }
-}
-impl Eq for LinkedPart {}
-impl PartialOrd for LinkedPart {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for LinkedPart {
-    #[inline(always)]
-    fn cmp(&self, other: &Self) -> Ordering {
-        (self.rank, self.start).partial_cmp(&(other.rank, other.start)).unwrap()
-    }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(C)]
+struct MergePriority {
+    rank:  TokenRank,
+    index: u32,
 }
 
 type VocabMap = ByteMap<TokenId>;
 type RankMap = ByteMap<TokenRank>;
-type PieceHeap = DaryHeapOfIndices<u32, LinkedPart, 4>;
+type PieceHeap = DaryHeapOfIndices<u32, MergePriority, 4>;
 
 /// BytePair and CharPair encoder.
 #[derive(Clone)]
@@ -178,6 +165,7 @@ impl BytePair {
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
         let mut heap = PieceHeap::with_index_bound(Self::ENCODE_BUFFER_SIZE);
+        let mut state = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
         let end_of_word_len = self.end_of_word.as_ref().map(|e| e.len()).unwrap_or(0);
         for part in parts {
             if part.special != Token::INVALID {
@@ -197,6 +185,7 @@ impl BytePair {
                     part.as_bytes(),
                     &mut buffer,
                     &mut heap,
+                    &mut state,
                     result,
                     (0..part_count).map(|i| i as u32).map(|i| (i, 1)),
                     fallback,
@@ -221,8 +210,9 @@ impl BytePair {
         &self, parts: &[TextPart], fallback: &[Fallback], result: &mut Vec<TokenId>,
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
-        let mut indices = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
         let mut heap = PieceHeap::with_index_bound(Self::ENCODE_BUFFER_SIZE);
+        let mut state = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
+        let mut indices = Vec::with_capacity(Self::ENCODE_BUFFER_SIZE);
         let end_of_word_len = self.end_of_word.as_ref().map(|e| e.len()).unwrap_or(0);
         for part in parts {
             if part.special != Token::INVALID {
@@ -246,6 +236,7 @@ impl BytePair {
                     part.as_bytes(),
                     &mut buffer,
                     &mut heap,
+                    &mut state,
                     result,
                     indices.drain(..),
                     fallback,
@@ -289,11 +280,7 @@ impl BytePair {
             if let Some(&token) = self.vocab.get(piece) {
                 result.push(token);
             } else if fallback.first() == Some(&Fallback::Bytes) {
-                let end = if let Some(end_of_word) = &self.end_of_word {
-                    piece.len() - end_of_word.len()
-                } else {
-                    piece.len()
-                };
+                let end = BytePair::fallback_byte_end(piece, self.end_of_word.as_deref());
                 self.encode_pairs(
                     piece,
                     buffer,
@@ -309,6 +296,13 @@ impl BytePair {
             }
         }
         Ok(())
+    }
+
+    #[inline(always)]
+    fn fallback_byte_end(piece: &[u8], end_of_word: Option<&str>) -> usize {
+        end_of_word
+            .and_then(|suffix| piece.strip_suffix(suffix.as_bytes()))
+            .map_or(piece.len(), <[u8]>::len)
     }
 
     /// Returns the score for the given token in piece between start and end of parts.
@@ -333,15 +327,6 @@ impl BytePair {
 
     /// Merges the given parts according to the BPE algorithm, prioritizing merges with the lowest score.
     #[inline(never)]
-    #[cfg_attr(
-        feature = "multiversion",
-        multiversion::multiversion(targets(
-            "x86_64+sse3+ssse3+sse4.1+sse4.2+avx+avx2+bmi2+f16c+lzcnt+popcnt",
-            "x86_64+sse3+ssse3+sse4.1+sse4.2",
-            "aarch64+neon",
-            "wasm32+simd128",
-        ))
-    )]
     fn merge_bpe_parts(piece: &[u8], parts: &mut Vec<RankedPart>, start: usize, ranks: &RankMap) {
         if parts.len() <= start + 1 {
             return;
@@ -378,16 +363,13 @@ impl BytePair {
     /// Returns an error if no token for a part exists in the encoder, no unknown token id is set in the configuration, and no fallback is set.
     #[inline(never)]
     #[cold]
+    #[allow(clippy::too_many_arguments)]
     fn encode_pairs_heap(
         &self, piece: &[u8], buffer: &mut Vec<RankedPart>, heap: &mut PieceHeap,
-        result: &mut Vec<TokenId>, indices: impl Iterator<Item = (u32, u32)>,
-        fallback: &[Fallback],
+        state: &mut Vec<PartState>, result: &mut Vec<TokenId>,
+        indices: impl Iterator<Item = (u32, u32)>, fallback: &[Fallback],
     ) -> Result<(), EncodeError> {
-        if piece.len() > heap.index_bound() {
-            *heap = PieceHeap::with_index_bound(piece.len());
-        } else {
-            heap.clear();
-        }
+        state.clear();
         let mut prior = u32::MAX;
         let mut iter = indices.enumerate().peekable();
         loop {
@@ -396,7 +378,7 @@ impl BytePair {
             }
             let (e, (i, c)) = iter.next().unwrap();
             let next = iter.peek();
-            heap.push(e as _, LinkedPart {
+            state.push(PartState {
                 start: i,
                 width: if next.is_some() {
                     c
@@ -409,30 +391,39 @@ impl BytePair {
                 } else {
                     u32::MAX
                 },
-                rank: if let Some((_, (_, n))) = next {
-                    self.ranks
-                        .get(&piece[i as _..(i + c + n) as _])
-                        .copied()
-                        .unwrap_or(TokenRank::MAX)
-                } else {
-                    TokenRank::MAX
-                },
             });
             prior = e as _;
         }
-        BytePair::merge_bpe_parts_heap(piece, heap, &self.ranks);
+        if state.is_empty() {
+            heap.clear();
+            return Ok(());
+        }
+        if state.len() > heap.index_bound() {
+            *heap = PieceHeap::with_index_bound(state.len());
+        } else {
+            heap.clear();
+        }
+        for index in 0..state.len().saturating_sub(1) {
+            let part = state[index];
+            let next = state[part.after as usize];
+            if let Some(&rank) =
+                self.ranks.get(&piece[part.start as usize..(next.start + next.width) as usize])
+            {
+                heap.push(index as u32, MergePriority {
+                    rank,
+                    index: index as u32,
+                });
+            }
+        }
+        BytePair::merge_bpe_parts_heap(piece, heap, state, &self.ranks);
         let mut e = 0;
-        while e <= prior {
-            let part = heap.key_of(&e).unwrap();
-            let piece = &piece[part.start as _..(part.start + part.width) as _];
+        while e != u32::MAX {
+            let piece = &piece[state[e as usize].start as _
+                ..(state[e as usize].start + state[e as usize].width) as _];
             if let Some(&token) = self.vocab.get(piece) {
                 result.push(token);
             } else if fallback.first() == Some(&Fallback::Bytes) {
-                let end = if let Some(end_of_word) = &self.end_of_word {
-                    piece.len() - end_of_word.len()
-                } else {
-                    piece.len()
-                };
+                let end = BytePair::fallback_byte_end(piece, self.end_of_word.as_deref());
                 self.encode_pairs(
                     piece,
                     buffer,
@@ -446,7 +437,7 @@ impl BytePair {
             } else {
                 return Err(EncodeError::InvalidPiece(piece.into()));
             }
-            e = part.after;
+            e = state[e as usize].after;
         }
         Ok(())
     }
@@ -457,50 +448,53 @@ impl BytePair {
     /// The additional allocation overhead compared to the linear search version is amortized for longer pieces.
     #[inline(never)]
     #[cold]
-    #[cfg_attr(
-        feature = "multiversion",
-        multiversion::multiversion(targets(
-            "x86_64+sse3+ssse3+sse4.1+sse4.2+avx+avx2+bmi2+f16c+lzcnt+popcnt",
-            "x86_64+sse3+ssse3+sse4.1+sse4.2",
-            "aarch64+neon",
-            "wasm32+simd128",
-        ))
-    )]
-    fn merge_bpe_parts_heap(piece: &[u8], heap: &mut PieceHeap, ranks: &RankMap) {
-        while heap.len() > 1 {
-            let &(i, mut part) = heap.peek().unwrap();
-            if part.rank == TokenRank::MAX {
-                break;
+    fn merge_bpe_parts_heap(
+        piece: &[u8], heap: &mut PieceHeap, state: &mut [PartState], ranks: &RankMap,
+    ) {
+        while let Some((index, _)) = heap.pop() {
+            let right = state[index as usize].after;
+            debug_assert_ne!(right, u32::MAX);
+            if heap.contains(&right) {
+                heap.remove(&right);
             }
-            let next = heap.remove(&part.after);
-            part.width += next.width;
-            part.after = next.after;
-            if part.after != u32::MAX {
-                let mut next = heap.key_of(&part.after).unwrap();
-                if let Some(&token) =
-                    ranks.get(&piece[part.start as _..(next.start + next.width) as _])
-                {
-                    part.rank = token;
-                } else {
-                    part.rank = TokenRank::MAX;
-                }
-                next.prior = i;
-                heap.update_key(&part.after, next);
+
+            state[index as usize].width += state[right as usize].width;
+            state[index as usize].after = state[right as usize].after;
+            let after = state[index as usize].after;
+            if after != u32::MAX {
+                state[after as usize].prior = index;
+            }
+
+            BytePair::update_merge_candidate(piece, heap, state, ranks, index);
+            let prior = state[index as usize].prior;
+            if prior != u32::MAX {
+                BytePair::update_merge_candidate(piece, heap, state, ranks, prior);
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn update_merge_candidate(
+        piece: &[u8], heap: &mut PieceHeap, state: &[PartState], ranks: &RankMap, index: u32,
+    ) {
+        let part = state[index as usize];
+        let rank = if part.after == u32::MAX {
+            None
+        } else {
+            let next = state[part.after as usize];
+            ranks
+                .get(&piece[part.start as usize..(next.start + next.width) as usize])
+                .copied()
+        };
+        if let Some(rank) = rank {
+            let priority = MergePriority { rank, index };
+            if heap.contains(&index) {
+                heap.update_key(&index, priority);
             } else {
-                part.rank = TokenRank::MAX;
+                heap.push(index, priority);
             }
-            if part.prior != u32::MAX {
-                let mut prior = heap.key_of(&(part.prior)).unwrap();
-                if let Some(&token) =
-                    ranks.get(&piece[prior.start as _..(part.start + part.width) as _])
-                {
-                    prior.rank = token;
-                } else {
-                    prior.rank = TokenRank::MAX;
-                }
-                heap.update_key(&part.prior, prior);
-            }
-            heap.update_key(&i, part);
+        } else if heap.contains(&index) {
+            heap.remove(&index);
         }
     }
 }
