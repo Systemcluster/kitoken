@@ -8,14 +8,14 @@ use core::fmt::Debug;
 use core::iter::Peekable;
 
 use bstr::ByteSlice;
-use hashbrown::HashMap;
 
+use crate::bytemap::ByteMap;
 use crate::{
     Configuration, EncodeError, Encoder, Fallback, InsertionPosition, Model, SpecialToken,
-    SpecialTokenKind, SpecialVocab, TextPart, Token, TokenBytes, TokenId, Vocab,
+    SpecialTokenKind, SpecialVocab, TextPart, Token, TokenId, Vocab,
 };
 
-type VocabMap = HashMap<TokenBytes, TokenId>;
+type VocabMap = ByteMap<TokenId>;
 
 /// WordPiece encoder.
 #[derive(Clone)]
@@ -60,15 +60,16 @@ impl Encoder for WordPiece {
         let mut vocab = self
             .start
             .iter()
-            .map(|(k, v)| (k.clone(), *v).into())
+            .map(|(k, v)| (k.to_vec(), v))
             .chain(self.continuation.iter().map(|(k, v)| {
                 let prefixed = [
                     self.subword_prefix.as_deref().unwrap_or_default().as_bytes(),
                     k,
                 ]
                 .concat();
-                (prefixed, *v).into()
+                (prefixed, v)
             }))
+            .map(Token::from)
             .collect::<Vocab>();
         vocab.sort_by(|Token { bytes: a, id: ai }, Token { bytes: b, id: bi }| {
             let comp = ai.cmp(bi);
@@ -118,7 +119,7 @@ impl WordPiece {
                 .map(|token| (token.bytes[subword_prefix.len()..].to_vec(), token.id))
                 .collect::<VocabMap>()
         } else {
-            VocabMap::with_capacity(0)
+            VocabMap::from_iter([])
         };
 
         let max_word_chars = max_word_chars as usize;
@@ -216,11 +217,11 @@ impl WordPiece {
             }
             let inner = core::iter::once((0, e)).chain(indices.clone()).chain(stop).rev();
             for (_, end) in inner {
-                let piece = bytes[start..end].to_vec();
+                let piece = &bytes[start..end];
                 let token = if first {
-                    starts.get(&piece).copied()
+                    starts.get(piece).copied()
                 } else {
-                    continuations.get(&piece).copied()
+                    continuations.get(piece).copied()
                 };
                 if let Some(token) = token {
                     result.push(token);

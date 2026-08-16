@@ -139,6 +139,24 @@ impl From<(TokenId, TokenBytes)> for Token {
         }
     }
 }
+impl From<(&[u8], TokenId)> for Token {
+    #[inline(always)]
+    fn from(value: (&[u8], TokenId)) -> Token {
+        Token {
+            id:    value.1,
+            bytes: Vec::from(value.0),
+        }
+    }
+}
+impl From<(TokenId, &[u8])> for Token {
+    #[inline(always)]
+    fn from(value: (TokenId, &[u8])) -> Token {
+        Token {
+            id:    value.0,
+            bytes: Vec::from(value.1),
+        }
+    }
+}
 
 /// Special token type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

@@ -130,6 +130,7 @@ regex-syntax = { version = "0.8", default-features = false, features = [
 ] }
 hashbrown = { version = "0.17", default-features = false, features = ["default-hasher", "inline-more", "allocator-api2"] }
 once_cell = { version = "1.21", default-features = false, features = ["alloc", "race"] }
+itertools = { version = "0.15", default-features = false, features = ["use_alloc"] }
 orx-priority-queue = { version = "1.8", default-features = false }
 memchr = { version = "2.8", default-features = false, features = ["alloc"] }
 derive_more = { version = "2.1", default-features = false, features = ["deref", "deref_mut", "as_ref", "index", "index_mut"] }

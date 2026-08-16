@@ -6,12 +6,11 @@ use core::cmp::Ordering;
 use core::fmt::Debug;
 
 use bstr::ByteSlice;
-use hashbrown::HashMap;
 
+use crate::bytemap::ByteMap;
 use crate::{
     Configuration, EncodeError, Encoder, Fallback, InitializationError, Model, Scores,
-    SpecialToken, SpecialTokenKind, SpecialVocab, TextPart, Token, TokenBytes, TokenId, TokenScore,
-    Vocab,
+    SpecialToken, SpecialTokenKind, SpecialVocab, TextPart, Token, TokenId, TokenScore, Vocab,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -28,7 +27,7 @@ struct SizedPart {
     pub token: TokenId,
 }
 
-type ScoredVocabMap = HashMap<TokenBytes, ScoredToken>;
+type ScoredVocabMap = ByteMap<ScoredToken>;
 
 /// Unigram encoder.
 #[derive(Clone)]
@@ -64,7 +63,7 @@ impl Encoder for Unigram {
 
     #[inline(always)]
     fn model(&self) -> Model {
-        let mut vocab = self.vocab.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
+        let mut vocab = self.vocab.iter().collect::<Vec<_>>();
         vocab.sort_by(|(_, a), (_, b)| match a.score.partial_cmp(&b.score).unwrap() {
             Ordering::Equal => a.id.cmp(&b.id),
             other => other,

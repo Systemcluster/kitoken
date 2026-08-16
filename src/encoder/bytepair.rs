@@ -7,12 +7,12 @@ use core::cmp::Ordering;
 use core::fmt::Debug;
 
 use bstr::ByteSlice;
-use hashbrown::HashMap;
 use orx_priority_queue::{DaryHeapOfIndices, PriorityQueue, PriorityQueueDecKey};
 
+use crate::bytemap::ByteMap;
 use crate::{
     Configuration, EncodeError, Encoder, Fallback, InitializationError, InsertionPosition, Model,
-    SpecialToken, SpecialTokenKind, SpecialVocab, TextPart, Token, TokenBytes, TokenId, Vocab,
+    SpecialToken, SpecialTokenKind, SpecialVocab, TextPart, Token, TokenId, Vocab,
 };
 
 type TokenRank = u32;
@@ -53,8 +53,8 @@ impl Ord for LinkedPart {
     }
 }
 
-type VocabMap = HashMap<TokenBytes, TokenId>;
-type RankMap = HashMap<TokenBytes, TokenRank>;
+type VocabMap = ByteMap<TokenId>;
+type RankMap = ByteMap<TokenRank>;
 type PieceHeap = DaryHeapOfIndices<u32, LinkedPart, 4>;
 
 /// BytePair and CharPair encoder.
@@ -108,10 +108,10 @@ impl Encoder for BytePair {
 
     #[inline(always)]
     fn model(&self) -> Model {
-        let mut vocab = self.vocab.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>();
+        let mut vocab = self.vocab.iter().collect::<Vec<_>>();
         vocab.sort_by(|(ta, a), (tb, b)| {
-            let sa = self.ranks.get(ta).copied().unwrap();
-            let sb = self.ranks.get(tb).copied().unwrap();
+            let sa = self.ranks.get(*ta).copied().unwrap();
+            let sb = self.ranks.get(*tb).copied().unwrap();
             match sa.cmp(&sb) {
                 Ordering::Equal => a.cmp(b),
                 other => other,
