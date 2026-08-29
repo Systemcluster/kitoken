@@ -163,7 +163,6 @@ impl Kitoken {
     }
 
     /// Creates a definition from this tokenizer and serializes it to bytes.
-    #[cfg(feature = "convert")]
     pub fn to_bytes(&self) -> Vec<u8> {
         self.inner.to_vec()
     }
